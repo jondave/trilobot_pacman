@@ -26,7 +26,13 @@ except ImportError:
 
 HOST = "0.0.0.0"
 PORT = 8765
-VIDEO_SIZE = (640, 480)
+# Sensor modes reported by this IMX219 camera (libcamera-hello --list-cameras):
+#   (640, 480)   4:3  - SBGGR10_CSI2P or SBGGR8
+#   (1640, 1232) 4:3  - SBGGR10_CSI2P or SBGGR8
+#   (1920, 1080) 16:9 - SBGGR10_CSI2P or SBGGR8
+#   (3280, 2464) 4:3  - SBGGR10_CSI2P or SBGGR8
+# VIDEO_SIZE is the output size sent to the control PC as a JPEG frame.
+VIDEO_SIZE = (1640, 1232)
 VIDEO_FPS = 15
 JPEG_QUALITY = 75
 WATCHDOG_SECONDS = 0.6
