@@ -33,7 +33,7 @@ PORT = 8765
 #   (3280, 2464) 4:3  - SBGGR10_CSI2P or SBGGR8
 # VIDEO_SIZE is the output size sent to the control PC as a JPEG frame.
 VIDEO_SIZE = (1640, 1232)
-VIDEO_FPS = 15
+VIDEO_FPS = 15 # All resolutions support 30 fps, but the Raspberry Pi 4 struggles to encode 30 fps JPEGs at full resolution.
 JPEG_QUALITY = 75
 WATCHDOG_SECONDS = 0.6
 
