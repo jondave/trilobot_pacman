@@ -2,7 +2,7 @@
 
 ## Folder layout
 
-The robot code and control-PC code are deliberately separate:
+The robot code and control PC code are separate:
 
 - `robot_scripts/` is copied to and run on the Raspberry Pi.
 - `control_scripts/` is copied to the control/lab PC.
