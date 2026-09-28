@@ -144,11 +144,9 @@ async def send_json(websocket, message, send_lock):
 
 def encode_jpeg(image):
     buffer = BytesIO()
-    # Picamera2 supplies BGR888 here. Pillow expects RGB, so swap channels
-    # before encoding. The Windows client decodes the JPEG back to BGR.
-    Image.fromarray(image[:, :, ::-1]).save(
-        buffer, format="JPEG", quality=JPEG_QUALITY
-    )
+    # Keep the camera byte order unchanged. The Windows client decodes the
+    # JPEG with OpenCV, which returns the expected BGR image for display.
+    Image.fromarray(image).save(buffer, format="JPEG", quality=JPEG_QUALITY)
     return buffer.getvalue()
 
 
