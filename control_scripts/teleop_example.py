@@ -92,6 +92,7 @@ async def run(args):
     left = right = 0.0
     last_drive_sent = 0.0
     button_led_values = {"A": 0.0, "B": 0.0, "X": 0.0, "Y": 0.0}
+    latest_frame = None
 
     print(f"Connecting to {args.url}")
     async with RobotClient(args.url) as client:
@@ -132,9 +133,10 @@ async def run(args):
                     await client.drive(left, right)
                     last_drive_sent = now
 
-                frame = client.take_frame()
-                if frame is None:
-                    frame = make_placeholder()
+                new_frame = client.take_frame()
+                if new_frame is not None:
+                    latest_frame = new_frame
+                frame = latest_frame if latest_frame is not None else make_placeholder()
                 frame = add_overlay(frame, client, speed, left, right)
                 cv2.imshow("Trilobot Pacman", frame)
                 await asyncio.sleep(0.01)
