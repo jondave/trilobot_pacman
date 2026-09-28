@@ -1,0 +1,4 @@
+# Install this on the student's lab machine.
+websockets
+opencv-python
+numpy
