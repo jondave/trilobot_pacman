@@ -2,7 +2,7 @@
 
 ## Folder layout
 
-The robot code and control PC code are separate:
+The robot code and control-PC code are deliberately separate:
 
 - `robot_scripts/` is copied to and run on the Raspberry Pi.
 - `control_scripts/` is copied to the control/lab PC.
@@ -59,10 +59,19 @@ from client import RobotClient
 This works when the student file and the copied `client.py` are in the same
 folder.
 
-Controls in the example: `W/A/S/D` or arrow keys move, `X`/space stops,
-`Q` quits, `+` and `-` change speed, `1`-`4` and `0` set the
-underlights, `B`, `N`, `M`, and `,` toggle the A, B, X, and Y button
-LEDs, and `R` requests a distance reading.
+Controls in the example use the ROS 2 keyboard layout:
+
+```text
+u i o
+j k l
+m , .
+```
+
+These keys move the robot. `k` or space stops. `q/z` change both speed
+settings, `w/x` change linear speed, `e/c` change turning speed, and
+`ESC` quits. `1`-`4` and `0` set the underlights. `B`, `N`, `M`,
+and `Y` toggle the A, B, X, and Y button LEDs. `R` requests a distance
+reading.
 
 The sender has a 0.6-second motor watchdog. If the client or Wi-Fi connection
 disappears, the motors are stopped automatically.

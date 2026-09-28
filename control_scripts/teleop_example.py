@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Basic keyboard teleoperation and live video for a remote Trilobot.
+"""ROS 2-style keyboard teleoperation and live video for a remote Trilobot.
 
-Run this on the student's lab machine, not on the Raspberry Pi. The client
-and this file should be in the same directory.
+Run this on the control/lab PC. The client.py file must be in the same folder.
 """
 
 import argparse
@@ -15,18 +14,34 @@ import numpy as np
 from client import RobotClient
 
 
-MOVEMENT_KEYS = {
-    ord("w"): (1.0, 1.0),
-    ord("s"): (-1.0, -1.0),
-    ord("a"): (-1.0, 1.0),
-    ord("d"): (1.0, -1.0),
-    2490368: (1.0, 1.0),  # up arrow on Linux OpenCV
-    2621440: (-1.0, -1.0),  # down arrow
-    2424832: (-1.0, 1.0),  # left arrow
-    2555904: (1.0, -1.0),  # right arrow
+# Matches the standard ROS 2 teleop_twist_keyboard layout:
+#
+#   u   i   o       forward-left, forward, forward-right
+#   j   k   l       turn-left, stop, turn-right
+#   m   ,   .       reverse-left, reverse, reverse-right
+#
+# Each value is (linear direction, angular direction).
+ROS_MOVEMENT_KEYS = {
+    ord("u"): (1.0, 1.0),
+    ord("i"): (1.0, 0.0),
+    ord("o"): (1.0, -1.0),
+    ord("j"): (0.0, 1.0),
+    ord("k"): (0.0, 0.0),
+    ord("l"): (0.0, -1.0),
+    ord("m"): (-1.0, 1.0),
+    ord(","): (-1.0, 0.0),
+    ord("."): (-1.0, -1.0),
 }
 
-LED_COLORS = {
+# Uppercase keys avoid conflicts with the ROS movement and speed keys.
+BUTTON_LED_KEYS = {
+    ord("B"): "A",
+    ord("N"): "B",
+    ord("M"): "X",
+    ord("Y"): "Y",
+}
+
+UNDERLIGHT_COLORS = {
     ord("1"): (255, 0, 0),
     ord("2"): (0, 255, 0),
     ord("3"): (0, 0, 255),
@@ -34,12 +49,15 @@ LED_COLORS = {
     ord("0"): (0, 0, 0),
 }
 
-BUTTON_LED_KEYS = {
-    ord("b"): "A",
-    ord("n"): "B",
-    ord("m"): "X",
-    ord(","): "Y",
-}
+
+def wheel_speeds(linear_direction, angular_direction, linear_speed, turn_speed):
+    """Convert ROS-style linear/angular commands to differential-drive speeds."""
+    left = (linear_direction * linear_speed) - (angular_direction * turn_speed)
+    right = (linear_direction * linear_speed) + (angular_direction * turn_speed)
+
+    # Preserve the steering ratio if a diagonal command exceeds 1.0.
+    scale = max(1.0, abs(left), abs(right))
+    return left / scale, right / scale
 
 
 def make_placeholder():
@@ -56,7 +74,43 @@ def make_placeholder():
     return frame
 
 
-def add_overlay(frame, client, speed, left, right):
+def fit_frame_to_window(frame, window_name):
+    """Scale a frame into the current window without changing its aspect ratio."""
+    frame_height, frame_width = frame.shape[:2]
+
+    try:
+        _, _, window_width, window_height = cv2.getWindowImageRect(window_name)
+    except cv2.error:
+        window_width, window_height = frame_width, frame_height
+
+    if window_width <= 0 or window_height <= 0:
+        return frame
+
+    scale = min(window_width / frame_width, window_height / frame_height)
+    output_width = max(1, round(frame_width * scale))
+    output_height = max(1, round(frame_height * scale))
+
+    interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+    resized = cv2.resize(
+        frame,
+        (output_width, output_height),
+        interpolation=interpolation,
+    )
+
+    canvas = np.zeros(
+        (window_height, window_width, 3),
+        dtype=frame.dtype,
+    )
+    offset_x = (window_width - output_width) // 2
+    offset_y = (window_height - output_height) // 2
+    canvas[
+        offset_y:offset_y + output_height,
+        offset_x:offset_x + output_width,
+    ] = resized
+    return canvas
+
+
+def add_overlay(frame, client, linear_speed, turn_speed, left, right):
     telemetry = client.telemetry
     distance = telemetry.get("distance_cm", "--")
     buttons = telemetry.get("buttons", {})
@@ -64,23 +118,34 @@ def add_overlay(frame, client, speed, left, right):
         f"{name}:{'ON' if buttons.get(name) else '--'}"
         for name in ("A", "B", "X", "Y")
     )
+
     height, width = frame.shape[:2]
-    cv2.rectangle(frame, (0, 0), (width, 60), (0, 0, 0), -1)
+    cv2.rectangle(frame, (0, 0), (width, 78), (0, 0, 0), -1)
     cv2.putText(
         frame,
-        f"WASD/arrows  X/space stop  Q quit  speed {speed:.1f}",
-        (10, 22),
+        "u i o / j k l / m , .   |   space/k stop   |   ESC quit",
+        (10, 20),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
+        0.48,
+        (255, 255, 255),
+        1,
+    )
+    cv2.putText(
+        frame,
+        f"q/z overall  w/x linear  e/c turn   "
+        f"linear {linear_speed:.1f} turn {turn_speed:.1f}",
+        (10, 43),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.48,
         (255, 255, 255),
         1,
     )
     cv2.putText(
         frame,
         f"drive {left:+.1f},{right:+.1f}  distance {distance} cm  {button_text}",
-        (10, 46),
+        (10, 66),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
+        0.48,
         (0, 255, 255),
         1,
     )
@@ -88,46 +153,64 @@ def add_overlay(frame, client, speed, left, right):
 
 
 async def run(args):
-    speed = 0.5
-    left = right = 0.0
+    linear_speed = 0.5
+    turn_speed = 0.5
+    linear_direction = 0.0
+    angular_direction = 0.0
     last_drive_sent = 0.0
-    button_led_values = {"A": 0.0, "B": 0.0, "X": 0.0, "Y": 0.0}
     latest_frame = None
+    button_led_values = {"A": 0.0, "B": 0.0, "X": 0.0, "Y": 0.0}
 
     print(f"Connecting to {args.url}")
     async with RobotClient(args.url) as client:
-        cv2.namedWindow("Trilobot Pacman", cv2.WINDOW_NORMAL)
+        cv2.namedWindow("Trilobot Pacman", cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
         print(
-            "WASD/arrows move | X or space stops | 1-4/0 underlights | "
-            "B/N/M/, toggle button LEDs | R distance | Q quits"
+            "ROS 2 keys: u i o / j k l / m , . | "
+            "q/z overall | w/x linear | e/c turn | space/k stop | ESC quit"
         )
         try:
             while client.connected:
                 key = cv2.waitKey(1)
 
-                if key in MOVEMENT_KEYS:
-                    direction_left, direction_right = MOVEMENT_KEYS[key]
-                    left = direction_left * speed
-                    right = direction_right * speed
-                elif key in (ord("x"), ord(" ")):
-                    left = right = 0.0
-                    await client.stop()
-                elif key in (ord("+"), ord("=")):
-                    speed = min(1.0, round(speed + 0.1, 1))
-                elif key in (ord("-"), ord("_")):
-                    speed = max(0.0, round(speed - 0.1, 1))
-                elif key in LED_COLORS:
-                    await client.set_underlights(LED_COLORS[key])
+                if key in ROS_MOVEMENT_KEYS:
+                    linear_direction, angular_direction = ROS_MOVEMENT_KEYS[key]
+                elif key in (ord("k"), ord(" ")):
+                    linear_direction = angular_direction = 0.0
+                elif key == ord("q"):
+                    linear_speed = min(1.0, round(linear_speed + 0.1, 1))
+                    turn_speed = min(1.0, round(turn_speed + 0.1, 1))
+                elif key == ord("z"):
+                    linear_speed = max(0.0, round(linear_speed - 0.1, 1))
+                    turn_speed = max(0.0, round(turn_speed - 0.1, 1))
+                elif key == ord("w"):
+                    linear_speed = min(1.0, round(linear_speed + 0.1, 1))
+                elif key == ord("x"):
+                    linear_speed = max(0.0, round(linear_speed - 0.1, 1))
+                elif key == ord("e"):
+                    turn_speed = min(1.0, round(turn_speed + 0.1, 1))
+                elif key == ord("c"):
+                    turn_speed = max(0.0, round(turn_speed - 0.1, 1))
+                elif key in UNDERLIGHT_COLORS:
+                    await client.set_underlights(UNDERLIGHT_COLORS[key])
                 elif key in BUTTON_LED_KEYS:
                     button = BUTTON_LED_KEYS[key]
                     button_led_values[button] = 1.0 - button_led_values[button]
                     await client.set_button_led(button, button_led_values[button])
-                elif key == ord("r"):
+                elif key == ord("R"):
                     await client.request_distance()
-                elif key in (ord("q"), 27):
+                elif key in (ord("Q"), 27):
                     break
+                elif key != -1:
+                    linear_direction = angular_direction = 0.0
 
-                # Refreshing the drive command keeps the sender's safety watchdog happy.
+                left, right = wheel_speeds(
+                    linear_direction,
+                    angular_direction,
+                    linear_speed,
+                    turn_speed,
+                )
+
+                # Refreshing the drive command keeps the sender watchdog happy.
                 now = time.monotonic()
                 if now - last_drive_sent >= 0.1:
                     await client.drive(left, right)
@@ -137,8 +220,16 @@ async def run(args):
                 if new_frame is not None:
                     latest_frame = new_frame
                 frame = latest_frame if latest_frame is not None else make_placeholder()
-                frame = add_overlay(frame, client, speed, left, right)
-                cv2.imshow("Trilobot Pacman", frame)
+                frame = add_overlay(
+                    frame,
+                    client,
+                    linear_speed,
+                    turn_speed,
+                    left,
+                    right,
+                )
+                display_frame = fit_frame_to_window(frame, "Trilobot Pacman")
+                cv2.imshow("Trilobot Pacman", display_frame)
                 await asyncio.sleep(0.01)
         finally:
             await client.stop()
