@@ -8,12 +8,13 @@ binary JPEG camera frames plus JSON telemetry to the connected control PC.
 import asyncio
 import json
 import logging
+from io import BytesIO
 import math
 import time
 from contextlib import suppress
 from threading import Lock
 
-import cv2
+from PIL import Image
 from picamera2 import Picamera2
 from trilobot import BUTTON_A, BUTTON_B, BUTTON_X, BUTTON_Y, Trilobot
 
@@ -42,7 +43,7 @@ hardware_lock = Lock()
 camera = Picamera2()
 camera.configure(
     camera.create_preview_configuration(
-        main={"format": "BGR888", "size": VIDEO_SIZE}
+        main={"format": "RGB888", "size": VIDEO_SIZE}
     )
 )
 camera.start()
@@ -135,21 +136,20 @@ async def send_json(websocket, message, send_lock):
         await websocket.send(json.dumps(message))
 
 
+def encode_jpeg(image):
+    buffer = BytesIO()
+    Image.fromarray(image).save(buffer, format="JPEG", quality=JPEG_QUALITY)
+    return buffer.getvalue()
+
+
 async def send_video(websocket, send_lock):
     delay = 1.0 / VIDEO_FPS
     while True:
         started = time.monotonic()
         image = await asyncio.to_thread(camera.capture_array)
-        ok, encoded = await asyncio.to_thread(
-            cv2.imencode,
-            ".jpg",
-            image,
-            [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY],
-        )
-        if not ok:
-            continue
+        jpeg = await asyncio.to_thread(encode_jpeg, image)
         async with send_lock:
-            await websocket.send(encoded.tobytes())
+            await websocket.send(jpeg)
         remaining = delay - (time.monotonic() - started)
         if remaining > 0:
             await asyncio.sleep(remaining)
