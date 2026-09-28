@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple WebSocket server for a Trilobot.
+"""Simple configurable WebSocket server for a Trilobot.
 
 Run this file on the Raspberry Pi. It receives JSON commands and sends
 binary JPEG camera frames plus JSON telemetry to the connected control PC.
@@ -8,10 +8,10 @@ binary JPEG camera frames plus JSON telemetry to the connected control PC.
 import asyncio
 import json
 import logging
-from io import BytesIO
 import math
 import time
 from contextlib import suppress
+from io import BytesIO
 from threading import Lock
 
 from PIL import Image
@@ -26,15 +26,22 @@ except ImportError:
 
 HOST = "0.0.0.0"
 PORT = 8765
-# Sensor modes reported by this IMX219 camera (libcamera-hello --list-cameras):
-#   (640, 480)   4:3  - SBGGR10_CSI2P or SBGGR8
-#   (1640, 1232) 4:3  - SBGGR10_CSI2P or SBGGR8
-#   (1920, 1080) 16:9 - SBGGR10_CSI2P or SBGGR8
-#   (3280, 2464) 4:3  - SBGGR10_CSI2P or SBGGR8
-# VIDEO_SIZE is the output size sent to the control PC as a JPEG frame.
-VIDEO_SIZE = (1640, 1232)
-VIDEO_FPS = 15 # All resolutions support 30 fps, but the Raspberry Pi 4 struggles to encode 30 fps JPEGs at full resolution.
-JPEG_QUALITY = 75
+
+# Sensor modes reported by this IMX219 camera:
+#   (640, 480)    4:3
+#   (1640, 1232)  4:3
+#   (1920, 1080) 16:9
+#   (3280, 2464) 4:3
+VIDEO_SIZES = (
+    (640, 480),
+    (1640, 1232),
+    (1920, 1080),
+    (3280, 2464),
+)
+DEFAULT_VIDEO_SIZE = (1640, 1232)
+DEFAULT_VIDEO_FPS = 15.0
+DEFAULT_JPEG_QUALITY = 75
+MAX_VIDEO_FPS = 30.0
 WATCHDOG_SECONDS = 0.6
 
 BUTTONS = {
@@ -46,10 +53,16 @@ BUTTONS = {
 
 tbot = Trilobot()
 hardware_lock = Lock()
+camera_lock = Lock()
 camera = Picamera2()
+
+video_size = DEFAULT_VIDEO_SIZE
+video_fps = DEFAULT_VIDEO_FPS
+jpeg_quality = DEFAULT_JPEG_QUALITY
+
 camera.configure(
     camera.create_preview_configuration(
-        main={"format": "BGR888", "size": VIDEO_SIZE}
+        main={"format": "BGR888", "size": video_size}
     )
 )
 camera.start()
@@ -100,6 +113,55 @@ def colour(value):
     return values
 
 
+def configure_video(message):
+    """Safely change camera output size, frame rate, and JPEG quality."""
+    global video_size, video_fps, jpeg_quality
+
+    requested_size = (int(message["width"]), int(message["height"]))
+    if requested_size not in VIDEO_SIZES:
+        supported = ", ".join(f"{w}x{h}" for w, h in VIDEO_SIZES)
+        raise ValueError(f"video size must be one of: {supported}")
+
+    requested_fps = float(message["fps"])
+    if not math.isfinite(requested_fps) or not 1.0 <= requested_fps <= MAX_VIDEO_FPS:
+        raise ValueError(f"fps must be between 1 and {MAX_VIDEO_FPS:g}")
+
+    requested_quality = int(message["jpeg_quality"])
+    if requested_quality not in range(10, 101):
+        raise ValueError("jpeg_quality must be between 10 and 100")
+
+    with camera_lock:
+        camera.stop()
+        camera.configure(
+            camera.create_preview_configuration(
+                main={"format": "BGR888", "size": requested_size}
+            )
+        )
+        camera.start()
+        video_size = requested_size
+        video_fps = requested_fps
+        jpeg_quality = requested_quality
+
+    return {
+        "type": "ack",
+        "command": "video_config",
+        "width": requested_size[0],
+        "height": requested_size[1],
+        "fps": requested_fps,
+        "jpeg_quality": requested_quality,
+    }
+
+
+def current_video_config():
+    with camera_lock:
+        return {
+            "width": video_size[0],
+            "height": video_size[1],
+            "fps": video_fps,
+            "jpeg_quality": jpeg_quality,
+        }
+
+
 def handle_command(message):
     if not isinstance(message, dict):
         raise ValueError("command must be a JSON object")
@@ -137,28 +199,34 @@ def handle_command(message):
     raise ValueError(f"unknown command type: {command_type!r}")
 
 
+def encode_jpeg(image, quality):
+    buffer = BytesIO()
+    # Keep the camera byte order unchanged for this camera setup.
+    Image.fromarray(image).save(buffer, format="JPEG", quality=quality)
+    return buffer.getvalue()
+
+
+def capture_jpeg():
+    with camera_lock:
+        image = camera.capture_array()
+        current_fps = video_fps
+        current_quality = jpeg_quality
+        jpeg = encode_jpeg(image, current_quality)
+    return jpeg, current_fps
+
+
 async def send_json(websocket, message, send_lock):
     async with send_lock:
         await websocket.send(json.dumps(message))
 
 
-def encode_jpeg(image):
-    buffer = BytesIO()
-    # Keep the camera byte order unchanged. The Windows client decodes the
-    # JPEG with OpenCV, which returns the expected BGR image for display.
-    Image.fromarray(image).save(buffer, format="JPEG", quality=JPEG_QUALITY)
-    return buffer.getvalue()
-
-
 async def send_video(websocket, send_lock):
-    delay = 1.0 / VIDEO_FPS
     while True:
         started = time.monotonic()
-        image = await asyncio.to_thread(camera.capture_array)
-        jpeg = await asyncio.to_thread(encode_jpeg, image)
+        jpeg, current_fps = await asyncio.to_thread(capture_jpeg)
         async with send_lock:
             await websocket.send(jpeg)
-        remaining = delay - (time.monotonic() - started)
+        remaining = (1.0 / current_fps) - (time.monotonic() - started)
         if remaining > 0:
             await asyncio.sleep(remaining)
 
@@ -186,15 +254,12 @@ async def handle_client(websocket, *ignored):
         asyncio.create_task(motor_watchdog()),
     ]
     try:
+        config = current_video_config()
         await send_json(
             websocket,
             {
                 "type": "hello",
-                "video": {
-                    "format": "jpeg",
-                    "width": VIDEO_SIZE[0],
-                    "height": VIDEO_SIZE[1],
-                },
+                "video": {"format": "jpeg", **config},
             },
             send_lock,
         )
@@ -202,8 +267,14 @@ async def handle_client(websocket, *ignored):
             if not isinstance(raw_message, str):
                 continue
             try:
-                reply = handle_command(json.loads(raw_message))
-            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+                message = json.loads(raw_message)
+                if not isinstance(message, dict):
+                    raise ValueError("command must be a JSON object")
+                if message.get("type") == "video_config":
+                    reply = await asyncio.to_thread(configure_video, message)
+                else:
+                    reply = handle_command(message)
+            except (KeyError, TypeError, ValueError, OverflowError, json.JSONDecodeError) as error:
                 reply = {"type": "error", "message": str(error)}
             await send_json(websocket, reply, send_lock)
     finally:

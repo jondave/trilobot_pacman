@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Small reusable WebSocket client for the Trilobot sender.
-
-The teleoperation example imports the RobotClient class. Camera frames are
-decoded in the receiver task and only the newest frame is retained, which
-prevents a slow display from building a visibly delayed video queue.
-"""
+"""Reusable WebSocket client for the Trilobot sender."""
 
 import asyncio
 import json
@@ -13,9 +8,9 @@ import logging
 import cv2
 import numpy as np
 
-try:  # websockets >= 13
+try:
     from websockets.asyncio.client import connect
-except ImportError:  # websockets 10-12
+except ImportError:
     from websockets import connect
 
 
@@ -55,7 +50,7 @@ class RobotClient:
                     array = np.frombuffer(message, dtype=np.uint8)
                     frame = cv2.imdecode(array, cv2.IMREAD_COLOR)
                     if frame is not None:
-                        # Replacing this reference deliberately drops stale frames.
+                        # Keep only the newest frame to avoid display latency.
                         self._latest_frame = frame
                     continue
 
@@ -64,20 +59,22 @@ class RobotClient:
                 except json.JSONDecodeError:
                     LOG.warning("Ignoring non-JSON text message")
                     continue
-                if payload.get("type") == "telemetry":
+
+                message_type = payload.get("type")
+                if message_type == "telemetry":
                     self._telemetry = payload
-                elif payload.get("type") == "distance":
+                elif message_type == "distance":
                     self._telemetry = {
                         **self._telemetry,
                         "distance_cm": payload.get("distance_cm", "--"),
                     }
-                elif payload.get("type") == "error":
+                elif message_type == "error":
                     LOG.warning("Robot error: %s", payload.get("message"))
                 else:
                     LOG.debug("Robot message: %s", payload)
         except asyncio.CancelledError:
             raise
-        except Exception as error:  # connection errors are reported to teleop
+        except Exception as error:
             self.error = error
         finally:
             self.connected = False
@@ -89,14 +86,23 @@ class RobotClient:
             await self.websocket.send(json.dumps(message))
         return True
 
+    async def configure_video(self, width, height, fps, jpeg_quality):
+        """Request a new camera size, frame rate, and JPEG quality."""
+        return await self.send(
+            {
+                "type": "video_config",
+                "width": int(width),
+                "height": int(height),
+                "fps": float(fps),
+                "jpeg_quality": int(jpeg_quality),
+            }
+        )
+
     async def drive(self, left, right):
         return await self.send({"type": "drive", "left": left, "right": right})
 
     async def stop(self):
         return await self.send({"type": "stop"})
-
-    async def set_speed(self, speed):
-        return await self.send({"type": "speed", "value": speed})
 
     async def set_underlights(self, color):
         return await self.send({"type": "underlights", "color": list(color)})
@@ -110,7 +116,7 @@ class RobotClient:
         return await self.send({"type": "distance_request"})
 
     def take_frame(self):
-        """Return the newest BGR OpenCV frame, or None if no frame arrived yet."""
+        """Return the newest BGR OpenCV frame, or None if none has arrived."""
         frame = self._latest_frame
         self._latest_frame = None
         return frame

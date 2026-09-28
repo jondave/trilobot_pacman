@@ -50,6 +50,18 @@ Then, on the control/lab PC, use the robot hostname or IP address:
 python3 control_scripts/teleop_example.py ws://trilobot.local:8765
 ```
 
+Video output can be selected from the control PC:
+
+```bash
+python3 control_scripts/teleop_example.py ws://trilobot.local:8765 \
+  --video-size 640x480 --fps 20 --jpeg-quality 70
+```
+
+Supported sizes are `640x480`, `1640x1232`, `1920x1080`, and
+`3280x2464`. FPS can be set from 1 to 30, and JPEG quality from 10 to 100.
+Lower resolutions and moderate JPEG quality usually give the smoothest Wi-Fi
+video.
+
 The client import is intentionally local to `control_scripts`:
 
 ```python
