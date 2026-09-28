@@ -71,19 +71,34 @@ from client import RobotClient
 This works when the student file and the copied `client.py` are in the same
 folder.
 
-Controls in the example use the ROS 2 keyboard layout:
+## Teleoperation controls
+
+The example window is named `Trilobot Teleop` and displays the connection
+target, camera settings, telemetry, and controls.
+
+The movement keys are displayed as square buttons in this arrangement:
 
 ```text
-u i o
-j k l
-m , .
+u  i  o
+j  k  l
+m  ,  .
 ```
 
-These keys move the robot. `k` or space stops. `q/z` change both speed
-settings, `w/x` change linear speed, `e/c` change turning speed, and
-`ESC` quits. `1`-`4` and `0` set the underlights. `B`, `N`, `M`,
-and `Y` toggle the A, B, X, and Y button LEDs. `R` requests a distance
-reading.
+- `u/i/o`: forward-left, forward, forward-right
+- `j/k/l`: turn-left, stop, turn-right
+- `m/,/.`: reverse-left, reverse, reverse-right
+- `H`/`h`: toggle the centre crosshair
+- `q/z`: increase/decrease both speed settings
+- `w/x`: increase/decrease linear speed
+- `e/c`: increase/decrease turning speed
+- `0`-`4`: set underlights
+- `B/N/M/Y`: toggle the A/B/X/Y button LEDs
+- `R`: request a distance reading
+- `ESC`: quit
+
+The sender uses a short exposure to reduce motion blur. The IMX219 is a
+rolling-shutter camera, so fast movement can still produce geometric
+rolling-shutter distortion.
 
 The sender has a 0.6-second motor watchdog. If the client or Wi-Fi connection
 disappears, the motors are stopped automatically.

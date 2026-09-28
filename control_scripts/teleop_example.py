@@ -11,7 +11,7 @@ import numpy as np
 from client import RobotClient
 
 
-WINDOW_NAME = "Trilobot Pacman"
+WINDOW_NAME = "Trilobot Teleop"
 VIDEO_SIZE_CHOICES = (
     "640x480",
     "1640x1232",
@@ -19,7 +19,11 @@ VIDEO_SIZE_CHOICES = (
     "3280x2464",
 )
 
-# Matches the standard ROS 2 teleop_twist_keyboard layout.
+# Standard ROS 2 teleop_twist_keyboard layout:
+#
+#   u   i   o       forward-left, forward, forward-right
+#   j   k   l       turn-left, stop, turn-right
+#   m   ,   .       reverse-left, reverse, reverse-right
 ROS_MOVEMENT_KEYS = {
     ord("u"): (1.0, 1.0),
     ord("i"): (1.0, 0.0),
@@ -49,7 +53,6 @@ UNDERLIGHT_COLORS = {
 
 
 def wheel_speeds(linear_direction, angular_direction, linear_speed, turn_speed):
-    """Convert ROS-style linear/angular commands to differential-drive speeds."""
     left = (linear_direction * linear_speed) - (angular_direction * turn_speed)
     right = (linear_direction * linear_speed) + (angular_direction * turn_speed)
     scale = max(1.0, abs(left), abs(right))
@@ -91,20 +94,17 @@ def make_display_frame(
     video_size,
     video_fps,
     jpeg_quality,
+    show_crosshair,
 ):
-    """Create a sharp UI canvas and letterbox the camera image into it."""
+    """Build a sharp UI canvas and letterbox the camera image into it."""
     frame_height, frame_width = frame.shape[:2]
     window_width, window_height = window_size(
         WINDOW_NAME, frame_width, frame_height
     )
 
-    # Reserve a readable, unscaled control bar at the bottom.
-    font_scale = max(0.42, min(0.85, window_width / 1000.0))
-    thickness = 2 if font_scale >= 0.62 else 1
-    line_height = max(20, round(30 * font_scale / 0.55))
-    panel_height = max(100, line_height * 4 + 18)
+    # Keep a dedicated control panel so its text is rendered at screen size.
+    panel_height = max(138, round(window_height * 0.24))
     video_area_height = max(1, window_height - panel_height)
-
     scale = min(
         window_width / frame_width,
         video_area_height / frame_height,
@@ -129,6 +129,44 @@ def make_display_frame(
         offset_x:offset_x + output_width,
     ] = resized
 
+    if show_crosshair:
+        centre_x = offset_x + output_width // 2
+        centre_y = offset_y + output_height // 2
+        arm = max(12, round(min(output_width, output_height) * 0.035))
+        # Black outline keeps the crosshair visible on both light and dark scenes.
+        cv2.line(
+            canvas,
+            (centre_x - arm, centre_y),
+            (centre_x + arm, centre_y),
+            (0, 0, 0),
+            3,
+            cv2.LINE_AA,
+        )
+        cv2.line(
+            canvas,
+            (centre_x, centre_y - arm),
+            (centre_x, centre_y + arm),
+            (0, 0, 0),
+            3,
+            cv2.LINE_AA,
+        )
+        cv2.line(
+            canvas,
+            (centre_x - arm, centre_y),
+            (centre_x + arm, centre_y),
+            (0, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+        cv2.line(
+            canvas,
+            (centre_x, centre_y - arm),
+            (centre_x, centre_y + arm),
+            (0, 255, 255),
+            1,
+            cv2.LINE_AA,
+        )
+
     panel_top = video_area_height
     cv2.rectangle(
         canvas,
@@ -145,6 +183,61 @@ def make_display_frame(
         2,
     )
 
+    font_scale = max(0.42, min(0.78, window_width / 1050.0))
+    thickness = 2 if font_scale >= 0.62 else 1
+    line_type = cv2.LINE_AA
+    key_size = max(28, min(44, round(panel_height * 0.22)))
+    key_gap = max(4, round(key_size * 0.14))
+    grid_x = 12
+    grid_y = panel_top + 10
+
+    def draw_text(value, x, y, color=(235, 235, 235), scale=font_scale):
+        cv2.putText(
+            canvas,
+            value,
+            (x, y),
+            cv2.FONT_HERSHEY_DUPLEX,
+            scale,
+            color,
+            thickness,
+            line_type,
+        )
+
+    # Direction keys are shown as actual square buttons in arrow formation.
+    for row, keys in enumerate((("u", "i", "o"), ("j", "k", "l"), ("m", ",", "."))):
+        for column, key_name in enumerate(keys):
+            x = grid_x + column * (key_size + key_gap)
+            y = grid_y + row * (key_size + key_gap)
+            cv2.rectangle(
+                canvas,
+                (x, y),
+                (x + key_size, y + key_size),
+                (48, 48, 48),
+                cv2.FILLED,
+            )
+            cv2.rectangle(
+                canvas,
+                (x, y),
+                (x + key_size, y + key_size),
+                (0, 210, 255),
+                1,
+            )
+            text_size, _ = cv2.getTextSize(
+                key_name,
+                cv2.FONT_HERSHEY_DUPLEX,
+                max(0.45, font_scale),
+                thickness,
+            )
+            text_x = x + (key_size - text_size[0]) // 2
+            text_y = y + (key_size + text_size[1]) // 2
+            draw_text(key_name, text_x, text_y, (255, 255, 255), max(0.45, font_scale))
+
+    info_x = grid_x + 3 * key_size + 2 * key_gap + 16
+    draw_text("TRILOBOT TELEOP", info_x, panel_top + 24, (0, 220, 255))
+    draw_text(f"TARGET  {client.url}", info_x, panel_top + 47)
+    draw_text("H/h crosshair   Q/Z all   W/X drive   E/C turn", info_x, panel_top + 70)
+    draw_text("K/SPACE stop   ESC quit   0-4 lights   R distance", info_x, panel_top + 93)
+
     telemetry = client.telemetry
     distance = telemetry.get("distance_cm", "--")
     buttons = telemetry.get("buttons", {})
@@ -154,35 +247,12 @@ def make_display_frame(
     )
     width, height = video_size
     status = (
-        f"DRIVE {left:+.1f},{right:+.1f}   "
+        f"L {left:+.1f}  R {right:+.1f}   "
         f"DIST {distance} cm   {button_text}   "
-        f"VIDEO {width}x{height} {video_fps:g}fps Q{jpeg_quality}"
+        f"{width}x{height} {video_fps:g}fps Q{jpeg_quality}   "
+        f"CROSSHAIR {'ON' if show_crosshair else 'OFF'}"
     )
-
-    def text(value, x, y, color=(235, 235, 235), scale=font_scale):
-        cv2.putText(
-            canvas,
-            value,
-            (x, y),
-            cv2.FONT_HERSHEY_DUPLEX,
-            scale,
-            color,
-            thickness,
-            cv2.LINE_AA,
-        )
-
-    text("TRILOBOT TELEOPERATION", 12, panel_top + line_height, (0, 220, 255))
-    text(
-        "MOVE  U I O   J K L   M , .     STOP  K / SPACE     QUIT  ESC",
-        12,
-        panel_top + line_height * 2,
-    )
-    text(
-        "SPEED  Q/Z ALL   W/X DRIVE   E/C TURN     LIGHTS  0-4   DIST  R",
-        12,
-        panel_top + line_height * 3,
-    )
-    text(status, 12, panel_top + line_height * 4, (0, 255, 180))
+    draw_text(status, 12, window_height - 10, (0, 255, 180))
 
     return canvas
 
@@ -194,6 +264,7 @@ async def run(args):
     angular_direction = 0.0
     last_drive_sent = 0.0
     latest_frame = None
+    show_crosshair = False
     button_led_values = {"A": 0.0, "B": 0.0, "X": 0.0, "Y": 0.0}
 
     print(f"Connecting to {args.url}")
@@ -210,7 +281,8 @@ async def run(args):
         )
         print(
             "ROS 2 keys: u i o / j k l / m , . | "
-            "q/z overall | w/x drive | e/c turn | space/k stop | ESC quit"
+            "H/h crosshair | q/z overall | w/x drive | e/c turn | "
+            "space/k stop | ESC quit"
         )
         try:
             while client.connected:
@@ -234,6 +306,8 @@ async def run(args):
                     turn_speed = min(1.0, round(turn_speed + 0.1, 1))
                 elif key == ord("c"):
                     turn_speed = max(0.0, round(turn_speed - 0.1, 1))
+                elif key in (ord("h"), ord("H")):
+                    show_crosshair = not show_crosshair
                 elif key in UNDERLIGHT_COLORS:
                     await client.set_underlights(UNDERLIGHT_COLORS[key])
                 elif key in BUTTON_LED_KEYS:
@@ -273,6 +347,7 @@ async def run(args):
                     (args.video_width, args.video_height),
                     args.fps,
                     args.jpeg_quality,
+                    show_crosshair,
                 )
                 cv2.imshow(WINDOW_NAME, display_frame)
                 await asyncio.sleep(0.01)
@@ -306,6 +381,12 @@ def main():
         help="JPEG quality, from 10 to 100",
     )
     args = parser.parse_args()
+
+    if not 1.0 <= args.fps <= 30.0:
+        parser.error("--fps must be between 1 and 30")
+    if not 10 <= args.jpeg_quality <= 100:
+        parser.error("--jpeg-quality must be between 10 and 100")
+
     args.video_width, args.video_height = (
         int(value) for value in args.video_size.split("x")
     )

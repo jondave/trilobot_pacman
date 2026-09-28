@@ -42,6 +42,7 @@ DEFAULT_VIDEO_SIZE = (1640, 1232)
 DEFAULT_VIDEO_FPS = 15.0
 DEFAULT_JPEG_QUALITY = 75
 MAX_VIDEO_FPS = 30.0
+MOTION_EXPOSURE_US = 10000  # Short exposure reduces motion blur.
 WATCHDOG_SECONDS = 0.6
 
 BUTTONS = {
@@ -66,6 +67,13 @@ camera.configure(
     )
 )
 camera.start()
+camera.set_controls({
+    "ExposureTime": MOTION_EXPOSURE_US,
+    "FrameDurationLimits": (
+        round(1_000_000 / video_fps),
+        round(1_000_000 / video_fps),
+    ),
+})
 
 last_drive_command = time.monotonic()
 
@@ -138,6 +146,13 @@ def configure_video(message):
             )
         )
         camera.start()
+        camera.set_controls({
+            "ExposureTime": MOTION_EXPOSURE_US,
+            "FrameDurationLimits": (
+                round(1_000_000 / requested_fps),
+                round(1_000_000 / requested_fps),
+            ),
+        })
         video_size = requested_size
         video_fps = requested_fps
         jpeg_quality = requested_quality
