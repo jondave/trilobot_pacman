@@ -49,7 +49,7 @@ hardware_lock = Lock()
 camera = Picamera2()
 camera.configure(
     camera.create_preview_configuration(
-        main={"format": "RGB888", "size": VIDEO_SIZE}
+        main={"format": "BGR888", "size": VIDEO_SIZE}
     )
 )
 camera.start()
@@ -144,7 +144,11 @@ async def send_json(websocket, message, send_lock):
 
 def encode_jpeg(image):
     buffer = BytesIO()
-    Image.fromarray(image).save(buffer, format="JPEG", quality=JPEG_QUALITY)
+    # Picamera2 supplies BGR888 here. Pillow expects RGB, so swap channels
+    # before encoding. The Windows client decodes the JPEG back to BGR.
+    Image.fromarray(image[:, :, ::-1]).save(
+        buffer, format="JPEG", quality=JPEG_QUALITY
+    )
     return buffer.getvalue()
 
 
