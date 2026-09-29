@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trilobot Blockly</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=2) }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Trilobot Blockly</h1>
+      <span>Build a robot trait with blocks.</span>
+    </div>
+    <div class="connection-controls">
+      <label for="robot-url">Robot</label>
+      <input id="robot-url" value="ws://trilo-09:8765" spellcheck="false">
+      <button id="connect-button" class="primary">Connect</button>
+      <button id="disconnect-button" class="quiet-button">Disconnect</button>
+      <span id="connection-status" class="status-pill">Disconnected</span>
+      <span id="quality-lamp" class="quality-lamp red" title="Offline"></span>
+      <span id="quality-text" class="quality-text">Offline</span>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <section class="card workspace-card">
+      <div class="card-heading">
+        <div>
+          <h2>Program</h2>
+          <span class="muted">Snap the action blocks together from top to bottom.</span>
+        </div>
+        <div class="action-buttons">
+          <button id="run-button" class="run">Run</button>
+          <button id="stop-button" class="stop">Stop</button>
+        </div>
+      </div>
+      <div id="blockly-workspace" class="blockly-workspace"></div>
+      <div class="workspace-footer">
+        <button id="save-button">Save file</button>
+        <button id="load-button">Load file</button>
+        <input id="program-file" type="file" accept=".json,application/json" hidden>
+        <button id="clear-button" class="quiet-button">Clear</button>
+        <span id="program-status">Ready</span>
+      </div>
+    </section>
+
+    <aside class="right-column">
+      <section class="card stage-card">
+        <div class="card-heading compact">
+          <div>
+            <h2>Live camera</h2>
+            <span id="target-label" class="muted mono">not connected</span>
+          </div>
+          <span id="vision-status" class="vision-status">OpenCV: no picture checked</span>
+        </div>
+        <div class="stage"><img src="{{ url_for('video') }}" alt="Live robot camera"></div>
+        <div class="camera-settings">
+          <label>Size
+            <select id="video-size">
+              <option value="640x480" data-width="640" data-height="480">640 × 480</option>
+              <option value="1640x1232" data-width="1640" data-height="1232">1640 × 1232</option>
+              <option value="1920x1080" data-width="1920" data-height="1080">1920 × 1080</option>
+              <option value="3280x2464" data-width="3280" data-height="2464">3280 × 2464</option>
+            </select>
+          </label>
+          <label>FPS
+            <select id="video-fps">
+              <option>5</option><option>10</option><option>15</option>
+              <option selected>20</option><option>25</option><option>30</option>
+            </select>
+          </label>
+          <label>Quality
+            <select id="video-quality">
+              <option>40</option><option selected>60</option><option>70</option>
+              <option>80</option><option>90</option>
+            </select>
+          </label>
+          <button id="apply-video">Apply</button>
+        </div>
+        <div class="metrics">
+          <span id="video-rate">0 fps video</span>
+          <span id="telemetry-rate">0 messages/s</span>
+          <span id="command-latency">command —</span>
+          <span id="telemetry">Distance —</span>
+        </div>
+      </section>
+
+      <section class="card teleop-card">
+        <div class="card-heading compact">
+          <div>
+            <h2>Teleop reset</h2>
+            <span class="muted">Enable only when you need to reposition the robot.</span>
+          </div>
+          <label class="switch-label"><input id="teleop-enabled" type="checkbox"><span>Enable</span></label>
+        </div>
+        <div class="teleop-grid" aria-label="ROS2-style teleoperation controls">
+          <button data-key="u" data-left="-60" data-right="60">↖<small>U</small></button>
+          <button data-key="i" data-left="60" data-right="60">↑<small>I</small></button>
+          <button data-key="o" data-left="60" data-right="-60">↗<small>O</small></button>
+          <button data-key="j" data-left="-60" data-right="60">←<small>J</small></button>
+          <button data-key="k" data-stop="true">■<small>K</small></button>
+          <button data-key="l" data-left="60" data-right="-60">→<small>L</small></button>
+          <button data-key="m" data-left="-60" data-right="-60">↙<small>M</small></button>
+          <button data-key="," data-left="-60" data-right="-60">↓<small>,</small></button>
+          <button data-key="." data-left="-60" data-right="60">↘<small>.</small></button>
+        </div>
+        <div class="key-hint"><kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd></div>
+      </section>
+    </aside>
+  </main>
+
+  <xml id="toolbox" style="display:none">
+    <category name="Robot actions" colour="#f59e0b">
+      <block type="robot_forward">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
+        <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+      </block>
+      <block type="robot_backward">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+        <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+      </block>
+      <block type="robot_turn_left">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+        <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+      </block>
+      <block type="robot_turn_right">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+        <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+      </block>
+      <block type="robot_turn_around">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">1.5</field></shadow></value>
+        <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
+      </block>
+      <block type="robot_wait">
+        <value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      </block>
+      <block type="robot_stop"></block>
+    </category>
+    <category name="Camera / OpenCV" colour="#a86de0">
+      <block type="robot_take_picture"></block>
+      <block type="robot_if_color">
+        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#ff0000</field></shadow></value>
+        <value name="TOLERANCE"><shadow type="math_number"><field name="NUM">18</field></shadow></value>
+        <value name="MIN_AREA"><shadow type="math_number"><field name="NUM">500</field></shadow></value>
+      </block>
+    </category>
+    <category name="Distance sensor" colour="#36a890">
+      <block type="robot_if_distance">
+        <value name="CENTIMETRES"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+      </block>
+    </category>
+    <category name="Lights" colour="#d957a7">
+      <block type="robot_set_lights">
+        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#00ff00</field></shadow></value>
+      </block>
+      <block type="robot_flash_lights">
+        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#00ff00</field></shadow></value>
+        <value name="TIMES"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
+        <value name="ON_SECONDS"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+        <value name="OFF_SECONDS"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
+      </block>
+      <block type="robot_button_light">
+        <value name="BRIGHTNESS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      </block>
+    </category>
+    <category name="Numbers" colour="#4caf7d">
+      <block type="math_number"></block>
+      <block type="math_arithmetic"></block>
+    </category>
+    <category name="Colours" colour="#d957a7">
+      <block type="colour_picker"></block>
+    </category>
+    <category name="Variables" colour="#e6a23c" custom="VARIABLE"></category>
+  </xml>
+
+  <script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js', v=2) }}"></script>
+</body>
+</html>
