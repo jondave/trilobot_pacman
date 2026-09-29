@@ -80,7 +80,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: "robot_if_color",
     message0: "OpenCV: if the picture contains %1",
-    args0: [{type: "input_value", name: "COLOR", check: "Colour"}],
+    args0: [{type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]}],
     message1: "colour tolerance %1 degrees, minimum area %2",
     args1: [
       {type: "input_value", name: "TOLERANCE", check: "Number"},
@@ -112,24 +112,113 @@ Blockly.defineBlocksWithJsonArray([
     tooltip: "Reads the robot's distance sensor."
   },
   {
+    type: "robot_underlights_on",
+    message0: "turn on underlights",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 315,
+    tooltip: "Turn the robot underlights on white."
+  },
+  {
+    type: "robot_underlights_off",
+    message0: "turn off underlights",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 315,
+    tooltip: "Turn all underlights off."
+  },
+  {
+    type: "robot_lights_red",
+    message0: "set lights red",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 0
+  },
+  {
+    type: "robot_lights_green",
+    message0: "set lights green",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 120
+  },
+  {
+    type: "robot_lights_blue",
+    message0: "set lights blue",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 210
+  },
+  {
+    type: "robot_lights_yellow",
+    message0: "set lights yellow",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 60
+  },
+  {
+    type: "robot_lights_white",
+    message0: "set lights white",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 45
+  },
+  {
+    type: "robot_lights_purple",
+    message0: "set lights purple",
+    previousStatement: null,
+    nextStatement: null,
+    colour: 285
+  },
+  {
+    type: "robot_colour_red",
+    message0: "red",
+    output: "Colour",
+    colour: 0
+  },
+  {
+    type: "robot_colour_green",
+    message0: "green",
+    output: "Colour",
+    colour: 120
+  },
+  {
+    type: "robot_colour_blue",
+    message0: "blue",
+    output: "Colour",
+    colour: 210
+  },
+  {
+    type: "robot_colour_yellow",
+    message0: "yellow",
+    output: "Colour",
+    colour: 60
+  },
+  {
+    type: "robot_colour_white",
+    message0: "white",
+    output: "Colour",
+    colour: 45
+  },
+  {
+    type: "robot_colour_purple",
+    message0: "purple",
+    output: "Colour",
+    colour: 285
+  },
+  {
     type: "robot_set_lights",
-    message0: "set underlights to %1",
-    args0: [{type: "input_value", name: "COLOR", check: "Colour"}],
+    message0: "set lights to %1",
+    args0: [{type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]}],
     previousStatement: null,
     nextStatement: null,
     colour: 315
   },
   {
     type: "robot_flash_lights",
-    message0: "flash %1 lights %2 times",
+    message0: "flash %1 for %2 times",
     args0: [
-      {type: "input_value", name: "COLOR", check: "Colour"},
+      {type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]},
       {type: "input_value", name: "TIMES", check: "Number"}
-    ],
-    message1: "on %1 seconds, off %2 seconds",
-    args1: [
-      {type: "input_value", name: "ON_SECONDS", check: "Number"},
-      {type: "input_value", name: "OFF_SECONDS", check: "Number"}
     ],
     previousStatement: null,
     nextStatement: null,
@@ -147,6 +236,17 @@ Blockly.defineBlocksWithJsonArray([
     colour: 315
   },
   {
+    type: "robot_repeat",
+    message0: "repeat %1 times",
+    args0: [{type: "input_value", name: "TIMES", check: "Number"}],
+    message1: "do %1",
+    args1: [{type: "input_statement", name: "DO"}],
+    previousStatement: null,
+    nextStatement: null,
+    colour: 120,
+    tooltip: "Repeat the blocks inside this loop."
+  },
+  {
     type: "robot_wait",
     message0: "wait %1 seconds",
     args0: [{type: "input_value", name: "SECONDS", check: "Number"}],
@@ -160,6 +260,34 @@ Blockly.defineBlocksWithJsonArray([
     previousStatement: null,
     nextStatement: null,
     colour: 0
+  },
+  {
+    type: "robot_wait_until",
+    message0: "wait until %1",
+    args0: [{type: "input_value", name: "CONDITION", check: "Boolean"}],
+    previousStatement: null,
+    nextStatement: null,
+    colour: 35,
+    tooltip: "Pause the program until the condition is true."
+  },
+  {
+    type: "robot_distance_condition",
+    message0: "distance is %1 %2 cm",
+    args0: [
+      {type: "field_dropdown", name: "OPERATOR", options: [["less than", "LESS_THAN"], ["more than", "MORE_THAN"]]},
+      {type: "input_value", name: "CENTIMETRES", check: "Number"}
+    ],
+    output: "Boolean",
+    colour: 165,
+    tooltip: "True when the distance sensor reading matches."
+  },
+  {
+    type: "robot_button_pressed",
+    message0: "robot button %1 is pressed",
+    args0: [{type: "field_dropdown", name: "BUTTON", options: [["A", "A"], ["B", "B"], ["X", "X"], ["Y", "Y"]]}],
+    output: "Boolean",
+    colour: 165,
+    tooltip: "True while the button on the robot is held down."
   }
 ]);
 
@@ -176,10 +304,35 @@ workspace.registerButtonCallback("CREATE_VARIABLE", (button) => {
 window.addEventListener("resize", () => Blockly.svgResize(workspace));
 setTimeout(() => Blockly.svgResize(workspace), 0);
 
+function reflowToolbox() {
+  const toolbox = workspace.getToolbox();
+  const flyout = toolbox && toolbox.getFlyout();
+  if (!flyout || !flyout.isVisible()) return;
+  flyout.reflow();
+  // Blockly 11 can leave flyout blocks at (0, 0) when the page uses a
+  // flexible, resized workspace. Put each top-level flyout block in a real
+  // vertical list while preserving Blockly's own model coordinates.
+  setTimeout(() => {
+    const flyoutWorkspace = flyout.getWorkspace && flyout.getWorkspace();
+    if (!flyoutWorkspace) return;
+    let y = 8;
+    for (const block of flyoutWorkspace.getTopBlocks(false)) {
+      const xy = block.getRelativeToSurfaceXY();
+      const size = block.getHeightWidth();
+      block.moveBy(8 - xy.x, y - xy.y);
+      y += Math.max(35, size.height) + 8;
+    }
+  }, 0);
+}
+document.querySelector(".blocklyToolboxDiv")?.addEventListener("click", () => {
+  setTimeout(reflowToolbox, 0);
+});
+
 const $ = (id) => document.getElementById(id);
 const urlInput = $("robot-url");
 const teleopEnabled = $("teleop-enabled");
 const fileInput = $("program-file");
+const librarySelect = $("library-select");
 const pressedKeys = new Set();
 const teleopButtons = new Map(
   [...document.querySelectorAll(".teleop-grid button")].map(
@@ -215,6 +368,56 @@ function workspaceData() {
   return Blockly.serialization.workspaces.save(workspace);
 }
 
+function loadWorkspaceData(program, message) {
+  workspace.clear();
+  Blockly.serialization.workspaces.load(program, workspace);
+  setMessage(message);
+}
+
+async function refreshLibrary(selectedName = "") {
+  const data = await jsonRequest("/api/library");
+  librarySelect.replaceChildren();
+  for (const demo of data.demos || []) {
+    const option = document.createElement("option");
+    option.value = demo.name;
+    option.textContent = demo.name;
+    librarySelect.appendChild(option);
+  }
+  if (selectedName && [...librarySelect.options].some((option) => option.value === selectedName)) {
+    librarySelect.value = selectedName;
+  }
+}
+
+async function loadLibraryDemo() {
+  const name = librarySelect.value;
+  if (!name) {
+    setMessage("The demo library is empty", true);
+    return;
+  }
+  try {
+    const program = await jsonRequest("/api/library/" + encodeURIComponent(name));
+    loadWorkspaceData(program, "Loaded demo: " + name);
+  } catch (error) {
+    setMessage("Could not load demo: " + error.message, true);
+  }
+}
+
+async function saveLibraryDemo() {
+  const name = window.prompt("Name this demo:", librarySelect.value || "My robot trait");
+  if (!name || !name.trim()) return;
+  try {
+    const cleanName = name.trim();
+    await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
+      method: "POST",
+      body: JSON.stringify(workspaceData())
+    });
+    await refreshLibrary(cleanName);
+    setMessage("Saved demo: " + cleanName);
+  } catch (error) {
+    setMessage("Could not save demo: " + error.message, true);
+  }
+}
+
 function downloadProgram() {
   const data = JSON.stringify(workspaceData(), null, 2);
   const blob = new Blob([data], {type: "application/json"});
@@ -233,9 +436,7 @@ function loadProgramFile(file) {
   reader.onload = () => {
     try {
       const program = JSON.parse(reader.result);
-      workspace.clear();
-      Blockly.serialization.workspaces.load(program, workspace);
-      setMessage("Loaded trait file");
+      loadWorkspaceData(program, "Loaded trait file");
     } catch (error) {
       setMessage("Could not load file: " + error.message, true);
     }
@@ -293,6 +494,7 @@ async function disconnectRobot() {
   try {
     await jsonRequest("/api/disconnect", {method: "POST"});
     teleopEnabled.checked = false;
+    updateTeleopState();
     stopTeleop(true);
     setMessage("Disconnected");
   } catch (error) {
@@ -314,6 +516,15 @@ async function applyVideoSettings() {
 }
 
 function startProgram() {
+  const topBlocks = workspace.getTopBlocks(true);
+  if (topBlocks.length > 1) {
+    setMessage("Join the " + topBlocks.length + " separate stacks before Run", true);
+    return;
+  }
+  if (!topBlocks.length) {
+    setMessage("Add an action block before Run", true);
+    return;
+  }
   jsonRequest("/api/program/start", {
     method: "POST",
     body: JSON.stringify({program: workspaceData()})
@@ -334,6 +545,9 @@ function postTeleop(payload) {
   }).catch((error) => setMessage("Teleop: " + error.message, true));
 }
 
+let teleopTimer = null;
+let activeTeleopButton = null;
+
 function sendTeleop(button) {
   if (!teleopEnabled.checked || !button) return;
   const payload = button.dataset.stop === "true"
@@ -342,11 +556,35 @@ function sendTeleop(button) {
   postTeleop(payload);
 }
 
+function startTeleop(button) {
+  if (!teleopEnabled.checked || !button) return;
+  if (activeTeleopButton && activeTeleopButton !== button) stopTeleop();
+  activeTeleopButton = button;
+  button.classList.add("active");
+  sendTeleop(button);
+  clearInterval(teleopTimer);
+  // Refresh faster than the robot's 0.6 second watchdog while held.
+  teleopTimer = setInterval(() => {
+    if (activeTeleopButton && teleopEnabled.checked) sendTeleop(activeTeleopButton);
+  }, 150);
+}
+
 function stopTeleop(force = false) {
   if (!force && !teleopEnabled.checked) return;
-  postTeleop({stop: true});
+  clearInterval(teleopTimer);
+  teleopTimer = null;
+  activeTeleopButton = null;
   document.querySelectorAll(".teleop-grid button.active")
     .forEach((button) => button.classList.remove("active"));
+  postTeleop({stop: true});
+}
+
+function updateTeleopState() {
+  const enabled = teleopEnabled.checked;
+  const card = $("teleop-card");
+  card.classList.toggle("teleop-enabled", enabled);
+  $("teleop-state").textContent = enabled ? "ENABLED — sending" : "DISABLED";
+  $("teleop-state").className = "teleop-state " + (enabled ? "enabled" : "disabled");
 }
 
 function keyForEvent(event) {
@@ -358,12 +596,10 @@ function keyForEvent(event) {
 document.querySelectorAll(".teleop-grid button").forEach((button) => {
   const start = (event) => {
     event.preventDefault();
-    button.classList.add("active");
-    sendTeleop(button);
+    startTeleop(button);
   };
   const end = (event) => {
     event.preventDefault();
-    button.classList.remove("active");
     stopTeleop();
   };
   button.addEventListener("pointerdown", start);
@@ -379,16 +615,13 @@ window.addEventListener("keydown", (event) => {
   if (!key || !teleopEnabled.checked || pressedKeys.has(key)) return;
   event.preventDefault();
   pressedKeys.add(key);
-  const button = teleopButtons.get(key);
-  button.classList.add("active");
-  sendTeleop(button);
+  startTeleop(teleopButtons.get(key));
 });
 
 window.addEventListener("keyup", (event) => {
   const key = keyForEvent(event);
   if (!key) return;
   pressedKeys.delete(key);
-  teleopButtons.get(key).classList.remove("active");
   stopTeleop();
 });
 
@@ -397,15 +630,24 @@ window.addEventListener("blur", () => {
   stopTeleop();
 });
 teleopEnabled.addEventListener("change", () => {
+  updateTeleopState();
   if (!teleopEnabled.checked) stopTeleop(true);
 });
+updateTeleopState();
 
 $("connect-button").addEventListener("click", connectRobot);
 $("disconnect-button").addEventListener("click", disconnectRobot);
 $("apply-video").addEventListener("click", applyVideoSettings);
 $("run-button").addEventListener("click", startProgram);
 $("stop-button").addEventListener("click", stopProgram);
+$("reset-lights-button").addEventListener("click", () => {
+  jsonRequest("/api/lights/reset", {method: "POST"})
+    .then(() => setMessage("Lights reset"))
+    .catch((error) => setMessage(error.message, true));
+});
 $("save-button").addEventListener("click", downloadProgram);
+$("load-library-button").addEventListener("click", loadLibraryDemo);
+$("save-library-button").addEventListener("click", saveLibraryDemo);
 $("load-button").addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => {
   if (fileInput.files[0]) loadProgramFile(fileInput.files[0]);
@@ -448,3 +690,4 @@ async function pollStatus() {
 
 setInterval(pollStatus, 250);
 pollStatus();
+refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));

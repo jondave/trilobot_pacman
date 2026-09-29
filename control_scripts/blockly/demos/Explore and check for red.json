@@ -1,0 +1,190 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "robot_forward",
+        "id": "demo-003",
+        "inputs": {
+          "SECONDS": {
+            "shadow": {
+              "type": "math_number",
+              "id": "demo-shadow-3-1",
+              "fields": {
+                "NUM": "3"
+              }
+            }
+          },
+          "SPEED": {
+            "shadow": {
+              "type": "math_number",
+              "id": "demo-shadow-50-2",
+              "fields": {
+                "NUM": "50"
+              }
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "robot_turn_left",
+            "id": "demo-006",
+            "inputs": {
+              "SECONDS": {
+                "shadow": {
+                  "type": "math_number",
+                  "id": "demo-shadow-1-4",
+                  "fields": {
+                    "NUM": "1"
+                  }
+                }
+              },
+              "SPEED": {
+                "shadow": {
+                  "type": "math_number",
+                  "id": "demo-shadow-50-5",
+                  "fields": {
+                    "NUM": "50"
+                  }
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "robot_forward",
+                "id": "demo-009",
+                "inputs": {
+                  "SECONDS": {
+                    "shadow": {
+                      "type": "math_number",
+                      "id": "demo-shadow-3-7",
+                      "fields": {
+                        "NUM": "3"
+                      }
+                    }
+                  },
+                  "SPEED": {
+                    "shadow": {
+                      "type": "math_number",
+                      "id": "demo-shadow-50-8",
+                      "fields": {
+                        "NUM": "50"
+                      }
+                    }
+                  }
+                },
+                "next": {
+                  "block": {
+                    "type": "robot_turn_right",
+                    "id": "demo-012",
+                    "inputs": {
+                      "SECONDS": {
+                        "shadow": {
+                          "type": "math_number",
+                          "id": "demo-shadow-1-10",
+                          "fields": {
+                            "NUM": "1"
+                          }
+                        }
+                      },
+                      "SPEED": {
+                        "shadow": {
+                          "type": "math_number",
+                          "id": "demo-shadow-50-11",
+                          "fields": {
+                            "NUM": "50"
+                          }
+                        }
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "type": "robot_take_picture",
+                        "id": "demo-013",
+                        "next": {
+                          "block": {
+                            "type": "robot_if_color",
+                            "id": "demo-025",
+                            "inputs": {
+                              "TOLERANCE": {
+                                "shadow": {
+                                  "type": "math_number",
+                                  "id": "demo-shadow-18-23",
+                                  "fields": {
+                                    "NUM": "18"
+                                  }
+                                }
+                              },
+                              "MIN_AREA": {
+                                "shadow": {
+                                  "type": "math_number",
+                                  "id": "demo-shadow-500-24",
+                                  "fields": {
+                                    "NUM": "500"
+                                  }
+                                }
+                              },
+                              "THEN": {
+                                "block": {
+                                  "type": "robot_turn_around",
+                                  "id": "demo-016",
+                                  "inputs": {
+                                    "SECONDS": {
+                                      "shadow": {
+                                        "type": "math_number",
+                                        "id": "demo-shadow-1.5-14",
+                                        "fields": {
+                                          "NUM": "1.5"
+                                        }
+                                      }
+                                    },
+                                    "SPEED": {
+                                      "shadow": {
+                                        "type": "math_number",
+                                        "id": "demo-shadow-60-15",
+                                        "fields": {
+                                          "NUM": "60"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "ELSE": {
+                                "block": {
+                                  "type": "robot_flash_lights",
+                                  "id": "demo-021",
+                                  "inputs": {
+                                    "TIMES": {
+                                      "shadow": {
+                                        "type": "math_number",
+                                        "id": "demo-shadow-3-18",
+                                        "fields": {
+                                          "NUM": "3"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "fields": {
+                                    "COLOR": "#ff00ff"
+                                  }
+                                }
+                              }
+                            },
+                            "fields": {
+                              "COLOR": "#ff0000"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "robot_if_distance",
+        "id": "demo-006",
+        "fields": {
+          "OPERATOR": "LESS_THAN"
+        },
+        "inputs": {
+          "CENTIMETRES": {
+            "shadow": {
+              "type": "math_number",
+              "id": "demo-shadow-20-5",
+              "fields": {
+                "NUM": "20"
+              }
+            }
+          },
+          "THEN": {
+            "block": {
+              "type": "robot_stop",
+              "id": "demo-001"
+            }
+          },
+          "ELSE": {
+            "block": {
+              "type": "robot_forward",
+              "id": "demo-004",
+              "inputs": {
+                "SECONDS": {
+                  "shadow": {
+                    "type": "math_number",
+                    "id": "demo-shadow-2-2",
+                    "fields": {
+                      "NUM": "2"
+                    }
+                  }
+                },
+                "SPEED": {
+                  "shadow": {
+                    "type": "math_number",
+                    "id": "demo-shadow-45-3",
+                    "fields": {
+                      "NUM": "45"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

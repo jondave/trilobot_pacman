@@ -28,7 +28,7 @@
       <div class="card-heading">
         <div>
           <h2>Program</h2>
-          <span class="muted">Snap the action blocks together from top to bottom.</span>
+          <span class="muted">Snap one action stack together from top to bottom.</span>
         </div>
         <div class="action-buttons">
           <button id="run-button" class="run">Run</button>
@@ -42,6 +42,12 @@
         <input id="program-file" type="file" accept=".json,application/json" hidden>
         <button id="clear-button" class="quiet-button">Clear</button>
         <span id="program-status">Ready</span>
+      </div>
+      <div class="library-footer">
+        <label for="library-select">Demo library</label>
+        <select id="library-select" aria-label="Demo library"></select>
+        <button id="load-library-button">Load demo</button>
+        <button id="save-library-button">Save as demo</button>
       </div>
     </section>
 
@@ -86,13 +92,13 @@
         </div>
       </section>
 
-      <section class="card teleop-card">
+      <section id="teleop-card" class="card teleop-card">
         <div class="card-heading compact">
           <div>
             <h2>Teleop reset</h2>
             <span class="muted">Enable only when you need to reposition the robot.</span>
           </div>
-          <label class="switch-label"><input id="teleop-enabled" type="checkbox"><span>Enable</span></label>
+          <div class="teleop-control"><span id="teleop-state" class="teleop-state disabled">DISABLED</span><label class="switch-label"><input id="teleop-enabled" type="checkbox"><span>Enable</span></label></div>
         </div>
         <div class="teleop-grid" aria-label="ROS2-style teleoperation controls">
           <button data-key="u" data-left="-60" data-right="60">↖<small>U</small></button>
@@ -106,6 +112,7 @@
           <button data-key="." data-left="-60" data-right="60">↘<small>.</small></button>
         </div>
         <div class="key-hint"><kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd></div>
+        <button id="reset-lights-button" class="quiet-button">Reset all lights</button>
       </section>
     </aside>
   </main>
@@ -135,12 +142,30 @@
       <block type="robot_wait">
         <value name="SECONDS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
       </block>
+      <block type="robot_wait_until"></block>
       <block type="robot_stop"></block>
+    </category>
+    <category name="Loops" colour="#4caf7d">
+      <block type="robot_repeat">
+        <value name="TIMES"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
+      </block>
+      <block type="controls_whileUntil"></block>
+      <block type="controls_for">
+        <value name="FROM"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+        <value name="TO"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+        <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+      </block>
+    </category>
+    <category name="Logic" colour="#5c81a6">
+      <block type="controls_if"></block>
+      <block type="logic_boolean"></block>
+      <block type="logic_negate"></block>
+      <block type="logic_operation"></block>
     </category>
     <category name="Camera / OpenCV" colour="#a86de0">
       <block type="robot_take_picture"></block>
       <block type="robot_if_color">
-        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#ff0000</field></shadow></value>
+        <field name="COLOR">#ff0000</field>
         <value name="TOLERANCE"><shadow type="math_number"><field name="NUM">18</field></shadow></value>
         <value name="MIN_AREA"><shadow type="math_number"><field name="NUM">500</field></shadow></value>
       </block>
@@ -149,17 +174,39 @@
       <block type="robot_if_distance">
         <value name="CENTIMETRES"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
       </block>
+      <block type="robot_distance_condition">
+        <value name="CENTIMETRES"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
+      </block>
     </category>
-    <category name="Lights" colour="#d957a7">
+    <category name="Robot buttons" colour="#36a890">
+      <block type="robot_button_pressed"></block>
+    </category>
+    <category name="Lights &amp; colours" colour="#d957a7">
+      <block type="robot_underlights_on"></block>
+      <sep gap="12"></sep>
+      <block type="robot_underlights_off"></block>
+      <sep gap="12"></sep>
+      <block type="robot_lights_red"></block>
+      <sep gap="8"></sep>
+      <block type="robot_lights_green"></block>
+      <sep gap="8"></sep>
+      <block type="robot_lights_blue"></block>
+      <sep gap="8"></sep>
+      <block type="robot_lights_yellow"></block>
+      <sep gap="8"></sep>
+      <block type="robot_lights_white"></block>
+      <sep gap="8"></sep>
+      <block type="robot_lights_purple"></block>
+      <sep gap="12"></sep>
       <block type="robot_set_lights">
-        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#00ff00</field></shadow></value>
+        <field name="COLOR">#00ff00</field>
       </block>
+      <sep gap="12"></sep>
       <block type="robot_flash_lights">
-        <value name="COLOR"><shadow type="colour_picker"><field name="COLOUR">#00ff00</field></shadow></value>
+        <field name="COLOR">#00ff00</field>
         <value name="TIMES"><shadow type="math_number"><field name="NUM">3</field></shadow></value>
-        <value name="ON_SECONDS"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
-        <value name="OFF_SECONDS"><shadow type="math_number"><field name="NUM">0.2</field></shadow></value>
       </block>
+      <sep gap="12"></sep>
       <block type="robot_button_light">
         <value name="BRIGHTNESS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
       </block>
@@ -168,13 +215,10 @@
       <block type="math_number"></block>
       <block type="math_arithmetic"></block>
     </category>
-    <category name="Colours" colour="#d957a7">
-      <block type="colour_picker"></block>
-    </category>
     <category name="Variables" colour="#e6a23c" custom="VARIABLE"></category>
   </xml>
 
   <script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"></script>
-  <script src="{{ url_for('static', filename='app.js', v=2) }}"></script>
+  <script src="{{ url_for('static', filename='app.js', v=13) }}"></script>
 </body>
 </html>

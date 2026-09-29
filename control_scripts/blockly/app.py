@@ -27,6 +27,8 @@ from client import RobotClient  # noqa: E402
 
 LOG = logging.getLogger("trilobot_blockly")
 app = Flask(__name__)
+LIBRARY_DIR = Path(__file__).resolve().parent / "demos"
+LIBRARY_DIR.mkdir(exist_ok=True)
 
 VIDEO_SIZES = (
     (640, 480),
@@ -294,6 +296,12 @@ class RobotSession:
             lambda completed: self._record_command(time.monotonic() - started)
         )
 
+    def reset_lights(self):
+        """Turn off the underlights and all button LEDs."""
+        self.dispatch("set_underlights", (0, 0, 0))
+        for button in ("A", "B", "X", "Y"):
+            self.dispatch("set_button_led", button, 0)
+
     def _record_command(self, elapsed):
         with self.lock:
             self.last_command_ms = round(elapsed * 1000, 1)
@@ -434,10 +442,14 @@ class ProgramRunner:
         try:
             variables = self._variables(program)
             blocks = program.get("blocks", {})
-            first = blocks.get("blocks", [None])[0] if isinstance(blocks, dict) else None
-            if first is None:
+            top_blocks = blocks.get("blocks", []) if isinstance(blocks, dict) else []
+            if not top_blocks:
                 raise ValueError("Add an action block to the workspace before running")
-            self._run_chain(first, variables)
+            if len(top_blocks) > 1:
+                raise ValueError(
+                    f"Join the {len(top_blocks)} separate block stacks together before running"
+                )
+            self._run_chain(top_blocks[0], variables)
             self._set_status(
                 status="stopped" if self.stop_event.is_set() else "complete",
                 current="",
@@ -448,6 +460,7 @@ class ProgramRunner:
         finally:
             try:
                 self.session.dispatch("stop")
+                self.session.reset_lights()
             except Exception:
                 pass
 
@@ -524,6 +537,27 @@ class ProgramRunner:
                 nested = self._statement(block, "THEN" if matched else "ELSE")
                 if nested:
                     self._run_chain(nested, variables)
+            elif block_type == "robot_underlights_on":
+                self.session.call("set_underlights", (255, 255, 255))
+            elif block_type == "robot_underlights_off":
+                self.session.call("set_underlights", (0, 0, 0))
+            elif block_type in {
+                "robot_lights_red",
+                "robot_lights_green",
+                "robot_lights_blue",
+                "robot_lights_yellow",
+                "robot_lights_white",
+                "robot_lights_purple",
+            }:
+                named_lights = {
+                    "robot_lights_red": (255, 0, 0),
+                    "robot_lights_green": (0, 255, 0),
+                    "robot_lights_blue": (0, 0, 255),
+                    "robot_lights_yellow": (255, 255, 0),
+                    "robot_lights_white": (255, 255, 255),
+                    "robot_lights_purple": (255, 0, 255),
+                }
+                self.session.call("set_underlights", named_lights[block_type])
             elif block_type == "robot_set_lights":
                 self.session.call(
                     "set_underlights",
@@ -548,16 +582,75 @@ class ProgramRunner:
                     self._value(block, "BRIGHTNESS", variables, 1), 0, 1
                 )
                 self.session.call("set_button_led", button, brightness)
+            elif block_type in {"robot_repeat", "controls_repeat_ext"}:
+                times = max(0, int(self._value(block, "TIMES", variables, 2)))
+                nested = self._statement(block, "DO")
+                for _ in range(times):
+                    if self.stop_event.is_set() or not nested:
+                        break
+                    self._run_chain(nested, variables)
+            elif block_type == "controls_whileUntil":
+                until = block.get("fields", {}).get("MODE") == "UNTIL"
+                nested = self._statement(block, "DO")
+                while (
+                    not self.stop_event.is_set()
+                    and self._condition(block, "BOOL", variables) != until
+                ):
+                    if nested:
+                        self._run_chain(nested, variables)
+                    self._wait(0.02)
+            elif block_type == "controls_for":
+                key = self._variable_key(block.get("fields", {}).get("VAR"))
+                start = self._value(block, "FROM", variables, 1)
+                end = self._value(block, "TO", variables, 10)
+                step = abs(self._value(block, "BY", variables, 1))
+                if step == 0:
+                    raise ValueError("The 'by' step of a count loop cannot be 0")
+                step = step if start <= end else -step
+                nested = self._statement(block, "DO")
+                value = start
+                while (
+                    not self.stop_event.is_set()
+                    and (value <= end if step > 0 else value >= end)
+                ):
+                    variables[key] = value
+                    if nested:
+                        self._run_chain(nested, variables)
+                    value += step
+            elif block_type == "controls_if":
+                inputs = block.get("inputs", {})
+                index = 0
+                matched = False
+                while f"IF{index}" in inputs and not self.stop_event.is_set():
+                    if self._condition(block, f"IF{index}", variables):
+                        matched = True
+                        nested = self._statement(block, f"DO{index}")
+                        if nested:
+                            self._run_chain(nested, variables)
+                        break
+                    index += 1
+                if not matched:
+                    nested = self._statement(block, "ELSE")
+                    if nested:
+                        self._run_chain(nested, variables)
+            elif block_type == "robot_wait_until":
+                while (
+                    not self.stop_event.is_set()
+                    and not self._condition(block, "CONDITION", variables)
+                ):
+                    self._wait(0.05)
             elif block_type == "robot_wait":
                 self._wait(self._value(block, "SECONDS", variables, 1))
             elif block_type == "robot_stop":
                 self.session.call("stop")
             elif block_type == "variables_set":
-                variables[str(block.get("fields", {}).get("VAR", "variable"))] = (
+                variables[self._variable_key(block.get("fields", {}).get("VAR"))] = (
                     self._any_value(block, "VALUE", variables)
                 )
 
-            block = block.get("next")
+            # Blockly serialises the following block as {"next": {"block": {...}}}.
+            following = block.get("next")
+            block = following.get("block") if isinstance(following, dict) else None
 
     def _run_movement(self, block, block_type, variables):
         seconds = self._value(block, "SECONDS", variables, 1)
@@ -591,6 +684,20 @@ class ProgramRunner:
             "robot_take_picture": "Take a picture",
             "robot_if_color": "OpenCV colour check",
             "robot_if_distance": "Distance check",
+            "robot_underlights_on": "Turn on underlights",
+            "robot_underlights_off": "Turn off underlights",
+            "robot_lights_red": "Set lights red",
+            "robot_lights_green": "Set lights green",
+            "robot_lights_blue": "Set lights blue",
+            "robot_lights_yellow": "Set lights yellow",
+            "robot_lights_white": "Set lights white",
+            "robot_lights_purple": "Set lights purple",
+            "robot_repeat": "Repeat",
+            "controls_repeat_ext": "Repeat",
+            "controls_whileUntil": "Repeat while",
+            "controls_for": "Count loop",
+            "controls_if": "If",
+            "robot_wait_until": "Wait until",
             "robot_set_lights": "Set lights",
             "robot_flash_lights": "Flash lights",
             "robot_button_light": "Button light",
@@ -611,16 +718,82 @@ class ProgramRunner:
         return value.get("block") or value.get("shadow")
 
     def _any_value(self, block, name, variables):
-        child = self._input_block(block, name)
+        return self._evaluate(self._input_block(block, name), variables)
+
+    @staticmethod
+    def _variable_key(field):
+        # Blockly saves variable fields as {"id": ...}.
+        if isinstance(field, dict):
+            return str(field.get("id") or field.get("name") or "variable")
+        return str(field or "variable")
+
+    def _condition(self, block, name, variables):
+        if self._input_block(block, name) is None:
+            raise ValueError("A block is missing its condition")
+        return bool(self._any_value(block, name, variables))
+
+    def _button_pressed(self, button):
+        buttons = self.session.telemetry_snapshot().get("buttons")
+        return bool(isinstance(buttons, dict) and buttons.get(button))
+
+    def _evaluate(self, child, variables):
         if not child:
             return None
         child_type = child.get("type")
+        fields = child.get("fields", {})
         if child_type == "math_number":
-            return _number(child.get("fields", {}).get("NUM"))
+            return _number(fields.get("NUM"))
         if child_type == "colour_picker":
-            return child.get("fields", {}).get("COLOUR", "#ff0000")
+            return fields.get("COLOUR", "#ff0000")
         if child_type == "variables_get":
-            return variables.get(str(child.get("fields", {}).get("VAR", "")))
+            return variables.get(self._variable_key(fields.get("VAR")))
+        if child_type == "math_arithmetic":
+            left = _number(self._any_value(child, "A", variables))
+            right = _number(self._any_value(child, "B", variables))
+            operator = fields.get("OP", "ADD")
+            if operator == "ADD":
+                return left + right
+            if operator == "MINUS":
+                return left - right
+            if operator == "MULTIPLY":
+                return left * right
+            if operator == "DIVIDE":
+                return left / right if right else 0.0
+            if operator == "POWER":
+                try:
+                    return _number(left ** right)
+                except (OverflowError, ZeroDivisionError):
+                    return 0.0
+            return 0.0
+        if child_type == "logic_boolean":
+            return fields.get("BOOL") == "TRUE"
+        if child_type == "logic_negate":
+            return not self._any_value(child, "BOOL", variables)
+        if child_type == "logic_operation":
+            left = bool(self._any_value(child, "A", variables))
+            if fields.get("OP") == "OR":
+                return left or bool(self._any_value(child, "B", variables))
+            return left and bool(self._any_value(child, "B", variables))
+        if child_type == "robot_button_pressed":
+            return self._button_pressed(fields.get("BUTTON", "A"))
+        if child_type == "robot_distance_condition":
+            distance = self._distance_cm()
+            limit = self._value(child, "CENTIMETRES", variables, 20)
+            if distance is None:
+                return False
+            if fields.get("OPERATOR", "LESS_THAN") == "LESS_THAN":
+                return distance < limit
+            return distance > limit
+        named_colours = {
+            "robot_colour_red": "#ff0000",
+            "robot_colour_green": "#00ff00",
+            "robot_colour_blue": "#0000ff",
+            "robot_colour_yellow": "#ffff00",
+            "robot_colour_white": "#ffffff",
+            "robot_colour_purple": "#ff00ff",
+        }
+        if child_type in named_colours:
+            return named_colours[child_type]
         return None
 
     def _value(self, block, name, variables, default):
@@ -628,18 +801,28 @@ class ProgramRunner:
         return _number(default if value is None else value, default)
 
     def _colour_value(self, block, name, variables, default):
+        field_value = block.get("fields", {}).get(name)
+        if isinstance(field_value, str) and field_value:
+            return field_value
         value = self._any_value(block, name, variables)
         return value if isinstance(value, str) else default
 
     def _wait(self, seconds):
         end = time.monotonic() + max(0, seconds)
         while time.monotonic() < end and not self.stop_event.is_set():
-            time.sleep(min(0.03, end - time.monotonic()))
+            time.sleep(max(0.0, min(0.03, end - time.monotonic())))
 
     def _drive_for(self, speeds, seconds):
-        self.session.call("drive", speeds[0] / 100.0, speeds[1] / 100.0)
+        # The robot sender stops the motors after 0.6 seconds without a
+        # drive packet. Keep refreshing the command while this block runs.
+        left = speeds[0] / 100.0
+        right = speeds[1] / 100.0
+        deadline = time.monotonic() + max(0.0, seconds)
         try:
-            self._wait(seconds)
+            while not self.stop_event.is_set() and time.monotonic() < deadline:
+                self.session.dispatch("drive", left, right)
+                remaining = deadline - time.monotonic()
+                self._wait(min(0.18, max(0.0, remaining)))
         finally:
             try:
                 self.session.dispatch("stop")
@@ -751,6 +934,50 @@ def status():
     return jsonify({**session.status(), "program": runner.status()})
 
 
+def _library_file(name):
+    """Return a safe JSON path inside the Blockly demo library."""
+    name = str(name or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _-]{0,63}", name):
+        raise ValueError("Demo name may use letters, numbers, spaces, hyphens, and underscores")
+    return LIBRARY_DIR / f"{name}.json"
+
+
+@app.get("/api/library")
+def list_library():
+    demos = []
+    for path in sorted(LIBRARY_DIR.glob("*.json"), key=lambda item: item.stem.lower()):
+        demos.append({"name": path.stem})
+    return jsonify({"demos": demos})
+
+
+@app.get("/api/library/<name>")
+def load_library(name):
+    import json
+
+    try:
+        path = _library_file(name)
+        if not path.is_file():
+            return jsonify({"error": "Demo not found"}), 404
+        return jsonify(json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        return jsonify({"error": str(error)}), 400
+
+
+@app.post("/api/library/<name>")
+def save_library(name):
+    import json
+
+    try:
+        path = _library_file(name)
+        program = request.get_json(silent=True)
+        if not isinstance(program, dict) or not isinstance(program.get("blocks"), dict):
+            raise ValueError("The saved Blockly program is not valid JSON")
+        path.write_text(json.dumps(program, indent=2) + "\n", encoding="utf-8")
+        return jsonify({"name": path.stem, "saved": True})
+    except (OSError, ValueError) as error:
+        return jsonify({"error": str(error)}), 400
+
+
 @app.post("/api/video/config")
 def video_config():
     try:
@@ -795,6 +1022,15 @@ def teleop():
             right = _clamp(_number(payload.get("right")), -100, 100) / 100.0
             session.dispatch("drive", left, right)
         return jsonify({"ok": True, "queued": True}), 202
+    except Exception as error:
+        return jsonify({"ok": False, "error": str(error)}), 409
+
+
+@app.post("/api/lights/reset")
+def reset_lights():
+    try:
+        session.reset_lights()
+        return jsonify({"ok": True}), 202
     except Exception as error:
         return jsonify({"ok": False, "error": str(error)}), 409
 

@@ -23,10 +23,13 @@ Then open [http://127.0.0.1:6767](http://127.0.0.1:6767). Enter the same robot
 WebSocket address used by teleop, such as `ws://trilo-09:8765`, and press
 **Connect**.
 
-The **Robot actions**, **Camera / OpenCV**, **Distance sensor**, and **Lights**
-categories contain the beginner blocks. Number and colour inputs are blocks,
-so students can replace the example values. **Save file** downloads a JSON
-trait file, and **Load file** restores one.
+The **Robot actions**, **Loops**, **Camera / OpenCV**, **Distance sensor**,
+and **Lights & colours** categories contain the beginner blocks. The repeat
+block is useful for patterns such as red lights, blue lights, red lights, blue
+lights. The named colour actions snap into normal command chains. **Save file**
+and **Load file** work with JSON files. The **Demo library** contains starter
+traits; load one, change it, and use **Save as demo** to store a named copy in
+`control_scripts/blockly/demos`.
 
 The live camera is the stage. Choose camera size, FPS, and JPEG quality below
 it. The optional **Teleop reset** panel uses `u i o / j k l / m , .`; enable it

@@ -1,0 +1,68 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "robot_repeat",
+        "id": "demo-008",
+        "inputs": {
+          "TIMES": {
+            "shadow": {
+              "type": "math_number",
+              "id": "demo-shadow-4-7",
+              "fields": {
+                "NUM": "4"
+              }
+            }
+          },
+          "DO": {
+            "block": {
+              "type": "robot_lights_red",
+              "id": "demo-001",
+              "next": {
+                "block": {
+                  "type": "robot_wait",
+                  "id": "demo-003",
+                  "inputs": {
+                    "SECONDS": {
+                      "shadow": {
+                        "type": "math_number",
+                        "id": "demo-shadow-0.5-2",
+                        "fields": {
+                          "NUM": "0.5"
+                        }
+                      }
+                    }
+                  },
+                  "next": {
+                    "block": {
+                      "type": "robot_lights_blue",
+                      "id": "demo-004",
+                      "next": {
+                        "block": {
+                          "type": "robot_wait",
+                          "id": "demo-006",
+                          "inputs": {
+                            "SECONDS": {
+                              "shadow": {
+                                "type": "math_number",
+                                "id": "demo-shadow-0.5-5",
+                                "fields": {
+                                  "NUM": "0.5"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -76,14 +76,19 @@ button.quiet-button { background: transparent; color: var(--muted); }
   border-radius: 13px;
   box-shadow: var(--shadow);
 }
-.workspace-card { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.workspace-card { display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; }
 .card-heading { padding: 13px 15px 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .card-heading h2 { margin: 0; font-size: 16px; }
 .card-heading.compact { padding-bottom: 9px; }
 .action-buttons { display: flex; gap: 7px; }
-.blockly-workspace { width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #f9fbff; }
+.blockly-workspace { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #f9fbff; }
+.blocklyToolboxDiv { border-right: 1px solid var(--line); }
 .workspace-footer { min-height: 48px; padding: 8px 11px; display: flex; align-items: center; gap: 7px; border-top: 1px solid var(--line); }
 .workspace-footer button { padding: 6px 9px; font-size: 12px; }
+.library-footer { min-height: 48px; padding: 7px 11px; display: flex; align-items: center; gap: 7px; border-top: 1px solid var(--line); background: #fbfcff; }
+.library-footer label { color: var(--muted); font-size: 11px; font-weight: 800; }
+.library-footer select { min-width: 190px; padding: 6px 7px; font-size: 12px; }
+.library-footer button { padding: 6px 9px; font-size: 12px; }
 #program-status { min-width: 0; margin-left: auto; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .error-text { color: #b03838 !important; }
 
@@ -98,7 +103,12 @@ button.quiet-button { background: transparent; color: var(--muted); }
 .camera-settings select { padding: 6px 5px; font-size: 11px; }
 .camera-settings button { padding: 7px 9px; font-size: 11px; }
 .metrics { padding: 4px 13px 11px; display: flex; flex-wrap: wrap; gap: 5px 13px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; }
-.teleop-card { min-height: 184px; }
+.teleop-card { min-height: 184px; transition: border-color .15s, box-shadow .15s; }
+.teleop-card.teleop-enabled { border: 2px solid var(--green); box-shadow: 0 0 0 3px rgba(47, 180, 119, .14), var(--shadow); }
+.teleop-control { display: flex; align-items: center; gap: 8px; }
+.teleop-state { padding: 4px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; letter-spacing: .04em; }
+.teleop-state.disabled { background: #ffe4e3; color: #b03838; }
+.teleop-state.enabled { background: #dff7eb; color: #187b4e; }
 .switch-label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 750; }
 .switch-label input { accent-color: var(--blue); }
 .teleop-grid { width: 180px; margin: 1px auto 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
