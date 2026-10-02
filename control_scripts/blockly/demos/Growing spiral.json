@@ -1,0 +1,164 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "variables_set",
+        "fields": {
+          "VAR": {
+            "id": "var_side_time"
+          }
+        },
+        "inputs": {
+          "VALUE": {
+            "shadow": {
+              "type": "math_number",
+              "fields": {
+                "NUM": 0.5
+              }
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "controls_for",
+            "fields": {
+              "VAR": {
+                "id": "var_side"
+              }
+            },
+            "inputs": {
+              "FROM": {
+                "shadow": {
+                  "type": "math_number",
+                  "fields": {
+                    "NUM": 1
+                  }
+                }
+              },
+              "TO": {
+                "shadow": {
+                  "type": "math_number",
+                  "fields": {
+                    "NUM": 8
+                  }
+                }
+              },
+              "BY": {
+                "shadow": {
+                  "type": "math_number",
+                  "fields": {
+                    "NUM": 1
+                  }
+                }
+              },
+              "DO": {
+                "block": {
+                  "type": "robot_forward",
+                  "inputs": {
+                    "SECONDS": {
+                      "block": {
+                        "type": "variables_get",
+                        "fields": {
+                          "VAR": {
+                            "id": "var_side_time"
+                          }
+                        }
+                      }
+                    },
+                    "SPEED": {
+                      "shadow": {
+                        "type": "math_number",
+                        "fields": {
+                          "NUM": 60
+                        }
+                      }
+                    }
+                  },
+                  "next": {
+                    "block": {
+                      "type": "robot_turn_right",
+                      "inputs": {
+                        "SECONDS": {
+                          "shadow": {
+                            "type": "math_number",
+                            "fields": {
+                              "NUM": 0.4
+                            }
+                          }
+                        },
+                        "SPEED": {
+                          "shadow": {
+                            "type": "math_number",
+                            "fields": {
+                              "NUM": 60
+                            }
+                          }
+                        }
+                      },
+                      "next": {
+                        "block": {
+                          "type": "variables_set",
+                          "fields": {
+                            "VAR": {
+                              "id": "var_side_time"
+                            }
+                          },
+                          "inputs": {
+                            "VALUE": {
+                              "block": {
+                                "type": "math_arithmetic",
+                                "fields": {
+                                  "OP": "ADD"
+                                },
+                                "inputs": {
+                                  "A": {
+                                    "block": {
+                                      "type": "variables_get",
+                                      "fields": {
+                                        "VAR": {
+                                          "id": "var_side_time"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "B": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 0.25
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "robot_stop"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "variables": [
+    {
+      "name": "side_time",
+      "id": "var_side_time"
+    },
+    {
+      "name": "side",
+      "id": "var_side"
+    }
+  ]
+}

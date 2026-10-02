@@ -4,23 +4,20 @@
     "blocks": [
       {
         "type": "robot_forward",
-        "id": "demo-003",
         "inputs": {
           "SECONDS": {
             "shadow": {
               "type": "math_number",
-              "id": "demo-shadow-3-1",
               "fields": {
-                "NUM": "3"
+                "NUM": 3
               }
             }
           },
           "SPEED": {
             "shadow": {
               "type": "math_number",
-              "id": "demo-shadow-50-2",
               "fields": {
-                "NUM": "50"
+                "NUM": 50
               }
             }
           }
@@ -28,23 +25,20 @@
         "next": {
           "block": {
             "type": "robot_turn_left",
-            "id": "demo-006",
             "inputs": {
               "SECONDS": {
                 "shadow": {
                   "type": "math_number",
-                  "id": "demo-shadow-1-4",
                   "fields": {
-                    "NUM": "1"
+                    "NUM": 1
                   }
                 }
               },
               "SPEED": {
                 "shadow": {
                   "type": "math_number",
-                  "id": "demo-shadow-50-5",
                   "fields": {
-                    "NUM": "50"
+                    "NUM": 50
                   }
                 }
               }
@@ -52,23 +46,20 @@
             "next": {
               "block": {
                 "type": "robot_forward",
-                "id": "demo-009",
                 "inputs": {
                   "SECONDS": {
                     "shadow": {
                       "type": "math_number",
-                      "id": "demo-shadow-3-7",
                       "fields": {
-                        "NUM": "3"
+                        "NUM": 3
                       }
                     }
                   },
                   "SPEED": {
                     "shadow": {
                       "type": "math_number",
-                      "id": "demo-shadow-50-8",
                       "fields": {
-                        "NUM": "50"
+                        "NUM": 50
                       }
                     }
                   }
@@ -76,103 +67,375 @@
                 "next": {
                   "block": {
                     "type": "robot_turn_right",
-                    "id": "demo-012",
                     "inputs": {
                       "SECONDS": {
                         "shadow": {
                           "type": "math_number",
-                          "id": "demo-shadow-1-10",
                           "fields": {
-                            "NUM": "1"
+                            "NUM": 1
                           }
                         }
                       },
                       "SPEED": {
                         "shadow": {
                           "type": "math_number",
-                          "id": "demo-shadow-50-11",
                           "fields": {
-                            "NUM": "50"
+                            "NUM": 50
                           }
                         }
                       }
                     },
                     "next": {
                       "block": {
-                        "type": "robot_take_picture",
-                        "id": "demo-013",
+                        "type": "variables_set",
+                        "fields": {
+                          "VAR": {
+                            "id": "var_image"
+                          }
+                        },
+                        "inputs": {
+                          "VALUE": {
+                            "block": {
+                              "type": "opencv_camera_image"
+                            }
+                          }
+                        },
                         "next": {
                           "block": {
-                            "type": "robot_if_color",
-                            "id": "demo-025",
+                            "type": "variables_set",
+                            "fields": {
+                              "VAR": {
+                                "id": "var_hsv"
+                              }
+                            },
                             "inputs": {
-                              "TOLERANCE": {
-                                "shadow": {
-                                  "type": "math_number",
-                                  "id": "demo-shadow-18-23",
-                                  "fields": {
-                                    "NUM": "18"
-                                  }
-                                }
-                              },
-                              "MIN_AREA": {
-                                "shadow": {
-                                  "type": "math_number",
-                                  "id": "demo-shadow-500-24",
-                                  "fields": {
-                                    "NUM": "500"
-                                  }
-                                }
-                              },
-                              "THEN": {
+                              "VALUE": {
                                 "block": {
-                                  "type": "robot_turn_around",
-                                  "id": "demo-016",
-                                  "inputs": {
-                                    "SECONDS": {
-                                      "shadow": {
-                                        "type": "math_number",
-                                        "id": "demo-shadow-1.5-14",
-                                        "fields": {
-                                          "NUM": "1.5"
-                                        }
-                                      }
-                                    },
-                                    "SPEED": {
-                                      "shadow": {
-                                        "type": "math_number",
-                                        "id": "demo-shadow-60-15",
-                                        "fields": {
-                                          "NUM": "60"
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                              },
-                              "ELSE": {
-                                "block": {
-                                  "type": "robot_flash_lights",
-                                  "id": "demo-021",
-                                  "inputs": {
-                                    "TIMES": {
-                                      "shadow": {
-                                        "type": "math_number",
-                                        "id": "demo-shadow-3-18",
-                                        "fields": {
-                                          "NUM": "3"
-                                        }
-                                      }
-                                    }
+                                  "type": "opencv_to_hsv",
+                                  "fields": {
+                                    "CONVERSION": "BGR_TO_HSV"
                                   },
-                                  "fields": {
-                                    "COLOR": "#ff00ff"
+                                  "inputs": {
+                                    "IMAGE": {
+                                      "block": {
+                                        "type": "variables_get",
+                                        "fields": {
+                                          "VAR": {
+                                            "id": "var_image"
+                                          }
+                                        }
+                                      }
+                                    }
                                   }
                                 }
                               }
                             },
-                            "fields": {
-                              "COLOR": "#ff0000"
+                            "next": {
+                              "block": {
+                                "type": "variables_set",
+                                "fields": {
+                                  "VAR": {
+                                    "id": "var_low_red"
+                                  }
+                                },
+                                "inputs": {
+                                  "VALUE": {
+                                    "block": {
+                                      "type": "opencv_hsv_mask",
+                                      "inputs": {
+                                        "IMAGE": {
+                                          "block": {
+                                            "type": "variables_get",
+                                            "fields": {
+                                              "VAR": {
+                                                "id": "var_hsv"
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "LOW": {
+                                          "block": {
+                                            "type": "opencv_hsv_value",
+                                            "inputs": {
+                                              "H": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 0
+                                                  }
+                                                }
+                                              },
+                                              "S": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 120
+                                                  }
+                                                }
+                                              },
+                                              "V": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 70
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "HIGH": {
+                                          "block": {
+                                            "type": "opencv_hsv_value",
+                                            "inputs": {
+                                              "H": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 10
+                                                  }
+                                                }
+                                              },
+                                              "S": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 255
+                                                  }
+                                                }
+                                              },
+                                              "V": {
+                                                "shadow": {
+                                                  "type": "math_number",
+                                                  "fields": {
+                                                    "NUM": 255
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "next": {
+                                  "block": {
+                                    "type": "variables_set",
+                                    "fields": {
+                                      "VAR": {
+                                        "id": "var_high_red"
+                                      }
+                                    },
+                                    "inputs": {
+                                      "VALUE": {
+                                        "block": {
+                                          "type": "opencv_hsv_mask",
+                                          "inputs": {
+                                            "IMAGE": {
+                                              "block": {
+                                                "type": "variables_get",
+                                                "fields": {
+                                                  "VAR": {
+                                                    "id": "var_hsv"
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "LOW": {
+                                              "block": {
+                                                "type": "opencv_hsv_value",
+                                                "inputs": {
+                                                  "H": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 170
+                                                      }
+                                                    }
+                                                  },
+                                                  "S": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 120
+                                                      }
+                                                    }
+                                                  },
+                                                  "V": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 70
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "HIGH": {
+                                              "block": {
+                                                "type": "opencv_hsv_value",
+                                                "inputs": {
+                                                  "H": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 179
+                                                      }
+                                                    }
+                                                  },
+                                                  "S": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 255
+                                                      }
+                                                    }
+                                                  },
+                                                  "V": {
+                                                    "shadow": {
+                                                      "type": "math_number",
+                                                      "fields": {
+                                                        "NUM": 255
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "next": {
+                                      "block": {
+                                        "type": "variables_set",
+                                        "fields": {
+                                          "VAR": {
+                                            "id": "var_red"
+                                          }
+                                        },
+                                        "inputs": {
+                                          "VALUE": {
+                                            "block": {
+                                              "type": "opencv_mask_or",
+                                              "inputs": {
+                                                "IMAGE1": {
+                                                  "block": {
+                                                    "type": "variables_get",
+                                                    "fields": {
+                                                      "VAR": {
+                                                        "id": "var_low_red"
+                                                      }
+                                                    }
+                                                  }
+                                                },
+                                                "IMAGE2": {
+                                                  "block": {
+                                                    "type": "variables_get",
+                                                    "fields": {
+                                                      "VAR": {
+                                                        "id": "var_high_red"
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "next": {
+                                          "block": {
+                                            "type": "controls_if",
+                                            "inputs": {
+                                              "IF0": {
+                                                "block": {
+                                                  "type": "logic_compare",
+                                                  "fields": {
+                                                    "OP": "GT"
+                                                  },
+                                                  "inputs": {
+                                                    "A": {
+                                                      "block": {
+                                                        "type": "opencv_count_nonzero",
+                                                        "inputs": {
+                                                          "IMAGE": {
+                                                            "block": {
+                                                              "type": "variables_get",
+                                                              "fields": {
+                                                                "VAR": {
+                                                                  "id": "var_red"
+                                                                }
+                                                              }
+                                                            }
+                                                          }
+                                                        }
+                                                      }
+                                                    },
+                                                    "B": {
+                                                      "shadow": {
+                                                        "type": "math_number",
+                                                        "fields": {
+                                                          "NUM": 500
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              "DO0": {
+                                                "block": {
+                                                  "type": "robot_turn_around",
+                                                  "inputs": {
+                                                    "SECONDS": {
+                                                      "shadow": {
+                                                        "type": "math_number",
+                                                        "fields": {
+                                                          "NUM": 1.5
+                                                        }
+                                                      }
+                                                    },
+                                                    "SPEED": {
+                                                      "shadow": {
+                                                        "type": "math_number",
+                                                        "fields": {
+                                                          "NUM": 60
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              "ELSE": {
+                                                "block": {
+                                                  "type": "robot_flash_lights",
+                                                  "fields": {
+                                                    "COLOR": "#ff00ff"
+                                                  },
+                                                  "inputs": {
+                                                    "TIMES": {
+                                                      "shadow": {
+                                                        "type": "math_number",
+                                                        "fields": {
+                                                          "NUM": 3
+                                                        }
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "extraState": {
+                                              "hasElse": true
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
                             }
                           }
                         }
@@ -186,5 +449,27 @@
         }
       }
     ]
-  }
+  },
+  "variables": [
+    {
+      "name": "image",
+      "id": "var_image"
+    },
+    {
+      "name": "hsv",
+      "id": "var_hsv"
+    },
+    {
+      "name": "low_red",
+      "id": "var_low_red"
+    },
+    {
+      "name": "high_red",
+      "id": "var_high_red"
+    },
+    {
+      "name": "red",
+      "id": "var_red"
+    }
+  ]
 }

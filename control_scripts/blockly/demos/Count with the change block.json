@@ -1,0 +1,114 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "variables_set",
+        "fields": {
+          "VAR": {
+            "id": "var_total"
+          }
+        },
+        "inputs": {
+          "VALUE": {
+            "shadow": {
+              "type": "math_number",
+              "fields": {
+                "NUM": 0
+              }
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "robot_repeat",
+            "inputs": {
+              "TIMES": {
+                "shadow": {
+                  "type": "math_number",
+                  "fields": {
+                    "NUM": 5
+                  }
+                }
+              },
+              "DO": {
+                "block": {
+                  "type": "robot_forward",
+                  "inputs": {
+                    "SECONDS": {
+                      "shadow": {
+                        "type": "math_number",
+                        "fields": {
+                          "NUM": 0.5
+                        }
+                      }
+                    },
+                    "SPEED": {
+                      "shadow": {
+                        "type": "math_number",
+                        "fields": {
+                          "NUM": 50
+                        }
+                      }
+                    }
+                  },
+                  "next": {
+                    "block": {
+                      "type": "math_change",
+                      "fields": {
+                        "VAR": {
+                          "id": "var_total"
+                        }
+                      },
+                      "inputs": {
+                        "DELTA": {
+                          "shadow": {
+                            "type": "math_number",
+                            "fields": {
+                              "NUM": 1
+                            }
+                          }
+                        }
+                      },
+                      "next": {
+                        "block": {
+                          "type": "robot_flash_lights",
+                          "fields": {
+                            "COLOR": "#0000ff"
+                          },
+                          "inputs": {
+                            "TIMES": {
+                              "block": {
+                                "type": "variables_get",
+                                "fields": {
+                                  "VAR": {
+                                    "id": "var_total"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "robot_stop"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "variables": [
+    {
+      "name": "total",
+      "id": "var_total"
+    }
+  ]
+}
