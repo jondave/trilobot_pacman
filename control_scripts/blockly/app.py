@@ -1052,4 +1052,4 @@ def stop_program():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    app.run(host="127.0.0.1", port=6767, threaded=True)
+    app.run(host="127.0.0.1", port=8750, threaded=True)

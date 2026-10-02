@@ -19,7 +19,7 @@ If `python3 -m venv .venv` says that `venv` is missing on Debian/Raspberry Pi
 OS, install it once with `sudo apt install python3-venv`, then repeat the
 commands above. Do not install these packages into the system Python.
 
-Then open [http://127.0.0.1:6767](http://127.0.0.1:6767). Enter the same robot
+Then open [http://127.0.0.1:8750](http://127.0.0.1:8750). Enter the same robot
 WebSocket address used by teleop, such as `ws://trilo-09:8765`, and press
 **Connect**.
 
