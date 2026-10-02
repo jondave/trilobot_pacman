@@ -1,0 +1,115 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "controls_whileUntil",
+        "fields": {
+          "MODE": "UNTIL"
+        },
+        "inputs": {
+          "BOOL": {
+            "block": {
+              "type": "robot_button_pressed",
+              "fields": {
+                "BUTTON": "A"
+              }
+            }
+          },
+          "DO": {
+            "block": {
+              "type": "controls_if",
+              "inputs": {
+                "IF0": {
+                  "block": {
+                    "type": "robot_distance_condition",
+                    "fields": {
+                      "OPERATOR": "LESS_THAN"
+                    },
+                    "inputs": {
+                      "CENTIMETRES": {
+                        "shadow": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 15
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "DO0": {
+                  "block": {
+                    "type": "robot_set_lights",
+                    "fields": {
+                      "COLOR": "#ff0000"
+                    }
+                  }
+                },
+                "IF1": {
+                  "block": {
+                    "type": "robot_distance_condition",
+                    "fields": {
+                      "OPERATOR": "LESS_THAN"
+                    },
+                    "inputs": {
+                      "CENTIMETRES": {
+                        "shadow": {
+                          "type": "math_number",
+                          "fields": {
+                            "NUM": 40
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "DO1": {
+                  "block": {
+                    "type": "robot_set_lights",
+                    "fields": {
+                      "COLOR": "#ffff00"
+                    }
+                  }
+                },
+                "ELSE": {
+                  "block": {
+                    "type": "robot_set_lights",
+                    "fields": {
+                      "COLOR": "#00ff00"
+                    }
+                  }
+                }
+              },
+              "extraState": {
+                "elseIfCount": 1,
+                "hasElse": true
+              },
+              "next": {
+                "block": {
+                  "type": "robot_wait",
+                  "inputs": {
+                    "SECONDS": {
+                      "shadow": {
+                        "type": "math_number",
+                        "fields": {
+                          "NUM": 0.2
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "robot_underlights_off"
+          }
+        }
+      }
+    ]
+  },
+  "variables": []
+}

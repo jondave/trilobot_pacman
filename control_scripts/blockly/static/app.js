@@ -78,6 +78,105 @@ Blockly.defineBlocksWithJsonArray([
     tooltip: "Take a snapshot for the OpenCV blocks."
   },
   {
+    type: "opencv_camera_image",
+    message0: "camera image",
+    output: "Image",
+    colour: 285,
+    tooltip: "Take a BGR image from the live robot camera."
+  },
+  {
+    type: "opencv_to_hsv",
+    message0: "convert %1 %2",
+    args0: [
+      {type: "input_value", name: "IMAGE", check: "Image"},
+      {type: "field_dropdown", name: "CONVERSION", options: [["BGR → HSV", "BGR_TO_HSV"], ["HSV → BGR", "HSV_TO_BGR"]]}
+    ],
+    output: "Image",
+    colour: 285,
+    tooltip: "Convert an OpenCV BGR image to HSV."
+  },
+  {
+    type: "opencv_blur",
+    message0: "blur %1 with a %2 pixel kernel",
+    args0: [
+      {type: "input_value", name: "IMAGE", check: "Image"},
+      {type: "input_value", name: "KERNEL", check: "Number"}
+    ],
+    output: "Image",
+    colour: 285,
+    tooltip: "Smooth an image before making a mask. Use an odd kernel such as 5."
+  },
+  {
+    type: "opencv_box_blur",
+    message0: "box blur %1 with a %2 pixel kernel",
+    args0: [
+      {type: "input_value", name: "IMAGE", check: "Image"},
+      {type: "input_value", name: "KERNEL", check: "Number"}
+    ],
+    output: "Image",
+    colour: 285,
+    tooltip: "Apply OpenCV's simple box blur. Use an odd kernel such as 5."
+  },
+  {
+    type: "opencv_hsv_value",
+    message0: "HSV value: H %1  S %2  V %3",
+    args0: [
+      {type: "input_value", name: "H", check: "Number"},
+      {type: "input_value", name: "S", check: "Number"},
+      {type: "input_value", name: "V", check: "Number"}
+    ],
+    output: "HSV",
+    colour: 285,
+    tooltip: "One HSV colour bound. H is 0–179; S and V are 0–255."
+  },
+  {
+    type: "opencv_hsv_mask",
+    message0: "make HSV mask from %1",
+    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
+    message1: "low HSV bound %1",
+    args1: [{type: "input_value", name: "LOW", check: "HSV"}],
+    message2: "high HSV bound %1",
+    args2: [{type: "input_value", name: "HIGH", check: "HSV"}],
+    output: "Image",
+    colour: 285,
+    tooltip: "Keep pixels inside these HSV bounds and make a black-and-white mask."
+  },
+  {
+    type: "opencv_count_nonzero",
+    message0: "count white pixels in %1",
+    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
+    output: "Number",
+    colour: 285,
+    tooltip: "Count the white pixels in a mask."
+  },
+  {
+    type: "opencv_mask_or",
+    message0: "combine masks %1 and %2",
+    args0: [
+      {type: "input_value", name: "IMAGE1", check: "Image"},
+      {type: "input_value", name: "IMAGE2", check: "Image"}
+    ],
+    output: "Image",
+    colour: 285,
+    tooltip: "Combine two black-and-white masks with OpenCV bitwise OR."
+  },
+  {
+    type: "robot_scan_qr",
+    message0: "scan robot QR code",
+    output: "String",
+    colour: 285,
+    tooltip: "Return the robot name such as trilo-09 from a Lincoln robot QR code."
+  },
+  {
+    type: "robot_show_live_camera",
+    message0: "show %1 in live camera",
+    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
+    previousStatement: null,
+    nextStatement: null,
+    colour: 285,
+    tooltip: "Show an image or mask variable in the live camera panel. Leave it empty to show a fresh picture."
+  },
+  {
     type: "robot_if_color",
     message0: "OpenCV: if the picture contains %1",
     args0: [{type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]}],
@@ -262,6 +361,18 @@ Blockly.defineBlocksWithJsonArray([
     colour: 0
   },
   {
+    type: "robot_print",
+    message0: "print %1 %2",
+    args0: [
+      {type: "input_value", name: "VALUE"},
+      {type: "input_value", name: "VALUE2"}
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    colour: 210,
+    tooltip: "Write a value to the terminal."
+  },
+  {
     type: "robot_wait_until",
     message0: "wait until %1",
     args0: [{type: "input_value", name: "CONDITION", check: "Boolean"}],
@@ -280,6 +391,13 @@ Blockly.defineBlocksWithJsonArray([
     output: "Boolean",
     colour: 165,
     tooltip: "True when the distance sensor reading matches."
+  },
+  {
+    type: "robot_distance_value",
+    message0: "distance in cm",
+    output: "Number",
+    colour: 165,
+    tooltip: "Read the robot's distance sensor."
   },
   {
     type: "robot_button_pressed",
@@ -368,20 +486,41 @@ function workspaceData() {
   return Blockly.serialization.workspaces.save(workspace);
 }
 
+function replaceWorkspace(program) {
+  checkTicket++;
+  syncingWorkspace = true;
+  try {
+    workspace.clear();
+    Blockly.serialization.workspaces.load(program, workspace);
+  } finally {
+    syncingWorkspace = false;
+  }
+}
+
 function loadWorkspaceData(program, message) {
-  workspace.clear();
-  Blockly.serialization.workspaces.load(program, workspace);
+  replaceWorkspace(program);
   setMessage(message);
+  queueGeneratePython();
 }
 
 async function refreshLibrary(selectedName = "") {
   const data = await jsonRequest("/api/library");
   librarySelect.replaceChildren();
+  const groups = {
+    blocks: document.createElement("optgroup"),
+    python: document.createElement("optgroup")
+  };
+  groups.blocks.label = "Block demos";
+  groups.python.label = "Python demos";
   for (const demo of data.demos || []) {
     const option = document.createElement("option");
     option.value = demo.name;
     option.textContent = demo.name;
-    librarySelect.appendChild(option);
+    if (!demo.block_compatible && demo.block_error) option.title = demo.block_error;
+    groups[demo.kind === "python" ? "python" : "blocks"].appendChild(option);
+  }
+  for (const group of Object.values(groups)) {
+    if (group.children.length) librarySelect.appendChild(group);
   }
   if (selectedName && [...librarySelect.options].some((option) => option.value === selectedName)) {
     librarySelect.value = selectedName;
@@ -396,6 +535,23 @@ async function loadLibraryDemo() {
   }
   try {
     const program = await jsonRequest("/api/library/" + encodeURIComponent(name));
+    if (typeof program.python === "string") {
+      if (!editor) {
+        setMessage("The Python editor is still loading", true);
+        return;
+      }
+      // Drop any pending block-to-Python refresh so it can't overwrite the demo.
+      clearTimeout(generateTimer);
+      generateTicket++;
+      lastBlockPython = "";
+      lastWorkingPython = program.python;
+      setEditorValue(program.python);
+      if (mode !== "python") showMode("python");
+      else checkPython();
+      setMessage("Loaded Python demo: " + name + ". Press Run to try it.");
+      return;
+    }
+    if (mode === "python") showMode("blocks");
     loadWorkspaceData(program, "Loaded demo: " + name);
   } catch (error) {
     setMessage("Could not load demo: " + error.message, true);
@@ -409,7 +565,7 @@ async function saveLibraryDemo() {
     const cleanName = name.trim();
     await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
       method: "POST",
-      body: JSON.stringify(workspaceData())
+      body: JSON.stringify(mode === "python" && editor ? {python: editor.getValue()} : workspaceData())
     });
     await refreshLibrary(cleanName);
     setMessage("Saved demo: " + cleanName);
@@ -453,9 +609,32 @@ function updateProgram(program) {
   const vision = program.vision || {};
   if (vision.status) {
     const area = vision.area ? " (" + vision.area + "px²)" : "";
-    $("vision-status").textContent = vision.status + area;
+    $("camera-view-label").textContent = (program.camera_view || vision.status) + area;
+  }
+
+  const output = $("terminal-output");
+  const text = program.output || "";
+  if (output.textContent !== text) {
+    output.textContent = text;
+    output.scrollTop = output.scrollHeight;
   }
 }
+
+function toggleTerminal(open) {
+  const tab = $("terminal-tab");
+  const body = $("terminal-body");
+  const next = open == null ? tab.getAttribute("aria-expanded") !== "true" : open;
+  tab.setAttribute("aria-expanded", String(next));
+  body.hidden = !next;
+  tab.querySelector("span").textContent = next ? "click to close" : "click to open";
+  requestAnimationFrame(() => {
+    if (mode === "blocks") Blockly.svgResize(workspace);
+    else if (editor) editor.layout();
+  });
+}
+
+$("terminal-tab").addEventListener("click", () => toggleTerminal());
+$("terminal-clear").addEventListener("click", () => { $("terminal-output").textContent = ""; });
 
 function videoSettings() {
   const selected = $("video-size").selectedOptions[0];
@@ -516,6 +695,13 @@ async function applyVideoSettings() {
 }
 
 function startProgram() {
+  if (mode === "python") {
+    jsonRequest("/api/program/start", {
+      method: "POST",
+      body: JSON.stringify({python: editor ? editor.getValue() : ""})
+    }).then(updateProgram).catch((error) => setMessage(error.message, true));
+    return;
+  }
   const topBlocks = workspace.getTopBlocks(true);
   if (topBlocks.length > 1) {
     setMessage("Join the " + topBlocks.length + " separate stacks before Run", true);
@@ -583,7 +769,7 @@ function updateTeleopState() {
   const enabled = teleopEnabled.checked;
   const card = $("teleop-card");
   card.classList.toggle("teleop-enabled", enabled);
-  $("teleop-state").textContent = enabled ? "ENABLED — sending" : "DISABLED";
+  $("teleop-state").textContent = enabled ? "ENABLED" : "DISABLED";
   $("teleop-state").className = "teleop-state " + (enabled ? "enabled" : "disabled");
 }
 
@@ -670,14 +856,14 @@ async function pollStatus() {
     $("connection-status").textContent = data.connected ? "Connected" : "Disconnected";
     $("connection-status").className = "status-pill " + (data.connected ? "connected" : "");
     $("target-label").textContent = data.url || "not connected";
-    $("video-rate").textContent = (connection.video_hz || 0) + " fps video";
-    $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " messages/s";
+    $("video-rate").textContent = (connection.video_hz || 0) + " fps";
+    $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
     $("command-latency").textContent = connection.last_command_ms == null
-      ? "command —"
-      : "command " + connection.last_command_ms + " ms";
+      ? "cmd —"
+      : "cmd " + connection.last_command_ms + " ms";
     $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined
-      ? "Distance " + data.telemetry.distance_cm + " cm"
-      : "Distance —";
+      ? "dist " + data.telemetry.distance_cm + " cm"
+      : "dist —";
     updateProgram(data.program || {});
   } catch (_) {
     const lamp = $("quality-lamp");
@@ -691,3 +877,357 @@ async function pollStatus() {
 setInterval(pollStatus, 250);
 pollStatus();
 refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));
+
+// ---- Python mode: Monaco editor kept in sync with the blocks ----
+const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
+const COLOUR_CHOICES = "red,green,blue,yellow,white,purple";
+const PYTHON_API = [
+  ["forward", "forward(seconds=${1:2}, power=${2:60})", "Drive forward for some seconds at a power from 0 to 100."],
+  ["backward", "backward(seconds=${1:2}, power=${2:60})", "Drive backward for some seconds."],
+  ["turn_left", "turn_left(seconds=${1:1}, power=${2:60})", "Spin left on the spot."],
+  ["turn_right", "turn_right(seconds=${1:1}, power=${2:60})", "Spin right on the spot."],
+  ["turn_around", "turn_around(seconds=${1:1.5}, power=${2:60})", "Spin around on the spot."],
+  ["drive", "drive(\"${1|forward,backward,left,right|}\", seconds=${2:1}, power=${3:60})", "Drive in a direction."],
+  ["wait", "wait(${1:1})", "Do nothing for some seconds."],
+  ["stop", "stop()", "Stop the motors."],
+  ["take_picture", "take_picture()", "Return a BGR NumPy image from the camera."],
+  ["show_in_live_camera", "show_in_live_camera(${1:image})", "Show a grayscale or BGR OpenCV image in the camera panel."],
+  ["scan_robot_qr", "scan_robot_qr()", "Return a robot name such as trilo-09 from its Lincoln QR code, or an empty string."],
+  ["sees_colour", "sees_colour(\"${1|" + COLOUR_CHOICES + "|}\", tolerance=${2:18}, min_area=${3:500})", "Block-friendly OpenCV HSV and contour check."],
+  ["distance", "distance()", "Distance sensor reading in cm (nan if it could not be read)."],
+  ["button_pressed", "button_pressed(\"${1|A,B,X,Y|}\")", "True while a button on the robot is held down."],
+  ["wait_until", "wait_until(lambda: ${1:distance() < 20})", "Pause until the condition is true."],
+  ["set_lights", "set_lights(\"${1|" + COLOUR_CHOICES + "|}\")", "Set the underlights to a colour."],
+  ["lights_off", "lights_off()", "Turn the underlights off."],
+  ["flash_lights", "flash_lights(\"${1|" + COLOUR_CHOICES + "|}\", times=${2:3})", "Flash the underlights."],
+  ["set_button_light", "set_button_light(\"${1|A,B,X,Y|}\", ${2:1})", "Set a button LED brightness from 0 to 1."],
+  ["count", "count(${1:1}, ${2:5})", "Count from the first number to the last, both included: for i in count(1, 5)."]
+];
+
+const blocksPane = $("blockly-workspace");
+const pythonPane = $("python-pane");
+const tabs = {blocks: $("tab-blocks"), python: $("tab-python")};
+const syncLabel = $("python-sync");
+const ranchModal = $("ranch-modal");
+
+let mode = "blocks";
+let editor = null;
+let lastBlockPython = "";
+let lastWorkingPython = "";
+let generateTimer = null;
+let generateTicket = 0;
+let checkTimer = null;
+let checkTicket = 0;
+let switching = false;
+let syncingWorkspace = false;
+let syncingEditor = false;
+
+function setSync(kind, text) {
+  syncLabel.className = "python-sync " + kind;
+  syncLabel.textContent = text;
+}
+
+function createEditor() {
+  editor = monaco.editor.create($("python-editor"), {
+    value: lastBlockPython,
+    language: "python",
+    automaticLayout: true,
+    minimap: {enabled: false},
+    scrollBeyondLastLine: false,
+    fontSize: 14,
+    tabSize: 4,
+    insertSpaces: true
+  });
+  monaco.languages.registerCompletionItemProvider("python", {
+    provideCompletionItems(model, position) {
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
+        startColumn: word.startColumn, endColumn: word.endColumn
+      };
+      return {
+        suggestions: PYTHON_API.map(([label, insertText, documentation]) => ({
+          label, insertText, documentation, range,
+          kind: monaco.languages.CompletionItemKind.Function,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+        }))
+      };
+    }
+  });
+  editor.onDidChangeModelContent(scheduleCheck);
+  editor.addAction({
+    id: "format-document-black",
+    label: "Format document (Black)",
+    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI],
+    contextMenuGroupId: "1_modification",
+    run: formatDocument
+  });
+  setSync("ok", "Blocks can show this code");
+}
+
+async function formatDocument() {
+  if (!editor) return;
+  try {
+    const result = await jsonRequest("/api/python/format", {
+      method: "POST",
+      body: JSON.stringify({code: editor.getValue()})
+    });
+    if (result.code !== editor.getValue()) editor.setValue(result.code);
+    setMessage("Formatted document with Black");
+  } catch (error) {
+    setMessage("Format document: " + error.message, true);
+  }
+}
+
+function loadMonaco() {
+  window.MonacoEnvironment = {
+    getWorkerUrl: () => "data:text/javascript;charset=utf-8," + encodeURIComponent(
+      "self.MonacoEnvironment = {baseUrl: '" + MONACO_BASE + "/'};" +
+      "importScripts('" + MONACO_BASE + "/vs/base/worker/workerMain.js');"
+    )
+  };
+  require.config({paths: {vs: MONACO_BASE + "/vs"}});
+  require(["vs/editor/editor.main"], createEditor,
+    () => setSync("error", "The Python editor could not load (it needs internet access)"));
+}
+
+async function generatePython() {
+  clearTimeout(generateTimer);
+  const ticket = ++generateTicket;
+  try {
+    const data = await jsonRequest("/api/python/generate", {
+      method: "POST",
+      body: JSON.stringify({program: workspaceData()})
+    });
+    if (ticket !== generateTicket) return;
+    lastBlockPython = data.code;
+    lastWorkingPython = data.code;
+    setEditorValue(data.code);
+    if (mode === "python") setSync("ok", "Python and blocks are synced");
+  } catch (error) {
+    setMessage("Python view: " + error.message, true);
+  }
+}
+
+function queueGeneratePython() {
+  clearTimeout(generateTimer);
+  generateTimer = setTimeout(generatePython, 200);
+}
+
+function setEditorValue(code) {
+  if (!editor || editor.getValue() === code) return;
+  syncingEditor = true;
+  try {
+    editor.setValue(code);
+  } finally {
+    syncingEditor = false;
+  }
+}
+
+function syncWorkspaceFromPython(program, code) {
+  clearTimeout(generateTimer);
+  generateTicket++;
+  replaceWorkspace(program);
+  lastBlockPython = code;
+  lastWorkingPython = code;
+  setEditorValue(code);
+  setSync("ok", "Python and blocks are synced");
+}
+
+workspace.addChangeListener((event) => {
+  if (event.isUiEvent || syncingWorkspace) return;
+  checkTicket++;
+  if (mode === "python") setSync("warn", "Syncing blocks to Python…");
+  queueGeneratePython();
+});
+
+function scheduleCheck() {
+  clearTimeout(checkTimer);
+  if (!syncingEditor && mode === "python") {
+    generateTicket++;
+    setSync("warn", "Syncing Python to blocks…");
+    checkTimer = setTimeout(checkPython, 500);
+  }
+}
+
+async function checkPython() {
+  if (!editor) return;
+  const ticket = ++checkTicket;
+  const model = editor.getModel();
+  const code = editor.getValue();
+  let result = {ok: true, code};
+  if (code !== lastBlockPython) {
+    try {
+      result = await jsonRequest("/api/python/to_blocks", {method: "POST", body: JSON.stringify({code})});
+    } catch (_) {
+      return;
+    }
+    if (ticket !== checkTicket) return;
+  }
+  if (result.ok) {
+    monaco.editor.setModelMarkers(model, "blocks", []);
+    const canonical = result.code || code;
+    if (result.program && canonical !== lastBlockPython) {
+      syncWorkspaceFromPython(result.program, canonical);
+    } else {
+      lastWorkingPython = canonical;
+      setEditorValue(canonical);
+      setSync("ok", "Python and blocks are synced");
+    }
+    return;
+  }
+  const line = Math.min(Math.max(result.line || 1, 1), model.getLineCount());
+  monaco.editor.setModelMarkers(model, "blocks", [{
+    severity: result.syntax ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+    message: result.message,
+    startLineNumber: line, endLineNumber: line,
+    startColumn: 1, endColumn: model.getLineMaxColumn(line)
+  }]);
+  setSync(
+    result.syntax ? "error" : "warn",
+    (result.syntax ? "" : "Too advanced for blocks — ") + "line " + line + ": " + result.message
+  );
+}
+
+function showMode(next) {
+  mode = next;
+  blocksPane.hidden = next !== "blocks";
+  pythonPane.hidden = next !== "python";
+  for (const [name, button] of Object.entries(tabs)) {
+    button.classList.toggle("active", name === next);
+    button.setAttribute("aria-selected", String(name === next));
+  }
+  if (next === "blocks") {
+    Blockly.svgResize(workspace);
+  } else if (editor) {
+    editor.layout();
+    editor.focus();
+    checkPython();
+  }
+}
+
+function showRanchModal(result) {
+  $("ranch-detail").textContent = (result.line ? "Line " + result.line + ": " : "") + (result.message || "");
+  ranchModal.hidden = false;
+  $("ranch-python").focus();
+}
+
+function closeRanchModal() {
+  ranchModal.hidden = true;
+  editor.focus();
+}
+
+async function leavePython() {
+  if (!editor) return;
+  const code = editor.getValue();
+  if (code === lastBlockPython) {
+    showMode("blocks");
+    return;
+  }
+  let result;
+  try {
+    result = await jsonRequest("/api/python/to_blocks", {method: "POST", body: JSON.stringify({code})});
+  } catch (error) {
+    setMessage(error.message, true);
+    return;
+  }
+  if (!result.ok) {
+    showRanchModal(result);
+    return;
+  }
+  syncWorkspaceFromPython(result.program, result.code);
+  showMode("blocks");
+  setMessage("Python and blocks are synced");
+}
+
+async function switchMode(target) {
+  if (switching || target === mode) return;
+  switching = true;
+  try {
+    if (target === "python") {
+      if (!editor) {
+        setMessage("The Python editor is still loading", true);
+        return;
+      }
+      await generatePython();
+      showMode("python");
+    } else {
+      await leavePython();
+    }
+  } finally {
+    switching = false;
+  }
+}
+
+tabs.blocks.addEventListener("click", () => switchMode("blocks"));
+tabs.python.addEventListener("click", () => switchMode("python"));
+$("ranch-python").addEventListener("click", closeRanchModal);
+$("ranch-reset").addEventListener("click", async () => {
+  ranchModal.hidden = true;
+  setEditorValue(lastWorkingPython || lastBlockPython);
+  await leavePython();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !ranchModal.hidden) closeRanchModal();
+});
+
+// ---- Quick start guide: one colourful step at a time ----
+const HELP_SEEN_KEY = "trilobotBlocklyQuickStartSeen";
+const helpModal = $("help-modal");
+const helpSteps = [
+  {emoji: "🔌", title: "Connect your robot", target: "#connect-button", body: "Type the robot address, then press <strong>Connect</strong>. The status dot tells you when the robot and camera are ready."},
+  {emoji: "🧩", title: "Pick a block", target: ".blocklyToolboxDiv", body: "Open a colourful category on the left and drag out an action. Snap blocks together from top to bottom."},
+  {emoji: "🔢", title: "Make it yours", target: "#run-button", body: "Edit the number sockets, then press <strong>Run</strong>. Keep one connected stack so the robot knows the order."},
+  {emoji: "🐍", title: "Learn real Python", target: "#tab-python", body: "The Python tab shows the same robot API as code. You can type, use <code>cv2</code> and <code>numpy</code>, and run your program there."},
+  {emoji: "🖥️", title: "Watch the terminal", target: "#terminal-tab", body: "Open the terminal in either tab to see <code>print()</code> output and status messages. It stays in the same place when you switch modes."},
+  {emoji: "🎮", title: "Reset safely", target: "#teleop-enabled", body: "Only enable teleop when you need to reposition the robot. Hold a direction button or use <kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd>."},
+];
+let helpIndex = 0;
+
+function renderHelpStep() {
+  const step = helpSteps[helpIndex];
+  $("help-progress").textContent = `${helpIndex + 1} / ${helpSteps.length}`;
+  $("help-step").innerHTML = `<h3><span class="qsg-emoji" aria-hidden="true">${step.emoji}</span> ${step.title}</h3><p>${step.body}</p>`;
+  $("help-arrow").textContent = "↓";
+  $("help-prev").disabled = helpIndex === 0;
+  $("help-next").textContent = helpIndex === helpSteps.length - 1 ? "Finish" : "Next →";
+  document.querySelectorAll(".qsg-target").forEach((element) => element.classList.remove("qsg-target"));
+  const target = document.querySelector(step.target);
+  if (target) target.classList.add("qsg-target");
+}
+
+function openHelp() {
+  helpIndex = 0;
+  helpModal.hidden = false;
+  renderHelpStep();
+  $("help-next").focus();
+}
+
+function closeHelp() {
+  helpModal.hidden = true;
+  document.querySelectorAll(".qsg-target").forEach((element) => element.classList.remove("qsg-target"));
+  try { localStorage.setItem(HELP_SEEN_KEY, "1"); } catch (_) {}
+}
+
+$("help-button").addEventListener("click", openHelp);
+$("help-close").addEventListener("click", closeHelp);
+$("help-prev").addEventListener("click", () => { if (helpIndex > 0) { helpIndex--; renderHelpStep(); } });
+$("help-next").addEventListener("click", () => {
+  if (helpIndex === helpSteps.length - 1) closeHelp();
+  else { helpIndex++; renderHelpStep(); }
+});
+helpModal.addEventListener("click", (event) => {
+  if (event.target === helpModal) closeHelp();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !helpModal.hidden) closeHelp();
+  if (event.key === "ArrowRight" && !helpModal.hidden) $("help-next").click();
+  if (event.key === "ArrowLeft" && !helpModal.hidden) $("help-prev").click();
+});
+try {
+  if (localStorage.getItem(HELP_SEEN_KEY) !== "1") openHelp();
+} catch (_) {
+  openHelp();
+}
+
+generatePython().then(loadMonaco);

@@ -1,0 +1,315 @@
+{
+  "blocks": {
+    "languageVersion": 0,
+    "blocks": [
+      {
+        "type": "variables_set",
+        "fields": {
+          "VAR": {
+            "id": "var_image"
+          }
+        },
+        "inputs": {
+          "VALUE": {
+            "block": {
+              "type": "opencv_camera_image"
+            }
+          }
+        },
+        "next": {
+          "block": {
+            "type": "variables_set",
+            "fields": {
+              "VAR": {
+                "id": "var_blurred"
+              }
+            },
+            "inputs": {
+              "VALUE": {
+                "block": {
+                  "type": "opencv_blur",
+                  "inputs": {
+                    "IMAGE": {
+                      "block": {
+                        "type": "variables_get",
+                        "fields": {
+                          "VAR": {
+                            "id": "var_image"
+                          }
+                        }
+                      }
+                    },
+                    "KERNEL": {
+                      "shadow": {
+                        "type": "math_number",
+                        "fields": {
+                          "NUM": 5
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "next": {
+              "block": {
+                "type": "variables_set",
+                "fields": {
+                  "VAR": {
+                    "id": "var_hsv"
+                  }
+                },
+                "inputs": {
+                  "VALUE": {
+                    "block": {
+                      "type": "opencv_to_hsv",
+                      "fields": {
+                        "CONVERSION": "BGR_TO_HSV"
+                      },
+                      "inputs": {
+                        "IMAGE": {
+                          "block": {
+                            "type": "variables_get",
+                            "fields": {
+                              "VAR": {
+                                "id": "var_blurred"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "next": {
+                  "block": {
+                    "type": "variables_set",
+                    "fields": {
+                      "VAR": {
+                        "id": "var_green"
+                      }
+                    },
+                    "inputs": {
+                      "VALUE": {
+                        "block": {
+                          "type": "opencv_hsv_mask",
+                          "inputs": {
+                            "IMAGE": {
+                              "block": {
+                                "type": "variables_get",
+                                "fields": {
+                                  "VAR": {
+                                    "id": "var_hsv"
+                                  }
+                                }
+                              }
+                            },
+                            "LOW": {
+                              "block": {
+                                "type": "opencv_hsv_value",
+                                "inputs": {
+                                  "H": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 40
+                                      }
+                                    }
+                                  },
+                                  "S": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 70
+                                      }
+                                    }
+                                  },
+                                  "V": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 70
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "HIGH": {
+                              "block": {
+                                "type": "opencv_hsv_value",
+                                "inputs": {
+                                  "H": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 80
+                                      }
+                                    }
+                                  },
+                                  "S": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 255
+                                      }
+                                    }
+                                  },
+                                  "V": {
+                                    "shadow": {
+                                      "type": "math_number",
+                                      "fields": {
+                                        "NUM": 255
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "next": {
+                      "block": {
+                        "type": "variables_set",
+                        "fields": {
+                          "VAR": {
+                            "id": "var_pixels"
+                          }
+                        },
+                        "inputs": {
+                          "VALUE": {
+                            "block": {
+                              "type": "opencv_count_nonzero",
+                              "inputs": {
+                                "IMAGE": {
+                                  "block": {
+                                    "type": "variables_get",
+                                    "fields": {
+                                      "VAR": {
+                                        "id": "var_green"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "next": {
+                          "block": {
+                            "type": "controls_if",
+                            "inputs": {
+                              "IF0": {
+                                "block": {
+                                  "type": "logic_compare",
+                                  "fields": {
+                                    "OP": "GT"
+                                  },
+                                  "inputs": {
+                                    "A": {
+                                      "block": {
+                                        "type": "variables_get",
+                                        "fields": {
+                                          "VAR": {
+                                            "id": "var_pixels"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "B": {
+                                      "shadow": {
+                                        "type": "math_number",
+                                        "fields": {
+                                          "NUM": 800
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "DO0": {
+                                "block": {
+                                  "type": "robot_set_lights",
+                                  "fields": {
+                                    "COLOR": "#00ff00"
+                                  },
+                                  "next": {
+                                    "block": {
+                                      "type": "robot_forward",
+                                      "inputs": {
+                                        "SECONDS": {
+                                          "shadow": {
+                                            "type": "math_number",
+                                            "fields": {
+                                              "NUM": 2
+                                            }
+                                          }
+                                        },
+                                        "SPEED": {
+                                          "shadow": {
+                                            "type": "math_number",
+                                            "fields": {
+                                              "NUM": 50
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "ELSE": {
+                                "block": {
+                                  "type": "robot_set_lights",
+                                  "fields": {
+                                    "COLOR": "#ff0000"
+                                  }
+                                }
+                              }
+                            },
+                            "extraState": {
+                              "hasElse": true
+                            },
+                            "next": {
+                              "block": {
+                                "type": "robot_stop"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "variables": [
+    {
+      "name": "image",
+      "id": "var_image"
+    },
+    {
+      "name": "blurred",
+      "id": "var_blurred"
+    },
+    {
+      "name": "hsv",
+      "id": "var_hsv"
+    },
+    {
+      "name": "green",
+      "id": "var_green"
+    },
+    {
+      "name": "pixels",
+      "id": "var_pixels"
+    }
+  ]
+}

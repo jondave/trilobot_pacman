@@ -1,0 +1,11 @@
+# Change the lights one colour at a time.
+set_lights("red")
+wait(0.7)
+set_lights("green")
+wait(0.7)
+set_lights("blue")
+wait(0.7)
+set_lights("yellow")
+wait(0.7)
+lights_off()
+print("Finished showing colours")
