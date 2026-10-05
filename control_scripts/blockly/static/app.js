@@ -1,419 +1,577 @@
 /* Blockly Lab frontend: small, clear controls for students. */
 
-Blockly.defineBlocksWithJsonArray([
-  {
-    type: "robot_forward",
-    message0: "move forward for %1 seconds at %2% power",
-    args0: [
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35,
-    tooltip: "Drive straight ahead."
-  },
-  {
-    type: "robot_backward",
-    message0: "move backward for %1 seconds at %2% power",
-    args0: [
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_turn_left",
-    message0: "turn left for %1 seconds at %2% power",
-    args0: [
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_turn_right",
-    message0: "turn right for %1 seconds at %2% power",
-    args0: [
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_turn_around",
-    message0: "turn around for %1 seconds at %2% power",
-    args0: [
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_drive_for",
-    message0: "drive %1 for %2 seconds at %3% power",
-    args0: [
-      {type: "field_dropdown", name: "DIRECTION", options: [["forward", "FORWARD"], ["backward", "BACKWARD"], ["left", "LEFT"], ["right", "RIGHT"]]},
-      {type: "input_value", name: "SECONDS", check: "Number"},
-      {type: "input_value", name: "SPEED", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_take_picture",
-    message0: "take a picture",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 285,
-    tooltip: "Take a snapshot for the OpenCV blocks."
-  },
-  {
-    type: "opencv_camera_image",
-    message0: "camera image",
-    output: "Image",
-    colour: 285,
-    tooltip: "Take a BGR image from the live robot camera."
-  },
-  {
-    type: "opencv_to_hsv",
-    message0: "convert %1 %2",
-    args0: [
-      {type: "input_value", name: "IMAGE", check: "Image"},
-      {type: "field_dropdown", name: "CONVERSION", options: [["BGR → HSV", "BGR_TO_HSV"], ["HSV → BGR", "HSV_TO_BGR"]]}
-    ],
-    output: "Image",
-    colour: 285,
-    tooltip: "Convert an OpenCV BGR image to HSV."
-  },
-  {
-    type: "opencv_blur",
-    message0: "blur %1 with a %2 pixel kernel",
-    args0: [
-      {type: "input_value", name: "IMAGE", check: "Image"},
-      {type: "input_value", name: "KERNEL", check: "Number"}
-    ],
-    output: "Image",
-    colour: 285,
-    tooltip: "Smooth an image before making a mask. Use an odd kernel such as 5."
-  },
-  {
-    type: "opencv_box_blur",
-    message0: "box blur %1 with a %2 pixel kernel",
-    args0: [
-      {type: "input_value", name: "IMAGE", check: "Image"},
-      {type: "input_value", name: "KERNEL", check: "Number"}
-    ],
-    output: "Image",
-    colour: 285,
-    tooltip: "Apply OpenCV's simple box blur. Use an odd kernel such as 5."
-  },
-  {
-    type: "opencv_hsv_value",
-    message0: "HSV value: H %1  S %2  V %3",
-    args0: [
-      {type: "input_value", name: "H", check: "Number"},
-      {type: "input_value", name: "S", check: "Number"},
-      {type: "input_value", name: "V", check: "Number"}
-    ],
-    output: "HSV",
-    colour: 285,
-    tooltip: "One HSV colour bound. H is 0–179; S and V are 0–255."
-  },
-  {
-    type: "opencv_hsv_mask",
-    message0: "make HSV mask from %1",
-    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
-    message1: "low HSV bound %1",
-    args1: [{type: "input_value", name: "LOW", check: "HSV"}],
-    message2: "high HSV bound %1",
-    args2: [{type: "input_value", name: "HIGH", check: "HSV"}],
-    output: "Image",
-    colour: 285,
-    tooltip: "Keep pixels inside these HSV bounds and make a black-and-white mask."
-  },
-  {
-    type: "opencv_count_nonzero",
-    message0: "count white pixels in %1",
-    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
-    output: "Number",
-    colour: 285,
-    tooltip: "Count the white pixels in a mask."
-  },
-  {
-    type: "opencv_mask_or",
-    message0: "combine masks %1 and %2",
-    args0: [
-      {type: "input_value", name: "IMAGE1", check: "Image"},
-      {type: "input_value", name: "IMAGE2", check: "Image"}
-    ],
-    output: "Image",
-    colour: 285,
-    tooltip: "Combine two black-and-white masks with OpenCV bitwise OR."
-  },
-  {
-    type: "robot_scan_qr",
-    message0: "scan robot QR code",
-    output: "String",
-    colour: 285,
-    tooltip: "Return the robot name such as trilo-xx from a Lincoln robot QR code."
-  },
-  {
-    type: "robot_show_live_camera",
-    message0: "show %1 in live camera",
-    args0: [{type: "input_value", name: "IMAGE", check: "Image"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 285,
-    tooltip: "Show an image or mask variable in the live camera panel. Leave it empty to show a fresh picture."
-  },
-  {
-    type: "robot_if_color",
-    message0: "OpenCV: if the picture contains %1",
-    args0: [{type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]}],
-    message1: "colour tolerance %1 degrees, minimum area %2",
-    args1: [
-      {type: "input_value", name: "TOLERANCE", check: "Number"},
-      {type: "input_value", name: "MIN_AREA", check: "Number"}
-    ],
-    message2: "then do %1",
-    args2: [{type: "input_statement", name: "THEN"}],
-    message3: "otherwise do %1",
-    args3: [{type: "input_statement", name: "ELSE"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 285,
-    tooltip: "Uses basic OpenCV HSV colour detection."
-  },
-  {
-    type: "robot_if_distance",
-    message0: "if distance is %1 %2 cm",
-    args0: [
-      {type: "field_dropdown", name: "OPERATOR", options: [["less than", "LESS_THAN"], ["more than", "MORE_THAN"]]},
-      {type: "input_value", name: "CENTIMETRES", check: "Number"}
-    ],
-    message1: "then do %1",
-    args1: [{type: "input_statement", name: "THEN"}],
-    message2: "otherwise do %1",
-    args2: [{type: "input_statement", name: "ELSE"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 165,
-    tooltip: "Reads the robot's distance sensor."
-  },
-  {
-    type: "robot_underlights_on",
-    message0: "turn on underlights",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 315,
-    tooltip: "Turn the robot underlights on white."
-  },
-  {
-    type: "robot_underlights_off",
-    message0: "turn off underlights",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 315,
-    tooltip: "Turn all underlights off."
-  },
-  {
-    type: "robot_lights_red",
-    message0: "set lights red",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 0
-  },
-  {
-    type: "robot_lights_green",
-    message0: "set lights green",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 120
-  },
-  {
-    type: "robot_lights_blue",
-    message0: "set lights blue",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 210
-  },
-  {
-    type: "robot_lights_yellow",
-    message0: "set lights yellow",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 60
-  },
-  {
-    type: "robot_lights_white",
-    message0: "set lights white",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 45
-  },
-  {
-    type: "robot_lights_purple",
-    message0: "set lights purple",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 285
-  },
-  {
-    type: "robot_colour_red",
-    message0: "red",
-    output: "Colour",
-    colour: 0
-  },
-  {
-    type: "robot_colour_green",
-    message0: "green",
-    output: "Colour",
-    colour: 120
-  },
-  {
-    type: "robot_colour_blue",
-    message0: "blue",
-    output: "Colour",
-    colour: 210
-  },
-  {
-    type: "robot_colour_yellow",
-    message0: "yellow",
-    output: "Colour",
-    colour: 60
-  },
-  {
-    type: "robot_colour_white",
-    message0: "white",
-    output: "Colour",
-    colour: 45
-  },
-  {
-    type: "robot_colour_purple",
-    message0: "purple",
-    output: "Colour",
-    colour: 285
-  },
-  {
-    type: "robot_set_lights",
-    message0: "set lights to %1",
-    args0: [{type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 315
-  },
-  {
-    type: "robot_flash_lights",
-    message0: "flash %1 for %2 times",
-    args0: [
-      {type: "field_dropdown", name: "COLOR", options: [["red", "#ff0000"], ["green", "#00ff00"], ["blue", "#0000ff"], ["yellow", "#ffff00"], ["white", "#ffffff"], ["purple", "#ff00ff"]]},
-      {type: "input_value", name: "TIMES", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 315
-  },
-  {
-    type: "robot_button_light",
-    message0: "set button %1 brightness to %2",
-    args0: [
-      {type: "field_dropdown", name: "BUTTON", options: [["A", "A"], ["B", "B"], ["X", "X"], ["Y", "Y"]]},
-      {type: "input_value", name: "BRIGHTNESS", check: "Number"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 315
-  },
-  {
-    type: "robot_repeat",
-    message0: "repeat %1 times",
-    args0: [{type: "input_value", name: "TIMES", check: "Number"}],
-    message1: "do %1",
-    args1: [{type: "input_statement", name: "DO"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 120,
-    tooltip: "Repeat the blocks inside this loop."
-  },
-  {
-    type: "robot_wait",
-    message0: "wait %1 seconds",
-    args0: [{type: "input_value", name: "SECONDS", check: "Number"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35
-  },
-  {
-    type: "robot_stop",
-    message0: "stop the robot",
-    previousStatement: null,
-    nextStatement: null,
-    colour: 0
-  },
-  {
-    type: "robot_print",
-    message0: "print %1 %2",
-    args0: [
-      {type: "input_value", name: "VALUE"},
-      {type: "input_value", name: "VALUE2"}
-    ],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 210,
-    tooltip: "Write a value to the terminal."
-  },
-  {
-    type: "robot_wait_until",
-    message0: "wait until %1",
-    args0: [{type: "input_value", name: "CONDITION", check: "Boolean"}],
-    previousStatement: null,
-    nextStatement: null,
-    colour: 35,
-    tooltip: "Pause the program until the condition is true."
-  },
-  {
-    type: "robot_distance_condition",
-    message0: "distance is %1 %2 cm",
-    args0: [
-      {type: "field_dropdown", name: "OPERATOR", options: [["less than", "LESS_THAN"], ["more than", "MORE_THAN"]]},
-      {type: "input_value", name: "CENTIMETRES", check: "Number"}
-    ],
-    output: "Boolean",
-    colour: 165,
-    tooltip: "True when the distance sensor reading matches."
-  },
-  {
-    type: "robot_distance_value",
-    message0: "distance in cm",
-    output: "Number",
-    colour: 165,
-    tooltip: "Read the robot's distance sensor."
-  },
-  {
-    type: "robot_button_pressed",
-    message0: "robot button %1 is pressed",
-    args0: [{type: "field_dropdown", name: "BUTTON", options: [["A", "A"], ["B", "B"], ["X", "X"], ["Y", "Y"]]}],
-    output: "Boolean",
-    colour: 165,
-    tooltip: "True while the button on the robot is held down."
-  }
-]);
+Blockly.defineBlocksWithJsonArray([{
+  type: "robot_forward",
+  message0: "move forward for %1 seconds at %2% power",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35,
+  tooltip: "Drive straight ahead."
+}, {
+  type: "robot_backward",
+  message0: "move backward for %1 seconds at %2% power",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_turn_left",
+  message0: "turn left for %1 seconds at %2% power",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_turn_right",
+  message0: "turn right for %1 seconds at %2% power",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_turn_around",
+  message0: "turn around for %1 seconds at %2% power",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_drive_for",
+  message0: "drive %1 for %2 seconds at %3% power",
+  args0: [{
+    type: "field_dropdown",
+    name: "DIRECTION",
+    options: [
+      ["forward", "FORWARD"],
+      ["backward", "BACKWARD"],
+      ["left", "LEFT"],
+      ["right", "RIGHT"]
+    ]
+  }, {
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "SPEED",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_take_picture",
+  message0: "take a picture",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 285,
+  tooltip: "Take a snapshot for the OpenCV blocks."
+}, {
+  type: "opencv_camera_image",
+  message0: "camera image",
+  output: "Image",
+  colour: 285,
+  tooltip: "Take a BGR image from the live robot camera."
+}, {
+  type: "opencv_to_hsv",
+  message0: "convert %1 %2",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }, {
+    type: "field_dropdown",
+    name: "CONVERSION",
+    options: [
+      ["BGR → HSV", "BGR_TO_HSV"],
+      ["HSV → BGR", "HSV_TO_BGR"]
+    ]
+  }],
+  output: "Image",
+  colour: 285,
+  tooltip: "Convert an OpenCV BGR image to HSV."
+}, {
+  type: "opencv_blur",
+  message0: "blur %1 with a %2 pixel kernel",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }, {
+    type: "input_value",
+    name: "KERNEL",
+    check: "Number"
+  }],
+  output: "Image",
+  colour: 285,
+  tooltip: "Smooth an image before making a mask. Use an odd kernel such as 5."
+}, {
+  type: "opencv_box_blur",
+  message0: "box blur %1 with a %2 pixel kernel",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }, {
+    type: "input_value",
+    name: "KERNEL",
+    check: "Number"
+  }],
+  output: "Image",
+  colour: 285,
+  tooltip: "Apply OpenCV's simple box blur. Use an odd kernel such as 5."
+}, {
+  type: "opencv_hsv_value",
+  message0: "HSV value: H %1  S %2  V %3",
+  args0: [{
+    type: "input_value",
+    name: "H",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "S",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "V",
+    check: "Number"
+  }],
+  output: "HSV",
+  colour: 285,
+  tooltip: "One HSV colour bound. H is 0–179; S and V are 0–255."
+}, {
+  type: "opencv_hsv_mask",
+  message0: "make HSV mask from %1",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }],
+  message1: "low HSV bound %1",
+  args1: [{
+    type: "input_value",
+    name: "LOW",
+    check: "HSV"
+  }],
+  message2: "high HSV bound %1",
+  args2: [{
+    type: "input_value",
+    name: "HIGH",
+    check: "HSV"
+  }],
+  output: "Image",
+  colour: 285,
+  tooltip: "Keep pixels inside these HSV bounds and make a black-and-white mask."
+}, {
+  type: "opencv_count_nonzero",
+  message0: "count white pixels in %1",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }],
+  output: "Number",
+  colour: 285,
+  tooltip: "Count the white pixels in a mask."
+}, {
+  type: "opencv_mask_or",
+  message0: "combine masks %1 and %2",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE1",
+    check: "Image"
+  }, {
+    type: "input_value",
+    name: "IMAGE2",
+    check: "Image"
+  }],
+  output: "Image",
+  colour: 285,
+  tooltip: "Combine two black-and-white masks with OpenCV bitwise OR."
+}, {
+  type: "robot_scan_qr",
+  message0: "scan robot QR code",
+  output: "String",
+  colour: 285,
+  tooltip: "Return the robot name such as trilo-xx from a Lincoln robot QR code."
+}, {
+  type: "robot_show_live_camera",
+  message0: "show %1 in live camera",
+  args0: [{
+    type: "input_value",
+    name: "IMAGE",
+    check: "Image"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 285,
+  tooltip: "Show an image or mask variable in the live camera panel. Leave it empty to show a fresh picture."
+}, {
+  type: "robot_if_color",
+  message0: "OpenCV: if the picture contains %1",
+  args0: [{
+    type: "field_dropdown",
+    name: "COLOR",
+    options: [
+      ["red", "#ff0000"],
+      ["green", "#00ff00"],
+      ["blue", "#0000ff"],
+      ["yellow", "#ffff00"],
+      ["white", "#ffffff"],
+      ["purple", "#ff00ff"]
+    ]
+  }],
+  message1: "colour tolerance %1 degrees, minimum area %2",
+  args1: [{
+    type: "input_value",
+    name: "TOLERANCE",
+    check: "Number"
+  }, {
+    type: "input_value",
+    name: "MIN_AREA",
+    check: "Number"
+  }],
+  message2: "then do %1",
+  args2: [{
+    type: "input_statement",
+    name: "THEN"
+  }],
+  message3: "otherwise do %1",
+  args3: [{
+    type: "input_statement",
+    name: "ELSE"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 285,
+  tooltip: "Uses basic OpenCV HSV colour detection."
+}, {
+  type: "robot_if_distance",
+  message0: "if distance is %1 %2 cm",
+  args0: [{
+    type: "field_dropdown",
+    name: "OPERATOR",
+    options: [
+      ["less than", "LESS_THAN"],
+      ["more than", "MORE_THAN"]
+    ]
+  }, {
+    type: "input_value",
+    name: "CENTIMETRES",
+    check: "Number"
+  }],
+  message1: "then do %1",
+  args1: [{
+    type: "input_statement",
+    name: "THEN"
+  }],
+  message2: "otherwise do %1",
+  args2: [{
+    type: "input_statement",
+    name: "ELSE"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 165,
+  tooltip: "Reads the robot's distance sensor."
+}, {
+  type: "robot_underlights_on",
+  message0: "turn on underlights",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 315,
+  tooltip: "Turn the robot underlights on white."
+}, {
+  type: "robot_underlights_off",
+  message0: "turn off underlights",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 315,
+  tooltip: "Turn all underlights off."
+}, {
+  type: "robot_lights_red",
+  message0: "set lights red",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 0
+}, {
+  type: "robot_lights_green",
+  message0: "set lights green",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 120
+}, {
+  type: "robot_lights_blue",
+  message0: "set lights blue",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 210
+}, {
+  type: "robot_lights_yellow",
+  message0: "set lights yellow",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 60
+}, {
+  type: "robot_lights_white",
+  message0: "set lights white",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 45
+}, {
+  type: "robot_lights_purple",
+  message0: "set lights purple",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 285
+}, {
+  type: "robot_colour_red",
+  message0: "red",
+  output: "Colour",
+  colour: 0
+}, {
+  type: "robot_colour_green",
+  message0: "green",
+  output: "Colour",
+  colour: 120
+}, {
+  type: "robot_colour_blue",
+  message0: "blue",
+  output: "Colour",
+  colour: 210
+}, {
+  type: "robot_colour_yellow",
+  message0: "yellow",
+  output: "Colour",
+  colour: 60
+}, {
+  type: "robot_colour_white",
+  message0: "white",
+  output: "Colour",
+  colour: 45
+}, {
+  type: "robot_colour_purple",
+  message0: "purple",
+  output: "Colour",
+  colour: 285
+}, {
+  type: "robot_set_lights",
+  message0: "set lights to %1",
+  args0: [{
+    type: "field_dropdown",
+    name: "COLOR",
+    options: [
+      ["red", "#ff0000"],
+      ["green", "#00ff00"],
+      ["blue", "#0000ff"],
+      ["yellow", "#ffff00"],
+      ["white", "#ffffff"],
+      ["purple", "#ff00ff"]
+    ]
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 315
+}, {
+  type: "robot_flash_lights",
+  message0: "flash %1 for %2 times",
+  args0: [{
+    type: "field_dropdown",
+    name: "COLOR",
+    options: [
+      ["red", "#ff0000"],
+      ["green", "#00ff00"],
+      ["blue", "#0000ff"],
+      ["yellow", "#ffff00"],
+      ["white", "#ffffff"],
+      ["purple", "#ff00ff"]
+    ]
+  }, {
+    type: "input_value",
+    name: "TIMES",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 315
+}, {
+  type: "robot_button_light",
+  message0: "set button %1 brightness to %2",
+  args0: [{
+    type: "field_dropdown",
+    name: "BUTTON",
+    options: [
+      ["A", "A"],
+      ["B", "B"],
+      ["X", "X"],
+      ["Y", "Y"]
+    ]
+  }, {
+    type: "input_value",
+    name: "BRIGHTNESS",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 315
+}, {
+  type: "robot_repeat",
+  message0: "repeat %1 times",
+  args0: [{
+    type: "input_value",
+    name: "TIMES",
+    check: "Number"
+  }],
+  message1: "do %1",
+  args1: [{
+    type: "input_statement",
+    name: "DO"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 120,
+  tooltip: "Repeat the blocks inside this loop."
+}, {
+  type: "robot_wait",
+  message0: "wait %1 seconds",
+  args0: [{
+    type: "input_value",
+    name: "SECONDS",
+    check: "Number"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35
+}, {
+  type: "robot_stop",
+  message0: "stop the robot",
+  previousStatement: null,
+  nextStatement: null,
+  colour: 0
+}, {
+  type: "robot_print",
+  message0: "print %1 %2",
+  args0: [{
+    type: "input_value",
+    name: "VALUE"
+  }, {
+    type: "input_value",
+    name: "VALUE2"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 210,
+  tooltip: "Write a value to the terminal."
+}, {
+  type: "robot_wait_until",
+  message0: "wait until %1",
+  args0: [{
+    type: "input_value",
+    name: "CONDITION",
+    check: "Boolean"
+  }],
+  previousStatement: null,
+  nextStatement: null,
+  colour: 35,
+  tooltip: "Pause the program until the condition is true."
+}, {
+  type: "robot_distance_condition",
+  message0: "distance is %1 %2 cm",
+  args0: [{
+    type: "field_dropdown",
+    name: "OPERATOR",
+    options: [
+      ["less than", "LESS_THAN"],
+      ["more than", "MORE_THAN"]
+    ]
+  }, {
+    type: "input_value",
+    name: "CENTIMETRES",
+    check: "Number"
+  }],
+  output: "Boolean",
+  colour: 165,
+  tooltip: "True when the distance sensor reading matches."
+}, {
+  type: "robot_distance_value",
+  message0: "distance in cm",
+  output: "Number",
+  colour: 165,
+  tooltip: "Read the robot's distance sensor."
+}, {
+  type: "robot_button_pressed",
+  message0: "robot button %1 is pressed",
+  args0: [{
+    type: "field_dropdown",
+    name: "BUTTON",
+    options: [
+      ["A", "A"],
+      ["B", "B"],
+      ["X", "X"],
+      ["Y", "Y"]
+    ]
+  }],
+  output: "Boolean",
+  colour: 165,
+  tooltip: "True while the button on the robot is held down."
+}]);
 
 const workspace = Blockly.inject("blockly-workspace", {
   toolbox: document.getElementById("toolbox"),
   trashcan: true,
-  move: {scrollbars: true, drag: true, wheel: true},
-  zoom: {controls: true, wheel: true, startScale: 0.85, maxScale: 1.25, minScale: 0.55}
+  move: {
+    scrollbars: true,
+    drag: true,
+    wheel: true
+  },
+  zoom: {
+    controls: true,
+    wheel: true,
+    startScale: 0.85,
+    maxScale: 1.25,
+    minScale: 0.55
+  }
 });
 
 workspace.registerButtonCallback("CREATE_VARIABLE", (button) => {
@@ -463,13 +621,24 @@ let statusRequestInFlight = false;
 let robotChoices = [];
 const MANUAL_ROBOT_VALUE = "__manual__";
 const PING_STATUS = {
-  green: {icon: "🟢", label: "Seen within 10 minutes"},
-  orange: {icon: "🟠", label: "Not seen for more than 10 minutes"},
-  red: {icon: "🔴", label: "Not seen for more than 30 minutes"}
+  green: {
+    icon: "🟢",
+    label: "Seen within 10 minutes"
+  },
+  orange: {
+    icon: "🟠",
+    label: "Not seen for more than 10 minutes"
+  },
+  red: {
+    icon: "🔴",
+    label: "Not seen for more than 30 minutes"
+  }
 };
 
 async function jsonRequest(path, options = {}) {
-  const requestOptions = {...options};
+  const requestOptions = {
+    ...options
+  };
   if (requestOptions.body) {
     requestOptions.headers = {
       "Content-Type": "application/json",
@@ -478,7 +647,9 @@ async function jsonRequest(path, options = {}) {
   }
   const response = await fetch(path, requestOptions);
   let data = {};
-  try { data = await response.json(); } catch (_) {}
+  try {
+    data = await response.json();
+  } catch (_) {}
   if (!response.ok) {
     throw new Error(data.error || "Request failed (" + response.status + ")");
   }
@@ -596,7 +767,8 @@ async function refreshLibrary(selectedName = "") {
   for (const group of Object.values(groups)) {
     if (group.children.length) librarySelect.appendChild(group);
   }
-  if (selectedName && [...librarySelect.options].some((option) => option.value === selectedName)) {
+  if (selectedName && [...librarySelect.options].some((option) => option.value ===
+      selectedName)) {
     librarySelect.value = selectedName;
   }
 }
@@ -639,7 +811,9 @@ async function saveLibraryDemo() {
     const cleanName = name.trim();
     await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
       method: "POST",
-      body: JSON.stringify(mode === "python" && editor ? {python: editor.getValue()} : workspaceData())
+      body: JSON.stringify(mode === "python" && editor ? {
+        python: editor.getValue()
+      } : workspaceData())
     });
     await refreshLibrary(cleanName);
     setMessage("Saved demo: " + cleanName);
@@ -650,7 +824,9 @@ async function saveLibraryDemo() {
 
 function downloadProgram() {
   const data = JSON.stringify(workspaceData(), null, 2);
-  const blob = new Blob([data], {type: "application/json"});
+  const blob = new Blob([data], {
+    type: "application/json"
+  });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = "trilobot_trait.json";
@@ -678,7 +854,8 @@ function updateProgram(program) {
   const status = program.status || "idle";
   const label = status[0].toUpperCase() + status.slice(1);
   const current = program.current ? ": " + program.current : "";
-  setMessage(label + current + (program.error ? " — " + program.error : ""), Boolean(program.error));
+  setMessage(label + current + (program.error ? " — " + program.error : ""), Boolean(program
+    .error));
 
   const vision = program.vision || {};
   if (vision.status) {
@@ -708,7 +885,9 @@ function toggleTerminal(open) {
 }
 
 $("terminal-tab").addEventListener("click", () => toggleTerminal());
-$("terminal-clear").addEventListener("click", () => { $("terminal-output").textContent = ""; });
+$("terminal-clear").addEventListener("click", () => {
+  $("terminal-output").textContent = "";
+});
 
 function videoSettings() {
   const selected = $("video-size").selectedOptions[0];
@@ -730,9 +909,9 @@ function setVideoSettings(video) {
 }
 
 async function connectRobot() {
-  const address = robotSelect.value === MANUAL_ROBOT_VALUE
-    ? urlInput.value.trim()
-    : robotSelect.value;
+  const address = robotSelect.value === MANUAL_ROBOT_VALUE ?
+    urlInput.value.trim() :
+    robotSelect.value;
   if (!address) {
     setMessage("Choose a robot or enter a manual WebSocket address", true);
     return;
@@ -740,11 +919,13 @@ async function connectRobot() {
   try {
     const data = await jsonRequest("/api/connect", {
       method: "POST",
-      body: JSON.stringify({url: address, video: videoSettings()})
+      body: JSON.stringify({
+        url: address,
+        video: videoSettings()
+      })
     });
     setVideoSettings(data.video);
     setMessage("Connecting…");
-    $("target-label").textContent = data.url || address;
   } catch (error) {
     setMessage(error.message, true);
   }
@@ -752,7 +933,9 @@ async function connectRobot() {
 
 async function disconnectRobot() {
   try {
-    await jsonRequest("/api/disconnect", {method: "POST"});
+    await jsonRequest("/api/disconnect", {
+      method: "POST"
+    });
     teleopEnabled.checked = false;
     updateTeleopState();
     stopTeleop(true);
@@ -779,7 +962,9 @@ function startProgram() {
   if (mode === "python") {
     jsonRequest("/api/program/start", {
       method: "POST",
-      body: JSON.stringify({python: editor ? editor.getValue() : ""})
+      body: JSON.stringify({
+        python: editor ? editor.getValue() : ""
+      })
     }).then(updateProgram).catch((error) => setMessage(error.message, true));
     return;
   }
@@ -794,12 +979,16 @@ function startProgram() {
   }
   jsonRequest("/api/program/start", {
     method: "POST",
-    body: JSON.stringify({program: workspaceData()})
+    body: JSON.stringify({
+      program: workspaceData()
+    })
   }).then(updateProgram).catch((error) => setMessage(error.message, true));
 }
 
 function stopProgram() {
-  jsonRequest("/api/program/stop", {method: "POST"})
+  jsonRequest("/api/program/stop", {
+      method: "POST"
+    })
     .then(updateProgram)
     .catch((error) => setMessage(error.message, true));
 }
@@ -807,7 +996,9 @@ function stopProgram() {
 function postTeleop(payload) {
   fetch("/api/teleop", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(payload)
   }).catch((error) => setMessage("Teleop: " + error.message, true));
 }
@@ -817,9 +1008,12 @@ let activeTeleopButton = null;
 
 function sendTeleop(button) {
   if (!teleopEnabled.checked || !button) return;
-  const payload = button.dataset.stop === "true"
-    ? {stop: true}
-    : {left: Number(button.dataset.left), right: Number(button.dataset.right)};
+  const payload = button.dataset.stop === "true" ? {
+    stop: true
+  } : {
+    left: Number(button.dataset.left),
+    right: Number(button.dataset.right)
+  };
   postTeleop(payload);
 }
 
@@ -843,7 +1037,9 @@ function stopTeleop(force = false) {
   activeTeleopButton = null;
   document.querySelectorAll(".teleop-grid button.active")
     .forEach((button) => button.classList.remove("active"));
-  postTeleop({stop: true});
+  postTeleop({
+    stop: true
+  });
 }
 
 function updateTeleopState() {
@@ -913,7 +1109,9 @@ $("apply-video").addEventListener("click", applyVideoSettings);
 $("run-button").addEventListener("click", startProgram);
 $("stop-button").addEventListener("click", stopProgram);
 $("reset-lights-button").addEventListener("click", () => {
-  jsonRequest("/api/lights/reset", {method: "POST"})
+  jsonRequest("/api/lights/reset", {
+      method: "POST"
+    })
     .then(() => setMessage("Lights reset"))
     .catch((error) => setMessage(error.message, true));
 });
@@ -941,15 +1139,14 @@ async function pollStatus() {
     $("quality-text").textContent = connection.health_text || "Offline";
     $("connection-status").textContent = data.connected ? "Connected" : "Disconnected";
     $("connection-status").className = "status-pill " + (data.connected ? "connected" : "");
-    $("target-label").textContent = data.url || "not connected";
     $("video-rate").textContent = (connection.video_hz || 0) + " fps";
     $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
-    $("command-latency").textContent = connection.last_command_ms == null
-      ? "cmd —"
-      : "cmd " + connection.last_command_ms + " ms";
-    $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined
-      ? "dist " + data.telemetry.distance_cm + " cm"
-      : "dist —";
+    $("command-latency").textContent = connection.last_command_ms == null ?
+      "cmd —" :
+      "cmd " + connection.last_command_ms + " ms";
+    $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined ?
+      "dist " + data.telemetry.distance_cm + " cm" :
+      "dist —";
     updateProgram(data.program || {});
   } catch (_) {
     const lamp = $("quality-lamp");
@@ -971,31 +1168,56 @@ refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, t
 const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
 const COLOUR_CHOICES = "red,green,blue,yellow,white,purple";
 const PYTHON_API = [
-  ["forward", "forward(seconds=${1:2}, power=${2:60})", "Drive forward for some seconds at a power from 0 to 100."],
+  ["forward", "forward(seconds=${1:2}, power=${2:60})",
+    "Drive forward for some seconds at a power from 0 to 100."
+  ],
   ["backward", "backward(seconds=${1:2}, power=${2:60})", "Drive backward for some seconds."],
   ["turn_left", "turn_left(seconds=${1:1}, power=${2:60})", "Spin left on the spot."],
   ["turn_right", "turn_right(seconds=${1:1}, power=${2:60})", "Spin right on the spot."],
   ["turn_around", "turn_around(seconds=${1:1.5}, power=${2:60})", "Spin around on the spot."],
-  ["drive", "drive(\"${1|forward,backward,left,right|}\", seconds=${2:1}, power=${3:60})", "Drive in a direction."],
+  ["drive", "drive(\"${1|forward,backward,left,right|}\", seconds=${2:1}, power=${3:60})",
+    "Drive in a direction."
+  ],
   ["wait", "wait(${1:1})", "Do nothing for some seconds."],
   ["stop", "stop()", "Stop the motors."],
   ["take_picture", "take_picture()", "Return a BGR NumPy image from the camera."],
-  ["show_in_live_camera", "show_in_live_camera(${1:image})", "Show a grayscale or BGR OpenCV image in the camera panel."],
-  ["scan_robot_qr", "scan_robot_qr()", "Return a robot name such as trilo-xx from its Lincoln QR code, or an empty string."],
-  ["sees_colour", "sees_colour(\"${1|" + COLOUR_CHOICES + "|}\", tolerance=${2:18}, min_area=${3:500})", "Block-friendly OpenCV HSV and contour check."],
+  ["show_in_live_camera", "show_in_live_camera(${1:image})",
+    "Show a grayscale or BGR OpenCV image in the camera panel."
+  ],
+  ["scan_robot_qr", "scan_robot_qr()",
+    "Return a robot name such as trilo-xx from its Lincoln QR code, or an empty string."
+  ],
+  ["sees_colour", "sees_colour(\"${1|" + COLOUR_CHOICES +
+    "|}\", tolerance=${2:18}, min_area=${3:500})", "Block-friendly OpenCV HSV and contour check."
+  ],
   ["distance", "distance()", "Distance sensor reading in cm (nan if it could not be read)."],
-  ["button_pressed", "button_pressed(\"${1|A,B,X,Y|}\")", "True while a button on the robot is held down."],
-  ["wait_until", "wait_until(lambda: ${1:distance() < 20})", "Pause until the condition is true."],
-  ["set_lights", "set_lights(\"${1|" + COLOUR_CHOICES + "|}\")", "Set the underlights to a colour."],
+  ["button_pressed", "button_pressed(\"${1|A,B,X,Y|}\")",
+    "True while a button on the robot is held down."
+  ],
+  ["wait_until", "wait_until(lambda: ${1:distance() < 20})",
+    "Pause until the condition is true."
+  ],
+  ["set_lights", "set_lights(\"${1|" + COLOUR_CHOICES + "|}\")",
+    "Set the underlights to a colour."
+  ],
   ["lights_off", "lights_off()", "Turn the underlights off."],
-  ["flash_lights", "flash_lights(\"${1|" + COLOUR_CHOICES + "|}\", times=${2:3})", "Flash the underlights."],
-  ["set_button_light", "set_button_light(\"${1|A,B,X,Y|}\", ${2:1})", "Set a button LED brightness from 0 to 1."],
-  ["count", "count(${1:1}, ${2:5})", "Count from the first number to the last, both included: for i in count(1, 5)."]
+  ["flash_lights", "flash_lights(\"${1|" + COLOUR_CHOICES + "|}\", times=${2:3})",
+    "Flash the underlights."
+  ],
+  ["set_button_light", "set_button_light(\"${1|A,B,X,Y|}\", ${2:1})",
+    "Set a button LED brightness from 0 to 1."
+  ],
+  ["count", "count(${1:1}, ${2:5})",
+    "Count from the first number to the last, both included: for i in count(1, 5)."
+  ]
 ];
 
 const blocksPane = $("blockly-workspace");
 const pythonPane = $("python-pane");
-const tabs = {blocks: $("tab-blocks"), python: $("tab-python")};
+const tabs = {
+  blocks: $("tab-blocks"),
+  python: $("tab-python")
+};
 const syncLabel = $("python-sync");
 const ranchModal = $("ranch-modal");
 
@@ -1021,7 +1243,9 @@ function createEditor() {
     value: lastBlockPython,
     language: "python",
     automaticLayout: true,
-    minimap: {enabled: false},
+    minimap: {
+      enabled: false
+    },
     scrollBeyondLastLine: false,
     fontSize: 14,
     tabSize: 4,
@@ -1031,12 +1255,17 @@ function createEditor() {
     provideCompletionItems(model, position) {
       const word = model.getWordUntilPosition(position);
       const range = {
-        startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
-        startColumn: word.startColumn, endColumn: word.endColumn
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn
       };
       return {
         suggestions: PYTHON_API.map(([label, insertText, documentation]) => ({
-          label, insertText, documentation, range,
+          label,
+          insertText,
+          documentation,
+          range,
           kind: monaco.languages.CompletionItemKind.Function,
           insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
         }))
@@ -1059,7 +1288,9 @@ async function formatDocument() {
   try {
     const result = await jsonRequest("/api/python/format", {
       method: "POST",
-      body: JSON.stringify({code: editor.getValue()})
+      body: JSON.stringify({
+        code: editor.getValue()
+      })
     });
     if (result.code !== editor.getValue()) editor.setValue(result.code);
     setMessage("Formatted document with Black");
@@ -1075,7 +1306,11 @@ function loadMonaco() {
       "importScripts('" + MONACO_BASE + "/vs/base/worker/workerMain.js');"
     )
   };
-  require.config({paths: {vs: MONACO_BASE + "/vs"}});
+  require.config({
+    paths: {
+      vs: MONACO_BASE + "/vs"
+    }
+  });
   require(["vs/editor/editor.main"], createEditor,
     () => setSync("error", "The Python editor could not load (it needs internet access)"));
 }
@@ -1086,7 +1321,9 @@ async function generatePython() {
   try {
     const data = await jsonRequest("/api/python/generate", {
       method: "POST",
-      body: JSON.stringify({program: workspaceData()})
+      body: JSON.stringify({
+        program: workspaceData()
+      })
     });
     if (ticket !== generateTicket) return;
     lastBlockPython = data.code;
@@ -1144,10 +1381,18 @@ async function checkPython() {
   const ticket = ++checkTicket;
   const model = editor.getModel();
   const code = editor.getValue();
-  let result = {ok: true, code};
+  let result = {
+    ok: true,
+    code
+  };
   if (code !== lastBlockPython) {
     try {
-      result = await jsonRequest("/api/python/to_blocks", {method: "POST", body: JSON.stringify({code})});
+      result = await jsonRequest("/api/python/to_blocks", {
+        method: "POST",
+        body: JSON.stringify({
+          code
+        })
+      });
     } catch (_) {
       return;
     }
@@ -1169,8 +1414,10 @@ async function checkPython() {
   monaco.editor.setModelMarkers(model, "blocks", [{
     severity: result.syntax ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
     message: result.message,
-    startLineNumber: line, endLineNumber: line,
-    startColumn: 1, endColumn: model.getLineMaxColumn(line)
+    startLineNumber: line,
+    endLineNumber: line,
+    startColumn: 1,
+    endColumn: model.getLineMaxColumn(line)
   }]);
   setSync(
     result.syntax ? "error" : "warn",
@@ -1196,7 +1443,8 @@ function showMode(next) {
 }
 
 function showRanchModal(result) {
-  $("ranch-detail").textContent = (result.line ? "Line " + result.line + ": " : "") + (result.message || "");
+  $("ranch-detail").textContent = (result.line ? "Line " + result.line + ": " : "") + (result
+    .message || "");
   ranchModal.hidden = false;
   $("ranch-python").focus();
 }
@@ -1215,7 +1463,12 @@ async function leavePython() {
   }
   let result;
   try {
-    result = await jsonRequest("/api/python/to_blocks", {method: "POST", body: JSON.stringify({code})});
+    result = await jsonRequest("/api/python/to_blocks", {
+      method: "POST",
+      body: JSON.stringify({
+        code
+      })
+    });
   } catch (error) {
     setMessage(error.message, true);
     return;
@@ -1263,26 +1516,103 @@ document.addEventListener("keydown", (event) => {
 // ---- Quick start guide: one colourful step at a time ----
 const HELP_SEEN_KEY = "trilobotBlocklyQuickStartSeen";
 const helpModal = $("help-modal");
-const helpSteps = [
-  {emoji: "🔌", title: "Connect your robot", target: "#connect-button", body: "Type the robot address, then press <strong>Connect</strong>. The status dot tells you when the robot and camera are ready."},
-  {emoji: "🧩", title: "Pick a block", target: ".blocklyToolboxDiv", body: "Open a colourful category on the left and drag out an action. Snap blocks together from top to bottom."},
-  {emoji: "🔢", title: "Make it yours", target: "#run-button", body: "Edit the number sockets, then press <strong>Run</strong>. Keep one connected stack so the robot knows the order."},
-  {emoji: "🐍", title: "Learn real Python", target: "#tab-python", body: "The Python tab shows the same robot API as code. You can type, use <code>cv2</code> and <code>numpy</code>, and run your program there."},
-  {emoji: "🖥️", title: "Watch the terminal", target: "#terminal-tab", body: "Open the terminal in either tab to see <code>print()</code> output and status messages. It stays in the same place when you switch modes."},
-  {emoji: "🎮", title: "Reset safely", target: "#teleop-enabled", body: "Only enable teleop when you need to reposition the robot. Hold a direction button or use <kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd>."},
-];
+const helpHighlight = $("help-highlight");
+const helpSteps = [{
+  emoji: "🔌",
+  title: "Connect to a robot",
+  target: ".connection-controls",
+  targetLabel: "Connection bar",
+  targetHint: "Choose a robot, then press Connect.",
+  body: "Select a robot by name and IP address. If it is not listed, choose <strong>Enter address manually…</strong> and edit the pre-filled address."
+}, {
+  emoji: "🧩",
+  title: "Choose a block",
+  target: ".blocklyToolboxDiv",
+  targetLabel: "Block toolbox",
+  targetHint: "Drag a block into the program area.",
+  body: "Open a colourful category and drag out an action. The toolbox is your menu of robot, logic, and OpenCV blocks."
+}, {
+  emoji: "🔢",
+  title: "Build the program",
+  target: "#blockly-workspace",
+  targetLabel: "Program workspace",
+  targetHint: "Snap blocks together from top to bottom.",
+  body: "Set the number sockets to values that suit your robot. Keep actions in one connected stack so they run in order."
+}, {
+  emoji: "📷",
+  title: "Watch the camera",
+  target: "#camera-card",
+  targetLabel: "Camera panel",
+  targetHint: "See the live image and OpenCV preview here.",
+  body: "The camera panel shows the robot's live view. OpenCV blocks can take pictures, change colour spaces, make masks, and display their result here."
+}, {
+  emoji: "▶️",
+  title: "Run your program",
+  target: "#run-button",
+  targetLabel: "Run controls",
+  targetHint: "Start with Run and stop safely with Stop.",
+  body: "Press <strong>Run</strong> when your stack is ready. Use <strong>Stop</strong> if the robot needs to halt immediately."
+}, {
+  emoji: "🐍",
+  title: "Try Python",
+  target: "#tab-python",
+  targetLabel: "Python tab",
+  targetHint: "See the same program as readable Python.",
+  body: "The Python tab shows the same robot API as code. You can type Python, use <code>cv2</code> and <code>numpy</code>, and run it there."
+}, {
+  emoji: "🖥️",
+  title: "Read the feedback",
+  target: "#terminal-tab",
+  targetLabel: "Terminal",
+  targetHint: "Open this to see print output and status messages.",
+  body: "Use the terminal to understand what your program is doing. It shows <code>print()</code> output, errors, and current robot activity."
+}, {
+  emoji: "🎮",
+  title: "Move safely with teleop",
+  target: "#teleop-card",
+  targetLabel: "Teleop controls",
+  targetHint: "Enable only when you need to reposition the robot.",
+  body: "Turn teleop on before using the direction controls or keyboard shortcuts. Release the key to stop sending movement commands."
+}, ];
 let helpIndex = 0;
 
-function renderHelpStep() {
+function clearHelpHighlight() {
+  helpHighlight.classList.remove("active");
+}
+
+function positionHelpHighlight(target) {
+  if (!target || helpModal.hidden) {
+    clearHelpHighlight();
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const padding = 6;
+  Object.assign(helpHighlight.style, {
+    left: `${Math.max(0, rect.left - padding)}px`,
+    top: `${Math.max(0, rect.top - padding)}px`,
+    width: `${rect.width + padding * 2}px`,
+    height: `${rect.height + padding * 2}px`
+  });
+  helpHighlight.classList.add("active");
+}
+
+function currentHelpTarget() {
+  return document.querySelector(helpSteps[helpIndex].target);
+}
+
+async function renderHelpStep() {
   const step = helpSteps[helpIndex];
   $("help-progress").textContent = `${helpIndex + 1} / ${helpSteps.length}`;
-  $("help-step").innerHTML = `<h3><span class="qsg-emoji" aria-hidden="true">${step.emoji}</span> ${step.title}</h3><p>${step.body}</p>`;
-  $("help-arrow").textContent = "↓";
+  $("help-target-label").textContent = step.targetLabel;
+  $("help-target-hint").textContent = step.targetHint;
+  $("help-step").innerHTML =
+    `<h3><span class="qsg-emoji" aria-hidden="true">${step.emoji}</span> ${step.title}</h3><p>${step.body}</p>`;
+  const wantedMode = step.target === "#tab-python" ? "python" : "blocks";
+  if (mode !== wantedMode) await switchMode(wantedMode);
+  toggleTerminal(step.target === "#terminal-tab");
   $("help-prev").disabled = helpIndex === 0;
   $("help-next").textContent = helpIndex === helpSteps.length - 1 ? "Finish" : "Next →";
-  document.querySelectorAll(".qsg-target").forEach((element) => element.classList.remove("qsg-target"));
-  const target = document.querySelector(step.target);
-  if (target) target.classList.add("qsg-target");
+  requestAnimationFrame(() => positionHelpHighlight(currentHelpTarget()));
 }
 
 function openHelp() {
@@ -1294,20 +1624,32 @@ function openHelp() {
 
 function closeHelp() {
   helpModal.hidden = true;
-  document.querySelectorAll(".qsg-target").forEach((element) => element.classList.remove("qsg-target"));
-  try { localStorage.setItem(HELP_SEEN_KEY, "1"); } catch (_) {}
+  clearHelpHighlight();
+  try {
+    localStorage.setItem(HELP_SEEN_KEY, "1");
+  } catch (_) {}
 }
 
 $("help-button").addEventListener("click", openHelp);
 $("help-close").addEventListener("click", closeHelp);
-$("help-prev").addEventListener("click", () => { if (helpIndex > 0) { helpIndex--; renderHelpStep(); } });
+$("help-prev").addEventListener("click", () => {
+  if (helpIndex > 0) {
+    helpIndex--;
+    renderHelpStep();
+  }
+});
 $("help-next").addEventListener("click", () => {
   if (helpIndex === helpSteps.length - 1) closeHelp();
-  else { helpIndex++; renderHelpStep(); }
+  else {
+    helpIndex++;
+    renderHelpStep();
+  }
 });
 helpModal.addEventListener("click", (event) => {
   if (event.target === helpModal) closeHelp();
 });
+window.addEventListener("resize", () => positionHelpHighlight(currentHelpTarget()));
+window.addEventListener("scroll", () => positionHelpHighlight(currentHelpTarget()), true);
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !helpModal.hidden) closeHelp();
   if (event.key === "ArrowRight" && !helpModal.hidden) $("help-next").click();

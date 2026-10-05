@@ -62,18 +62,18 @@ video_fps = DEFAULT_VIDEO_FPS
 jpeg_quality = DEFAULT_JPEG_QUALITY
 
 camera.configure(
-    camera.create_preview_configuration(
-        main={"format": "BGR888", "size": video_size}
-    )
+    camera.create_preview_configuration(main={"format": "BGR888", "size": video_size})
 )
 camera.start()
-camera.set_controls({
-    "ExposureTime": MOTION_EXPOSURE_US,
-    "FrameDurationLimits": (
-        round(1_000_000 / video_fps),
-        round(1_000_000 / video_fps),
-    ),
-})
+camera.set_controls(
+    {
+        "ExposureTime": MOTION_EXPOSURE_US,
+        "FrameDurationLimits": (
+            round(1_000_000 / video_fps),
+            round(1_000_000 / video_fps),
+        ),
+    }
+)
 
 last_drive_command = time.monotonic()
 
@@ -101,8 +101,7 @@ def set_drive(left, right):
 def read_telemetry():
     with hardware_lock:
         buttons = {
-            name: bool(tbot.read_button(button))
-            for name, button in BUTTONS.items()
+            name: bool(tbot.read_button(button)) for name, button in BUTTONS.items()
         }
         distance = tbot.read_distance(timeout=25, samples=3)
     return {
@@ -146,13 +145,15 @@ def configure_video(message):
             )
         )
         camera.start()
-        camera.set_controls({
-            "ExposureTime": MOTION_EXPOSURE_US,
-            "FrameDurationLimits": (
-                round(1_000_000 / requested_fps),
-                round(1_000_000 / requested_fps),
-            ),
-        })
+        camera.set_controls(
+            {
+                "ExposureTime": MOTION_EXPOSURE_US,
+                "FrameDurationLimits": (
+                    round(1_000_000 / requested_fps),
+                    round(1_000_000 / requested_fps),
+                ),
+            }
+        )
         video_size = requested_size
         video_fps = requested_fps
         jpeg_quality = requested_quality
@@ -289,7 +290,13 @@ async def handle_client(websocket, *ignored):
                     reply = await asyncio.to_thread(configure_video, message)
                 else:
                     reply = handle_command(message)
-            except (KeyError, TypeError, ValueError, OverflowError, json.JSONDecodeError) as error:
+            except (
+                KeyError,
+                TypeError,
+                ValueError,
+                OverflowError,
+                json.JSONDecodeError,
+            ) as error:
                 reply = {"type": "error", "message": str(error)}
             await send_json(websocket, reply, send_lock)
     finally:

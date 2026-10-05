@@ -35,10 +35,13 @@ if str(BLOCKLY_DIR) not in sys.path:
     sys.path.insert(0, str(BLOCKLY_DIR))
 
 from blocks_python import (  # noqa: E402
-    BUTTONS, COLOURS, Unsupported, blocks_to_python, python_to_blocks,
+    BUTTONS,
+    COLOURS,
+    Unsupported,
+    blocks_to_python,
+    python_to_blocks,
 )
 from client import RobotClient  # noqa: E402
-
 
 LOG = logging.getLogger("trilobot_blockly")
 app = Flask(__name__)
@@ -77,7 +80,10 @@ _MOVES = {
     "turn_around": lambda speed: (speed, -speed),
 }
 _DIRECTION_MOVES = {
-    "forward": "forward", "backward": "backward", "left": "turn_left", "right": "turn_right",
+    "forward": "forward",
+    "backward": "backward",
+    "left": "turn_left",
+    "right": "turn_right",
 }
 
 
@@ -86,7 +92,11 @@ class _Stopped(BaseException):
 
 
 def _finite(value, name):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+    ):
         raise TypeError(f"{name} must be a number")
     return float(value)
 
@@ -107,14 +117,16 @@ def _hex_colour(value, default="#ff0000"):
     text = str(value or default).strip()
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", text):
         text = default
-    return tuple(int(text[index:index + 2], 16) for index in (1, 3, 5))
+    return tuple(int(text[index : index + 2], 16) for index in (1, 3, 5))
 
 
 def _video_config(payload, fallback=None):
     fallback = dict(fallback or DEFAULT_VIDEO_CONFIG)
     payload = payload if isinstance(payload, dict) else {}
-    requested_size = (int(_number(payload.get("width"), fallback["width"])),
-                      int(_number(payload.get("height"), fallback["height"])))
+    requested_size = (
+        int(_number(payload.get("width"), fallback["width"])),
+        int(_number(payload.get("height"), fallback["height"])),
+    )
     if requested_size not in VIDEO_SIZES:
         supported = ", ".join(f"{w}x{h}" for w, h in VIDEO_SIZES)
         raise ValueError(f"video size must be one of: {supported}")
@@ -158,9 +170,7 @@ def _placeholder_jpeg():
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.9
     thickness = 2
-    (text_width, text_height), _ = cv2.getTextSize(
-        text, font, font_scale, thickness
-    )
+    (text_width, text_height), _ = cv2.getTextSize(text, font, font_scale, thickness)
     x = (frame.shape[1] - text_width) // 2
     y = (frame.shape[0] + text_height) // 2
     cv2.putText(
@@ -306,7 +316,9 @@ class RobotSession:
     def _store_frame(self, frame):
         with self.lock:
             config = dict(self.video_config)
-            overlay = None if self.camera_overlay is None else self.camera_overlay.copy()
+            overlay = (
+                None if self.camera_overlay is None else self.camera_overlay.copy()
+            )
         display_frame = overlay if overlay is not None else frame
         if overlay is not None and overlay.shape[:2] != frame.shape[:2]:
             display_frame = cv2.resize(overlay, (frame.shape[1], frame.shape[0]))
@@ -344,9 +356,7 @@ class RobotSession:
         if loop is None or client is None or not client.connected:
             raise RuntimeError("Connect to the robot first")
         started = time.monotonic()
-        future = asyncio.run_coroutine_threadsafe(
-            getattr(client, method)(*args), loop
-        )
+        future = asyncio.run_coroutine_threadsafe(getattr(client, method)(*args), loop)
         result = future.result(timeout=timeout)
         self._record_command(time.monotonic() - started)
         return result
@@ -359,9 +369,7 @@ class RobotSession:
         if loop is None or client is None or not client.connected:
             raise RuntimeError("Connect to the robot first")
         started = time.monotonic()
-        future = asyncio.run_coroutine_threadsafe(
-            getattr(client, method)(*args), loop
-        )
+        future = asyncio.run_coroutine_threadsafe(getattr(client, method)(*args), loop)
         future.add_done_callback(
             lambda completed: self._record_command(time.monotonic() - started)
         )
@@ -501,7 +509,11 @@ class ProgramRunner:
     def _launch(self, target, payload, python=False):
         self.stop()
         old_thread = self.thread
-        if old_thread and old_thread.is_alive() and old_thread is not threading.current_thread():
+        if (
+            old_thread
+            and old_thread.is_alive()
+            and old_thread is not threading.current_thread()
+        ):
             old_thread.join(timeout=1)
         self.stop_event.clear()
         self.picture = None
@@ -599,7 +611,9 @@ class ProgramRunner:
             )
         except Exception as error:
             LOG.info("Student Python failed", exc_info=True)
-            self._set_status(status="error", current="", error=self._student_error(error))
+            self._set_status(
+                status="error", current="", error=self._student_error(error)
+            )
         finally:
             self._shutdown_robot()
 
@@ -622,7 +636,9 @@ class ProgramRunner:
                     result = function(*args, **kwargs)
                     self._check_stopped()
                     return result
+
                 return wrapper
+
             return decorate
 
         def seconds_value(value):
@@ -650,7 +666,10 @@ class ProgramRunner:
         def move(kind, label):
             @robot_command(label)
             def run(seconds=1, power=60):
-                self._drive_for(_MOVES[kind](power_value(power)), seconds_value(seconds))
+                self._drive_for(
+                    _MOVES[kind](power_value(power)), seconds_value(seconds)
+                )
+
             return run
 
         @robot_command("Drive")
@@ -725,7 +744,8 @@ class ProgramRunner:
         @robot_command("Button light")
         def set_button_light(button, brightness=1):
             self.session.call(
-                "set_button_led", button_value(button),
+                "set_button_led",
+                button_value(button),
                 _clamp(_finite(brightness, "brightness"), 0, 1),
             )
 
@@ -744,7 +764,9 @@ class ProgramRunner:
                 value += step
 
         def student_print(*values, sep=" ", **_ignored):
-            text = (" " if sep is None else str(sep)).join(str(value) for value in values)
+            text = (" " if sep is None else str(sep)).join(
+                str(value) for value in values
+            )
             with self.lock:
                 self.output.extend(text.split("\n"))
 
@@ -763,14 +785,23 @@ class ProgramRunner:
             "turn_left": move("turn_left", "Turn left"),
             "turn_right": move("turn_right", "Turn right"),
             "turn_around": move("turn_around", "Turn around"),
-            "drive": drive, "wait": wait, "stop": stop, "take_picture": take_picture,
+            "drive": drive,
+            "wait": wait,
+            "stop": stop,
+            "take_picture": take_picture,
             "show_in_live_camera": show_in_live_camera,
             "scan_robot_qr": scan_robot_qr,
-            "sees_colour": sees_colour, "distance": distance,
-            "button_pressed": button_pressed, "wait_until": wait_until,
-            "set_lights": set_lights, "lights_off": lights_off,
-            "flash_lights": flash_lights, "set_button_light": set_button_light,
-            "count": count, "print": student_print, "input": student_input,
+            "sees_colour": sees_colour,
+            "distance": distance,
+            "button_pressed": button_pressed,
+            "wait_until": wait_until,
+            "set_lights": set_lights,
+            "lights_off": lights_off,
+            "flash_lights": flash_lights,
+            "set_button_light": set_button_light,
+            "count": count,
+            "print": student_print,
+            "input": student_input,
         }
 
     def _check_stopped(self):
@@ -840,13 +871,17 @@ class ProgramRunner:
                 robot_name = match.group(1).lower()
                 break
         self.vision = {
-            "status": f"Robot QR found: {robot_name}" if robot_name else "Robot QR not found",
+            "status": (
+                f"Robot QR found: {robot_name}" if robot_name else "Robot QR not found"
+            ),
             "colour": "",
             "matched": bool(robot_name),
             "area": 0,
             "qr": robot_name,
         }
-        self.camera_view = f"QR scan: {robot_name}" if robot_name else "QR scan: no robot code"
+        self.camera_view = (
+            f"QR scan: {robot_name}" if robot_name else "QR scan: no robot code"
+        )
         return robot_name
 
     def _check_colour(self, colour, tolerance, min_area):
@@ -892,15 +927,15 @@ class ProgramRunner:
                 self._take_picture()
             elif block_type == "robot_show_live_camera":
                 image = self._any_value(block, "IMAGE", variables)
-                self._show_in_live_camera(self._take_picture() if image is None else image)
+                self._show_in_live_camera(
+                    self._take_picture() if image is None else image
+                )
             elif block_type == "robot_if_color":
                 colour = self._colour_value(block, "COLOR", variables, "#ff0000")
                 tolerance = _clamp(
                     self._value(block, "TOLERANCE", variables, 18), 1, 90
                 )
-                min_area = max(
-                    1, self._value(block, "MIN_AREA", variables, 500)
-                )
+                min_area = max(1, self._value(block, "MIN_AREA", variables, 500))
                 matched = self._check_colour(colour, tolerance, min_area)
                 nested = self._statement(block, "THEN" if matched else "ELSE")
                 if nested:
@@ -909,13 +944,8 @@ class ProgramRunner:
                 distance = self._distance_cm()
                 limit = self._value(block, "CENTIMETRES", variables, 20)
                 operator = block.get("fields", {}).get("OPERATOR", "LESS_THAN")
-                matched = (
-                    distance is not None
-                    and (
-                        distance < limit
-                        if operator == "LESS_THAN"
-                        else distance > limit
-                    )
+                matched = distance is not None and (
+                    distance < limit if operator == "LESS_THAN" else distance > limit
                 )
                 nested = self._statement(block, "THEN" if matched else "ELSE")
                 if nested:
@@ -952,12 +982,8 @@ class ProgramRunner:
             elif block_type == "robot_flash_lights":
                 colour = self._colour_value(block, "COLOR", variables, "#00ff00")
                 times = max(0, int(self._value(block, "TIMES", variables, 3)))
-                on_seconds = max(
-                    0, self._value(block, "ON_SECONDS", variables, 0.2)
-                )
-                off_seconds = max(
-                    0, self._value(block, "OFF_SECONDS", variables, 0.2)
-                )
+                on_seconds = max(0, self._value(block, "ON_SECONDS", variables, 0.2))
+                off_seconds = max(0, self._value(block, "OFF_SECONDS", variables, 0.2))
                 self._flash(colour, times, on_seconds, off_seconds)
             elif block_type == "robot_button_light":
                 button = block.get("fields", {}).get("BUTTON", "A")
@@ -992,9 +1018,8 @@ class ProgramRunner:
                 step = step if start <= end else -step
                 nested = self._statement(block, "DO")
                 value = start
-                while (
-                    not self.stop_event.is_set()
-                    and (value <= end if step > 0 else value >= end)
+                while not self.stop_event.is_set() and (
+                    value <= end if step > 0 else value >= end
                 ):
                     variables[key] = value
                     if nested:
@@ -1017,9 +1042,8 @@ class ProgramRunner:
                     if nested:
                         self._run_chain(nested, variables)
             elif block_type == "robot_wait_until":
-                while (
-                    not self.stop_event.is_set()
-                    and not self._condition(block, "CONDITION", variables)
+                while not self.stop_event.is_set() and not self._condition(
+                    block, "CONDITION", variables
                 ):
                     self._wait(0.05)
             elif block_type == "robot_wait":
@@ -1182,7 +1206,9 @@ class ProgramRunner:
             return tuple(
                 int(_clamp(self._value(child, name, variables, default), 0, limit))
                 for name, default, limit in (
-                    ("H", 40, 179), ("S", 70, 255), ("V", 70, 255),
+                    ("H", 40, 179),
+                    ("S", 70, 255),
+                    ("V", 70, 255),
                 )
             )
         if child_type == "opencv_hsv_mask":
@@ -1195,13 +1221,17 @@ class ProgramRunner:
                 low = tuple(
                     int(_clamp(self._value(child, name, variables, default), 0, limit))
                     for name, default, limit in (
-                        ("LOW_H", 40, 179), ("LOW_S", 70, 255), ("LOW_V", 70, 255),
+                        ("LOW_H", 40, 179),
+                        ("LOW_S", 70, 255),
+                        ("LOW_V", 70, 255),
                     )
                 )
                 high = tuple(
                     int(_clamp(self._value(child, name, variables, default), 0, limit))
                     for name, default, limit in (
-                        ("HIGH_H", 80, 179), ("HIGH_S", 255, 255), ("HIGH_V", 255, 255),
+                        ("HIGH_H", 80, 179),
+                        ("HIGH_S", 255, 255),
+                        ("HIGH_V", 255, 255),
                     )
                 )
             return cv2.inRange(image, low, high)
@@ -1230,7 +1260,7 @@ class ProgramRunner:
                 return left / right if right else 0.0
             if operator == "POWER":
                 try:
-                    return _number(left ** right)
+                    return _number(left**right)
                 except (OverflowError, ZeroDivisionError):
                     return 0.0
             return 0.0
@@ -1240,8 +1270,12 @@ class ProgramRunner:
             left = _number(self._any_value(child, "A", variables))
             right = _number(self._any_value(child, "B", variables))
             return {
-                "EQ": left == right, "NEQ": left != right, "LT": left < right,
-                "LTE": left <= right, "GT": left > right, "GTE": left >= right,
+                "EQ": left == right,
+                "NEQ": left != right,
+                "LT": left < right,
+                "LTE": left <= right,
+                "GT": left > right,
+                "GTE": left >= right,
             }.get(fields.get("OP", "EQ"), False)
         if child_type == "logic_negate":
             return not self._any_value(child, "BOOL", variables)
@@ -1350,20 +1384,24 @@ class ProgramRunner:
 
         if target_hue - hue_width < 0:
             mask = cv2.inRange(
-                hsv, (0, low_s, low_v),
+                hsv,
+                (0, low_s, low_v),
                 (target_hue + hue_width, high_s, high_v),
             )
             mask |= cv2.inRange(
-                hsv, (179 + target_hue - hue_width, low_s, low_v),
+                hsv,
+                (179 + target_hue - hue_width, low_s, low_v),
                 (179, high_s, high_v),
             )
         elif target_hue + hue_width > 179:
             mask = cv2.inRange(
-                hsv, (target_hue - hue_width, low_s, low_v),
+                hsv,
+                (target_hue - hue_width, low_s, low_v),
                 (179, high_s, high_v),
             )
             mask |= cv2.inRange(
-                hsv, (0, low_s, low_v),
+                hsv,
+                (0, low_s, low_v),
                 (target_hue + hue_width - 179, high_s, high_v),
             )
         else:
@@ -1376,9 +1414,7 @@ class ProgramRunner:
         kernel = np.ones((5, 5), np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        contours, _ = cv2.findContours(
-            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         area = max(
             (cv2.contourArea(contour) for contour in contours),
             default=0.0,
@@ -1418,10 +1454,14 @@ def _robot_directory_entries(payload):
         ping_age = None
         if last_ping:
             try:
-                ping_time = datetime.fromisoformat(str(last_ping).replace("Z", "+00:00"))
+                ping_time = datetime.fromisoformat(
+                    str(last_ping).replace("Z", "+00:00")
+                )
                 if ping_time.tzinfo is None:
                     ping_time = ping_time.replace(tzinfo=timezone.utc)
-                ping_age = max(0, (datetime.now(timezone.utc) - ping_time).total_seconds())
+                ping_age = max(
+                    0, (datetime.now(timezone.utc) - ping_time).total_seconds()
+                )
             except ValueError:
                 last_ping = None
         if ping_age is not None and ping_age <= ROBOT_PING_GREEN_SECONDS:
@@ -1430,14 +1470,16 @@ def _robot_directory_entries(payload):
             ping_status = "orange"
         else:
             ping_status = "red"
-        entries.append({
-            "name": str(name).strip(),
-            "hostname": str(item.get("hostname") or name).strip(),
-            "ip": private_ip,
-            "url": f"ws://{private_ip}:8765",
-            "last_ping": last_ping,
-            "ping_status": ping_status,
-        })
+        entries.append(
+            {
+                "name": str(name).strip(),
+                "hostname": str(item.get("hostname") or name).strip(),
+                "ip": private_ip,
+                "url": f"ws://{private_ip}:8765",
+                "last_ping": last_ping,
+                "ping_status": ping_status,
+            }
+        )
     return sorted(entries, key=lambda item: (item["name"].casefold(), item["ip"]))
 
 
@@ -1449,12 +1491,22 @@ def robot_directory():
             ROBOT_DIRECTORY_URL,
             headers={"Accept": "application/json", "User-Agent": "Trilobot Blockly"},
         )
-        with urllib.request.urlopen(request, timeout=ROBOT_DIRECTORY_TIMEOUT) as response:
+        with urllib.request.urlopen(
+            request, timeout=ROBOT_DIRECTORY_TIMEOUT
+        ) as response:
             payload = json.loads(response.read().decode("utf-8"))
         return jsonify({"robots": _robot_directory_entries(payload)})
     except (OSError, ValueError, json.JSONDecodeError) as error:
         LOG.warning("Could not load robot directory: %s", error)
-        return jsonify({"robots": [], "error": "Robot list unavailable; enter an address manually."}), 502
+        return (
+            jsonify(
+                {
+                    "robots": [],
+                    "error": "Robot list unavailable; enter an address manually.",
+                }
+            ),
+            502,
+        )
 
 
 @app.post("/api/connect")
@@ -1483,7 +1535,9 @@ def _library_files(name):
     """Return the safe (blocks .json, python .py) paths inside the demo library."""
     name = str(name or "").strip()
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _-]{0,63}", name):
-        raise ValueError("Demo name may use letters, numbers, spaces, hyphens, and underscores")
+        raise ValueError(
+            "Demo name may use letters, numbers, spaces, hyphens, and underscores"
+        )
     return LIBRARY_DIR / f"{name}.json", LIBRARY_DIR / f"{name}.py"
 
 
@@ -1514,7 +1568,9 @@ def list_library():
     demos = []
     for pattern, kind in (("*.json", "blocks"), ("*.py", "python")):
         for path in LIBRARY_DIR.glob(pattern):
-            demos.append({"name": path.stem, "kind": kind, **_validate_demo(path, kind)})
+            demos.append(
+                {"name": path.stem, "kind": kind, **_validate_demo(path, kind)}
+            )
     demos.sort(key=lambda item: item["name"].lower())
     return jsonify({"demos": demos})
 
@@ -1553,7 +1609,9 @@ def save_library(name):
         else:
             raise ValueError("The saved Blockly program is not valid JSON")
         if other.exists():
-            raise ValueError("A demo with that name already exists as a different kind; pick another name")
+            raise ValueError(
+                "A demo with that name already exists as a different kind; pick another name"
+            )
         path.write_text(text, encoding="utf-8")
         return jsonify({"name": path.stem, "saved": True})
     except (OSError, ValueError) as error:
@@ -1563,7 +1621,9 @@ def save_library(name):
 @app.post("/api/video/config")
 def video_config():
     try:
-        return jsonify({"video": session.configure_video(request.get_json(silent=True))})
+        return jsonify(
+            {"video": session.configure_video(request.get_json(silent=True))}
+        )
     except Exception as error:
         return jsonify({"error": str(error)}), 409
 
@@ -1645,9 +1705,14 @@ def python_to_blocks_route():
         program, normalised = python_to_blocks(code)
         return jsonify({"ok": True, "program": program, "code": normalised})
     except Unsupported as error:
-        return jsonify({
-            "ok": False, "syntax": error.syntax, "line": error.line, "message": error.message,
-        })
+        return jsonify(
+            {
+                "ok": False,
+                "syntax": error.syntax,
+                "line": error.line,
+                "message": error.message,
+            }
+        )
 
 
 @app.post("/api/python/format")

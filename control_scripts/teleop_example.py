@@ -10,7 +10,6 @@ import numpy as np
 
 from client import RobotClient
 
-
 WINDOW_NAME = "Trilobot Teleop"
 VIDEO_SIZE_CHOICES = (
     "640x480",
@@ -98,9 +97,7 @@ def make_display_frame(
 ):
     """Build a sharp UI canvas and letterbox the camera image into it."""
     frame_height, frame_width = frame.shape[:2]
-    window_width, window_height = window_size(
-        WINDOW_NAME, frame_width, frame_height
-    )
+    window_width, window_height = window_size(WINDOW_NAME, frame_width, frame_height)
 
     # Keep a dedicated control panel so its text is rendered at screen size.
     panel_height = max(138, round(window_height * 0.24))
@@ -125,8 +122,8 @@ def make_display_frame(
     offset_x = (window_width - output_width) // 2
     offset_y = (video_area_height - output_height) // 2
     canvas[
-        offset_y:offset_y + output_height,
-        offset_x:offset_x + output_width,
+        offset_y : offset_y + output_height,
+        offset_x : offset_x + output_width,
     ] = resized
 
     if show_crosshair:
@@ -236,14 +233,15 @@ def make_display_frame(
     draw_text("TRILOBOT TELEOP", info_x, panel_top + 24, (0, 220, 255))
     draw_text(f"TARGET  {client.url}", info_x, panel_top + 47)
     draw_text("H/h crosshair   Q/Z all   W/X drive   E/C turn", info_x, panel_top + 70)
-    draw_text("K/SPACE stop   ESC quit   0-4 lights   R distance", info_x, panel_top + 93)
+    draw_text(
+        "K/SPACE stop   ESC quit   0-4 lights   R distance", info_x, panel_top + 93
+    )
 
     telemetry = client.telemetry
     distance = telemetry.get("distance_cm", "--")
     buttons = telemetry.get("buttons", {})
     button_text = " ".join(
-        f"{name}:{'ON' if buttons.get(name) else '--'}"
-        for name in ("A", "B", "X", "Y")
+        f"{name}:{'ON' if buttons.get(name) else '--'}" for name in ("A", "B", "X", "Y")
     )
     width, height = video_size
     status = (

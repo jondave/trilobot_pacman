@@ -32,36 +32,91 @@ MOVE_BLOCKS = {
 }
 MOVE_FUNCTIONS = {block: name for name, block in MOVE_BLOCKS.items()}
 
-API_NAMES = frozenset({
-    *MOVE_BLOCKS, "drive", "wait", "stop", "take_picture", "sees_colour",
-    "distance", "button_pressed", "wait_until", "set_lights", "lights_off",
-    "flash_lights", "set_button_light", "count",
-    "show_in_live_camera", "scan_robot_qr",
-})
-RESERVED_NAMES = API_NAMES | frozenset(keyword.kwlist) | {"range", "int", "print", "input", "_"}
+API_NAMES = frozenset(
+    {
+        *MOVE_BLOCKS,
+        "drive",
+        "wait",
+        "stop",
+        "take_picture",
+        "sees_colour",
+        "distance",
+        "button_pressed",
+        "wait_until",
+        "set_lights",
+        "lights_off",
+        "flash_lights",
+        "set_button_light",
+        "count",
+        "show_in_live_camera",
+        "scan_robot_qr",
+    }
+)
+RESERVED_NAMES = (
+    API_NAMES | frozenset(keyword.kwlist) | {"range", "int", "print", "input", "_"}
+)
 
 # Blockly block types grouped by the socket type they plug into.
 BOOLEAN_BLOCKS = {
-    "logic_boolean", "logic_negate", "logic_operation", "logic_compare",
-    "robot_button_pressed", "robot_distance_condition",
+    "logic_boolean",
+    "logic_negate",
+    "logic_operation",
+    "logic_compare",
+    "robot_button_pressed",
+    "robot_distance_condition",
 }
-NUMBER_BLOCKS = {"math_number", "math_arithmetic", "opencv_count_nonzero", "robot_distance_value"}
+NUMBER_BLOCKS = {
+    "math_number",
+    "math_arithmetic",
+    "opencv_count_nonzero",
+    "robot_distance_value",
+}
 IMAGE_BLOCKS = {
-    "variables_get", "opencv_camera_image", "opencv_to_hsv", "opencv_blur",
-    "opencv_box_blur", "opencv_hsv_mask", "opencv_mask_or",
+    "variables_get",
+    "opencv_camera_image",
+    "opencv_to_hsv",
+    "opencv_blur",
+    "opencv_box_blur",
+    "opencv_hsv_mask",
+    "opencv_mask_or",
 }
 HSV_BLOCKS = {"opencv_hsv_value"}
 TEXT_BLOCKS = {"robot_scan_qr"}
-EXPRESSION_BLOCKS = BOOLEAN_BLOCKS | NUMBER_BLOCKS | IMAGE_BLOCKS | HSV_BLOCKS | TEXT_BLOCKS | {"text"}
+EXPRESSION_BLOCKS = (
+    BOOLEAN_BLOCKS | NUMBER_BLOCKS | IMAGE_BLOCKS | HSV_BLOCKS | TEXT_BLOCKS | {"text"}
+)
 
 OR, AND, NOT, COMPARE, ADD, MUL, UNARY, POW, ATOM = range(1, 10)
 ARITHMETIC_SYMBOLS = {
-    "ADD": ("+", ADD), "MINUS": ("-", ADD), "MULTIPLY": ("*", MUL),
-    "DIVIDE": ("/", MUL), "POWER": ("**", POW),
+    "ADD": ("+", ADD),
+    "MINUS": ("-", ADD),
+    "MULTIPLY": ("*", MUL),
+    "DIVIDE": ("/", MUL),
+    "POWER": ("**", POW),
 }
-COMPARE_SYMBOLS = {"EQ": "==", "NEQ": "!=", "LT": "<", "LTE": "<=", "GT": ">", "GTE": ">="}
-ARITHMETIC_OPS = {ast.Add: "ADD", ast.Sub: "MINUS", ast.Mult: "MULTIPLY", ast.Div: "DIVIDE", ast.Pow: "POWER"}
-COMPARE_OPS = {ast.Eq: "EQ", ast.NotEq: "NEQ", ast.Lt: "LT", ast.LtE: "LTE", ast.Gt: "GT", ast.GtE: "GTE"}
+COMPARE_SYMBOLS = {
+    "EQ": "==",
+    "NEQ": "!=",
+    "LT": "<",
+    "LTE": "<=",
+    "GT": ">",
+    "GTE": ">=",
+}
+ARITHMETIC_OPS = {
+    ast.Add: "ADD",
+    ast.Sub: "MINUS",
+    ast.Mult: "MULTIPLY",
+    ast.Div: "DIVIDE",
+    ast.Pow: "POWER",
+}
+COMPARE_OPS = {
+    ast.Eq: "EQ",
+    ast.NotEq: "NEQ",
+    ast.Lt: "LT",
+    ast.LtE: "LTE",
+    ast.Gt: "GT",
+    ast.GtE: "GTE",
+}
 
 MOVE_PARAMS = (("seconds", 1), ("power", 60))
 _REQUIRED = object()
@@ -151,7 +206,9 @@ class _Generator:
 
     def variable(self, field):
         if isinstance(field, dict):
-            return self.names.get(field.get("id")) or _python_name(field.get("name") or field.get("id"))
+            return self.names.get(field.get("id")) or _python_name(
+                field.get("name") or field.get("id")
+            )
         return _python_name(field)
 
     def value(self, block, name, min_prec=0, default="0"):
@@ -201,24 +258,38 @@ class _Generator:
             return [f'{pad}set_lights("{_colour_text(fields.get("COLOR"))}")']
         if kind == "robot_flash_lights":
             times = self.value(block, "TIMES", default="3")
-            return [f'{pad}flash_lights("{_colour_text(fields.get("COLOR"))}", times={times})']
+            return [
+                f'{pad}flash_lights("{_colour_text(fields.get("COLOR"))}", times={times})'
+            ]
         if kind == "robot_button_light":
             brightness = self.value(block, "BRIGHTNESS", default="1")
-            return [f'{pad}set_button_light("{fields.get("BUTTON", "A")}", {brightness})']
+            return [
+                f'{pad}set_button_light("{fields.get("BUTTON", "A")}", {brightness})'
+            ]
         if kind == "robot_wait_until":
-            return [f"{pad}wait_until(lambda: {self.value(block, 'CONDITION', default='False')})"]
+            return [
+                f"{pad}wait_until(lambda: {self.value(block, 'CONDITION', default='False')})"
+            ]
         if kind == "robot_if_color":
             header = (
                 f'{pad}if sees_colour("{_colour_text(fields.get("COLOR"))}", '
                 f'tolerance={self.value(block, "TOLERANCE", default="18")}, '
                 f'min_area={self.value(block, "MIN_AREA", default="500")}):'
             )
-            return [header] + self.body(block, "THEN", depth) + self.else_lines(block, "ELSE", depth)
+            return (
+                [header]
+                + self.body(block, "THEN", depth)
+                + self.else_lines(block, "ELSE", depth)
+            )
         if kind == "robot_if_distance":
             symbol = "<" if fields.get("OPERATOR", "LESS_THAN") == "LESS_THAN" else ">"
             limit = self.value(block, "CENTIMETRES", COMPARE + 1, "20")
             header = f"{pad}if distance() {symbol} {limit}:"
-            return [header] + self.body(block, "THEN", depth) + self.else_lines(block, "ELSE", depth)
+            return (
+                [header]
+                + self.body(block, "THEN", depth)
+                + self.else_lines(block, "ELSE", depth)
+            )
         if kind in {"robot_repeat", "controls_repeat_ext"}:
             times = self.value(block, "TIMES", default="2")
             if not re.fullmatch(r"\d+", times):
@@ -235,18 +306,25 @@ class _Generator:
             end = self.value(block, "TO", default="10")
             step = self.value(block, "BY", default="1")
             arguments = f"{start}, {end}" if step == "1" else f"{start}, {end}, {step}"
-            header = f"{pad}for {self.variable(fields.get('VAR'))} in count({arguments}):"
+            header = (
+                f"{pad}for {self.variable(fields.get('VAR'))} in count({arguments}):"
+            )
             return [header] + self.body(block, "DO", depth)
         if kind == "controls_if":
             inputs = block.get("inputs") or {}
-            indexes = sorted({
-                int(match.group(1)) for key in inputs
-                if (match := re.fullmatch(r"(?:IF|DO)(\d+)", key))
-            }) or [0]
+            indexes = sorted(
+                {
+                    int(match.group(1))
+                    for key in inputs
+                    if (match := re.fullmatch(r"(?:IF|DO)(\d+)", key))
+                }
+            ) or [0]
             lines = []
             for position, index in enumerate(indexes):
                 word = "if" if position == 0 else "elif"
-                lines.append(f"{pad}{word} {self.value(block, f'IF{index}', default='False')}:")
+                lines.append(
+                    f"{pad}{word} {self.value(block, f'IF{index}', default='False')}:"
+                )
                 lines.extend(self.body(block, f"DO{index}", depth))
             return lines + self.else_lines(block, "ELSE", depth)
         if kind == "variables_set":
@@ -274,7 +352,9 @@ class _Generator:
         if kind == "opencv_to_hsv":
             image = self.value(block, "IMAGE", default="take_picture()")
             conversion = fields.get("CONVERSION", "BGR_TO_HSV")
-            constant = "COLOR_HSV2BGR" if conversion == "HSV_TO_BGR" else "COLOR_BGR2HSV"
+            constant = (
+                "COLOR_HSV2BGR" if conversion == "HSV_TO_BGR" else "COLOR_BGR2HSV"
+            )
             return f"cv2.cvtColor({image}, cv2.{constant})", ATOM
         if kind == "opencv_blur":
             image = self.value(block, "IMAGE", default="take_picture()")
@@ -305,7 +385,11 @@ class _Generator:
                 )
                 high = ", ".join(
                     self.value(block, name, default=default)
-                    for name, default in (("HIGH_H", 80), ("HIGH_S", 255), ("HIGH_V", 255))
+                    for name, default in (
+                        ("HIGH_H", 80),
+                        ("HIGH_S", 255),
+                        ("HIGH_V", 255),
+                    )
                 )
             return f"cv2.inRange({image}, ({low}), ({high}))", ATOM
         if kind == "opencv_mask_or":
@@ -362,7 +446,9 @@ def python_to_blocks(code):
         parser = _Parser(code)
         first = parser.chain(parser.statements(tree.body))
     except SyntaxError as error:
-        raise Unsupported(f"Syntax error: {error.msg}", error.lineno, syntax=True) from None
+        raise Unsupported(
+            f"Syntax error: {error.msg}", error.lineno, syntax=True
+        ) from None
     except (ValueError, RecursionError, MemoryError):
         raise Unsupported("This code is too tangled to read", syntax=True) from None
     state = {
@@ -379,7 +465,10 @@ class _Parser:
         self.imported_modules = set()
 
     def fail(self, node, message=None):
-        raise Unsupported(message or f"Blocks can't do `{self.snippet(node)}` yet", getattr(node, "lineno", None))
+        raise Unsupported(
+            message or f"Blocks can't do `{self.snippet(node)}` yet",
+            getattr(node, "lineno", None),
+        )
 
     def snippet(self, node):
         text = ast.get_source_segment(self.source, node) or type(node).__name__
@@ -397,7 +486,11 @@ class _Parser:
 
     @staticmethod
     def is_call(node, name):
-        return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == name
+        return (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == name
+        )
 
     @staticmethod
     def is_attribute(node, dotted_name):
@@ -441,13 +534,18 @@ class _Parser:
 
     def variable(self, node):
         if node.id in RESERVED_NAMES:
-            self.fail(node, f"`{node.id}` is a robot command or Python word, so it can't be a variable name")
+            self.fail(
+                node,
+                f"`{node.id}` is a robot command or Python word, so it can't be a variable name",
+            )
         if node.id not in self.names:
             self.names.append(node.id)
         return {"id": f"var_{node.id}"}
 
     def bind(self, call, params):
-        if any(isinstance(arg, ast.Starred) for arg in call.args) or any(key.arg is None for key in call.keywords):
+        if any(isinstance(arg, ast.Starred) for arg in call.args) or any(
+            key.arg is None for key in call.keywords
+        ):
             self.fail(call)
         names = [name for name, _ in params]
         if len(call.args) > len(names):
@@ -455,7 +553,10 @@ class _Parser:
         bound = dict(zip(names, call.args))
         for key in call.keywords:
             if key.arg not in names or key.arg in bound:
-                self.fail(call, f"Blocks can't show `{call.func.id}` with the option `{key.arg}`")
+                self.fail(
+                    call,
+                    f"Blocks can't show `{call.func.id}` with the option `{key.arg}`",
+                )
             bound[key.arg] = key.value
         for name, default in params:
             if name not in bound:
@@ -468,7 +569,11 @@ class _Parser:
         sign = 1
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
             sign, node = -1, node.operand
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)
+        ):
             if not math.isfinite(node.value):
                 self.fail(node, "That number is too big for blocks")
             return sign * node.value
@@ -477,9 +582,16 @@ class _Parser:
     def typed(self, node, wanted):
         block = self.expr(node)
         kind = block["type"]
-        actual = "boolean" if kind in BOOLEAN_BLOCKS else "number" if kind in NUMBER_BLOCKS else "any"
+        actual = (
+            "boolean"
+            if kind in BOOLEAN_BLOCKS
+            else "number" if kind in NUMBER_BLOCKS else "any"
+        )
         if wanted != "any" and actual not in (wanted, "any"):
-            self.fail(node, f"`{self.snippet(node)}` is a {actual}, but blocks need a {wanted} here")
+            self.fail(
+                node,
+                f"`{self.snippet(node)}` is a {actual}, but blocks need a {wanted} here",
+            )
         return block
 
     def value_input(self, node, wanted):
@@ -496,7 +608,11 @@ class _Parser:
         return self.value_input(node, "boolean")
 
     def string_option(self, node, options):
-        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in options:
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and node.value in options
+        ):
             return node.value
         self.fail(node, "Blocks only accept: " + ", ".join(options))
 
@@ -514,7 +630,9 @@ class _Parser:
         if number is not None:
             return self.make("math_number", {"NUM": number})
         if isinstance(node, ast.Constant) and isinstance(node.value, bool):
-            return self.make("logic_boolean", {"BOOL": "TRUE" if node.value else "FALSE"})
+            return self.make(
+                "logic_boolean", {"BOOL": "TRUE" if node.value else "FALSE"}
+            )
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             return self.make("text", {"TEXT": node.value})
         opencv_block = self._opencv_expression(node)
@@ -523,41 +641,60 @@ class _Parser:
         if isinstance(node, ast.Name):
             return self.make("variables_get", {"VAR": self.variable(node)})
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
-            return self.make("logic_negate", inputs={"BOOL": self.condition_input(node.operand)})
+            return self.make(
+                "logic_negate", inputs={"BOOL": self.condition_input(node.operand)}
+            )
         if isinstance(node, ast.BoolOp):
             operator = "AND" if isinstance(node.op, ast.And) else "OR"
             result = self.typed(node.values[0], "boolean")
             for value in node.values[1:]:
                 result = self.make(
-                    "logic_operation", {"OP": operator},
+                    "logic_operation",
+                    {"OP": operator},
                     {"A": {"block": result}, "B": self.condition_input(value)},
                 )
             return result
         if isinstance(node, ast.BinOp) and type(node.op) in ARITHMETIC_OPS:
             return self.make(
-                "math_arithmetic", {"OP": ARITHMETIC_OPS[type(node.op)]},
+                "math_arithmetic",
+                {"OP": ARITHMETIC_OPS[type(node.op)]},
                 {"A": self.number_input(node.left), "B": self.number_input(node.right)},
             )
         if isinstance(node, ast.Compare):
             operator, right = node.ops[0], node.comparators[0]
             if len(node.ops) != 1:
                 self.fail(node, "Blocks can only compare two things at a time")
-            if self.is_call(node.left, "distance") and not node.left.args and not node.left.keywords \
-                    and type(operator) in (ast.Lt, ast.Gt):
+            if (
+                self.is_call(node.left, "distance")
+                and not node.left.args
+                and not node.left.keywords
+                and type(operator) in (ast.Lt, ast.Gt)
+            ):
                 return self.make(
                     "robot_distance_condition",
-                    {"OPERATOR": "LESS_THAN" if isinstance(operator, ast.Lt) else "MORE_THAN"},
+                    {
+                        "OPERATOR": (
+                            "LESS_THAN" if isinstance(operator, ast.Lt) else "MORE_THAN"
+                        )
+                    },
                     {"CENTIMETRES": self.number_input(right)},
                 )
             if type(operator) not in COMPARE_OPS:
                 self.fail(node)
             return self.make(
-                "logic_compare", {"OP": COMPARE_OPS[type(operator)]},
-                {"A": self.value_input(node.left, "any"), "B": self.value_input(right, "any")},
+                "logic_compare",
+                {"OP": COMPARE_OPS[type(operator)]},
+                {
+                    "A": self.value_input(node.left, "any"),
+                    "B": self.value_input(right, "any"),
+                },
             )
         if self.is_call(node, "button_pressed"):
             args = self.bind(node, (("button", _REQUIRED),))
-            return self.make("robot_button_pressed", {"BUTTON": self.string_option(args["button"], BUTTONS)})
+            return self.make(
+                "robot_button_pressed",
+                {"BUTTON": self.string_option(args["button"], BUTTONS)},
+            )
         if self.is_call(node, "distance") and not node.args and not node.keywords:
             return self.make("robot_distance_value")
         if self.is_call(node, "scan_robot_qr") and not node.args and not node.keywords:
@@ -573,13 +710,18 @@ class _Parser:
                 module_names = [node.module.split(".", 1)[0]]
             allowed = {"cv2", "numpy"}
             if not module_names or any(name not in allowed for name in module_names):
-                self.fail(node, "Blocks load OpenCV and NumPy in the background; other imports need Python mode")
+                self.fail(
+                    node,
+                    "Blocks load OpenCV and NumPy in the background; other imports need Python mode",
+                )
             self.imported_modules.update(module_names)
             return None
         if isinstance(node, ast.Pass):
             return None
         if isinstance(node, ast.Expr):
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            if isinstance(node.value, ast.Constant) and isinstance(
+                node.value.value, str
+            ):
                 return None
             if isinstance(node.value, ast.Call):
                 return self.call_statement(node.value)
@@ -588,14 +730,18 @@ class _Parser:
             if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
                 self.fail(node)
             return self.make(
-                "variables_set", {"VAR": self.variable(node.targets[0])},
+                "variables_set",
+                {"VAR": self.variable(node.targets[0])},
                 {"VALUE": self.value_input(node.value, "any")},
             )
         if isinstance(node, ast.AugAssign):
-            if not isinstance(node.target, ast.Name) or not isinstance(node.op, ast.Add):
+            if not isinstance(node.target, ast.Name) or not isinstance(
+                node.op, ast.Add
+            ):
                 self.fail(node)
             return self.make(
-                "math_change", {"VAR": self.variable(node.target)},
+                "math_change",
+                {"VAR": self.variable(node.target)},
                 {"DELTA": self.number_input(node.value)},
             )
         if isinstance(node, ast.If):
@@ -612,25 +758,36 @@ class _Parser:
         name = call.func.id
         if name in MOVE_BLOCKS:
             args = self.bind(call, MOVE_PARAMS)
-            return self.make(MOVE_BLOCKS[name], inputs={
-                "SECONDS": self.number_input(args["seconds"]),
-                "SPEED": self.number_input(args["power"]),
-            })
+            return self.make(
+                MOVE_BLOCKS[name],
+                inputs={
+                    "SECONDS": self.number_input(args["seconds"]),
+                    "SPEED": self.number_input(args["power"]),
+                },
+            )
         if name == "drive":
             args = self.bind(call, (("direction", _REQUIRED),) + MOVE_PARAMS)
             direction = self.string_option(args["direction"], DIRECTIONS)
-            return self.make("robot_drive_for", {"DIRECTION": direction.upper()}, {
-                "SECONDS": self.number_input(args["seconds"]),
-                "SPEED": self.number_input(args["power"]),
-            })
+            return self.make(
+                "robot_drive_for",
+                {"DIRECTION": direction.upper()},
+                {
+                    "SECONDS": self.number_input(args["seconds"]),
+                    "SPEED": self.number_input(args["power"]),
+                },
+            )
         if name == "wait":
             args = self.bind(call, (("seconds", 1),))
-            return self.make("robot_wait", inputs={"SECONDS": self.number_input(args["seconds"])})
+            return self.make(
+                "robot_wait", inputs={"SECONDS": self.number_input(args["seconds"])}
+            )
         if name == "stop":
             self.bind(call, ())
             return self.make("robot_stop")
         if name == "print":
-            if len(call.args) > 2 or any(key.arg not in {None, "sep"} for key in call.keywords):
+            if len(call.args) > 2 or any(
+                key.arg not in {None, "sep"} for key in call.keywords
+            ):
                 self.fail(call, "Blocks can print one or two values")
             if call.keywords and any(key.arg == "sep" for key in call.keywords):
                 self.fail(call, "Blocks use the default print separator")
@@ -646,9 +803,15 @@ class _Parser:
         if name == "show_in_live_camera":
             args = self.bind(call, (("image", _REQUIRED),))
             image = args["image"]
-            if self.is_call(image, "take_picture") and not image.args and not image.keywords:
+            if (
+                self.is_call(image, "take_picture")
+                and not image.args
+                and not image.keywords
+            ):
                 return self.make("robot_show_live_camera")
-            return self.make("robot_show_live_camera", inputs={"IMAGE": {"block": self.expr(image)}})
+            return self.make(
+                "robot_show_live_camera", inputs={"IMAGE": {"block": self.expr(image)}}
+            )
         if name == "set_lights":
             args = self.bind(call, (("colour", _REQUIRED),))
             return self.make("robot_set_lights", {"COLOR": self.colour(args["colour"])})
@@ -658,22 +821,36 @@ class _Parser:
         if name == "flash_lights":
             args = self.bind(call, (("colour", _REQUIRED), ("times", 3)))
             return self.make(
-                "robot_flash_lights", {"COLOR": self.colour(args["colour"])},
+                "robot_flash_lights",
+                {"COLOR": self.colour(args["colour"])},
                 {"TIMES": self.number_input(args["times"])},
             )
         if name == "set_button_light":
             args = self.bind(call, (("button", _REQUIRED), ("brightness", 1)))
             return self.make(
-                "robot_button_light", {"BUTTON": self.string_option(args["button"], BUTTONS)},
+                "robot_button_light",
+                {"BUTTON": self.string_option(args["button"], BUTTONS)},
                 {"BRIGHTNESS": self.number_input(args["brightness"])},
             )
         if name == "wait_until":
             condition = self.bind(call, (("condition", _REQUIRED),))["condition"]
             arguments = condition.args if isinstance(condition, ast.Lambda) else None
-            if arguments is None or arguments.args or arguments.posonlyargs or arguments.kwonlyargs \
-                    or arguments.vararg or arguments.kwarg:
-                self.fail(call, "Blocks understand `wait_until(lambda: ...)` with a condition after the colon")
-            return self.make("robot_wait_until", inputs={"CONDITION": self.condition_input(condition.body)})
+            if (
+                arguments is None
+                or arguments.args
+                or arguments.posonlyargs
+                or arguments.kwonlyargs
+                or arguments.vararg
+                or arguments.kwarg
+            ):
+                self.fail(
+                    call,
+                    "Blocks understand `wait_until(lambda: ...)` with a condition after the colon",
+                )
+            return self.make(
+                "robot_wait_until",
+                inputs={"CONDITION": self.condition_input(condition.body)},
+            )
         self.fail(call, f"Blocks don't know `{name}(...)`")
 
     def _opencv_args(self, call, count, label):
@@ -684,7 +861,9 @@ class _Parser:
     def _kernel_size(self, node):
         value = self.literal_number(node)
         if not isinstance(value, int) or value < 1 or value % 2 == 0:
-            self.fail(node, "The OpenCV blur kernel must be a positive odd whole number")
+            self.fail(
+                node, "The OpenCV blur kernel must be a positive odd whole number"
+            )
         return value
 
     def _number_tuple(self, node, length, label):
@@ -705,16 +884,22 @@ class _Parser:
             elif self.is_cv2_constant(colour_space, "COLOR_HSV2BGR"):
                 conversion = "HSV_TO_BGR"
             else:
-                self.fail(colour_space, "Blocks use cv2.COLOR_BGR2HSV or cv2.COLOR_HSV2BGR")
+                self.fail(
+                    colour_space, "Blocks use cv2.COLOR_BGR2HSV or cv2.COLOR_HSV2BGR"
+                )
             return self.make(
-                "opencv_to_hsv", {"CONVERSION": conversion},
+                "opencv_to_hsv",
+                {"CONVERSION": conversion},
                 {"IMAGE": {"block": self.expr(image)}},
             )
         if self.is_attribute_call(node, "cv2.GaussianBlur"):
             image, kernel, sigma = self._opencv_args(node, 3, "GaussianBlur")
             kernel_values = self._number_tuple(kernel, 2, "the blur kernel")
             if (
-                any(not isinstance(value, int) or value < 1 or value % 2 == 0 for value in kernel_values)
+                any(
+                    not isinstance(value, int) or value < 1 or value % 2 == 0
+                    for value in kernel_values
+                )
                 or kernel_values[0] != kernel_values[1]
             ):
                 self.fail(kernel, "Blocks use a positive odd square OpenCV blur kernel")
@@ -724,14 +909,22 @@ class _Parser:
                 "opencv_blur",
                 inputs={
                     "IMAGE": {"block": self.expr(image)},
-                    "KERNEL": {"shadow": {"type": "math_number", "fields": {"NUM": kernel_values[0]}}},
+                    "KERNEL": {
+                        "shadow": {
+                            "type": "math_number",
+                            "fields": {"NUM": kernel_values[0]},
+                        }
+                    },
                 },
             )
         if self.is_attribute_call(node, "cv2.blur"):
             image, kernel = self._opencv_args(node, 2, "blur")
             kernel_values = self._number_tuple(kernel, 2, "the blur kernel")
             if (
-                any(not isinstance(value, int) or value < 1 or value % 2 == 0 for value in kernel_values)
+                any(
+                    not isinstance(value, int) or value < 1 or value % 2 == 0
+                    for value in kernel_values
+                )
                 or kernel_values[0] != kernel_values[1]
             ):
                 self.fail(kernel, "Blocks use a positive odd square OpenCV blur kernel")
@@ -739,23 +932,35 @@ class _Parser:
                 "opencv_box_blur",
                 inputs={
                     "IMAGE": {"block": self.expr(image)},
-                    "KERNEL": {"shadow": {"type": "math_number", "fields": {"NUM": kernel_values[0]}}},
+                    "KERNEL": {
+                        "shadow": {
+                            "type": "math_number",
+                            "fields": {"NUM": kernel_values[0]},
+                        }
+                    },
                 },
             )
         if self.is_attribute_call(node, "cv2.inRange"):
             image, low, high = self._opencv_args(node, 3, "inRange")
             low_values = self._number_tuple(low, 3, "the low HSV bound")
             high_values = self._number_tuple(high, 3, "the high HSV bound")
+
             def hsv_bound(values):
                 return {
                     "block": self.make(
                         "opencv_hsv_value",
                         inputs={
-                            name: {"shadow": {"type": "math_number", "fields": {"NUM": value}}}
+                            name: {
+                                "shadow": {
+                                    "type": "math_number",
+                                    "fields": {"NUM": value},
+                                }
+                            }
                             for name, value in zip(("H", "S", "V"), values)
                         },
                     )
                 }
+
             inputs = {
                 "IMAGE": {"block": self.expr(image)},
                 "LOW": hsv_bound(low_values),
@@ -764,7 +969,9 @@ class _Parser:
             return self.make("opencv_hsv_mask", inputs=inputs)
         if self.is_attribute_call(node, "cv2.countNonZero"):
             (image,) = self._opencv_args(node, 1, "countNonZero")
-            return self.make("opencv_count_nonzero", inputs={"IMAGE": {"block": self.expr(image)}})
+            return self.make(
+                "opencv_count_nonzero", inputs={"IMAGE": {"block": self.expr(image)}}
+            )
         if self.is_attribute_call(node, "cv2.bitwise_or"):
             left, right = self._opencv_args(node, 2, "bitwise_or")
             return self.make(
@@ -778,14 +985,18 @@ class _Parser:
 
     def if_statement(self, node):
         if self.is_call(node.test, "sees_colour"):
-            args = self.bind(node.test, (("colour", _REQUIRED), ("tolerance", 18), ("min_area", 500)))
+            args = self.bind(
+                node.test, (("colour", _REQUIRED), ("tolerance", 18), ("min_area", 500))
+            )
             inputs = {
                 "TOLERANCE": self.number_input(args["tolerance"]),
                 "MIN_AREA": self.number_input(args["min_area"]),
             }
             self.set_statement(inputs, "THEN", node.body)
             self.set_statement(inputs, "ELSE", node.orelse)
-            return self.make("robot_if_color", {"COLOR": self.colour(args["colour"])}, inputs)
+            return self.make(
+                "robot_if_color", {"COLOR": self.colour(args["colour"])}, inputs
+            )
 
         inputs = {}
         current, index = node, 0
@@ -793,7 +1004,11 @@ class _Parser:
             inputs[f"IF{index}"] = self.condition_input(current.test)
             self.set_statement(inputs, f"DO{index}", current.body)
             orelse = current.orelse
-            if len(orelse) == 1 and isinstance(orelse[0], ast.If) and not self.is_call(orelse[0].test, "sees_colour"):
+            if (
+                len(orelse) == 1
+                and isinstance(orelse[0], ast.If)
+                and not self.is_call(orelse[0].test, "sees_colour")
+            ):
                 current, index = orelse[0], index + 1
                 continue
             break
@@ -820,24 +1035,40 @@ class _Parser:
 
     def for_statement(self, node):
         call = node.iter
-        if node.orelse or not isinstance(node.target, ast.Name) or not isinstance(call, ast.Call) \
-                or not isinstance(call.func, ast.Name):
-            self.fail(node, "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops")
+        if (
+            node.orelse
+            or not isinstance(node.target, ast.Name)
+            or not isinstance(call, ast.Call)
+            or not isinstance(call.func, ast.Name)
+        ):
+            self.fail(
+                node,
+                "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops",
+            )
         name = call.func.id
         inputs = {}
         if node.target.id == "_" and name == "range":
             times = self.bind(call, (("times", _REQUIRED),))["times"]
-            if self.is_call(times, "int") and len(times.args) == 1 and not times.keywords:
+            if (
+                self.is_call(times, "int")
+                and len(times.args) == 1
+                and not times.keywords
+            ):
                 times = times.args[0]
             inputs["TIMES"] = self.number_input(times)
             self.set_statement(inputs, "DO", node.body)
             return self.make("robot_repeat", inputs=inputs)
 
         if node.target.id == "_":
-            self.fail(node, "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops")
+            self.fail(
+                node,
+                "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops",
+            )
         variable = {"VAR": self.variable(node.target)}
         if name == "count":
-            args = self.bind(call, (("start", _REQUIRED), ("stop", _REQUIRED), ("step", 1)))
+            args = self.bind(
+                call, (("start", _REQUIRED), ("stop", _REQUIRED), ("step", 1))
+            )
             inputs.update(
                 FROM=self.number_input(args["start"]),
                 TO=self.number_input(args["stop"]),
@@ -846,7 +1077,9 @@ class _Parser:
         elif name == "range" and 1 <= len(call.args) <= 3 and not call.keywords:
             numbers = [self.literal_number(arg) for arg in call.args]
             if any(not isinstance(number, int) for number in numbers):
-                self.fail(node, "Blocks can only use `range()` with plain whole numbers")
+                self.fail(
+                    node, "Blocks can only use `range()` with plain whole numbers"
+                )
             if len(numbers) == 1:
                 start, stop, step = 0, numbers[0], 1
             elif len(numbers) == 2:
@@ -854,11 +1087,19 @@ class _Parser:
             else:
                 start, stop, step = numbers
             if step <= 0 or start >= stop:
-                self.fail(node, "Blocks can only count upwards with at least one number to count")
+                self.fail(
+                    node,
+                    "Blocks can only count upwards with at least one number to count",
+                )
             last = start + ((stop - start - 1) // step) * step
             for key, number in (("FROM", start), ("TO", last), ("BY", step)):
-                inputs[key] = {"shadow": {"type": "math_number", "fields": {"NUM": number}}}
+                inputs[key] = {
+                    "shadow": {"type": "math_number", "fields": {"NUM": number}}
+                }
         else:
-            self.fail(node, "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops")
+            self.fail(
+                node,
+                "Blocks only understand `for _ in range(...)` and `for i in count(...)` loops",
+            )
         self.set_statement(inputs, "DO", node.body)
         return self.make("controls_for", variable, inputs)

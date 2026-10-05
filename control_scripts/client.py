@@ -108,9 +108,7 @@ class RobotClient:
         return await self.send({"type": "underlights", "color": list(color)})
 
     async def set_button_led(self, button, value):
-        return await self.send(
-            {"type": "button_led", "button": button, "value": value}
-        )
+        return await self.send({"type": "button_led", "button": button, "value": value})
 
     async def request_distance(self):
         return await self.send({"type": "distance_request"})

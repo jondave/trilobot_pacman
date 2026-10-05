@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=8) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=9) }}">
 </head>
 <body>
   <header class="topbar">
@@ -77,11 +77,10 @@
     </section>
 
     <aside class="right-column">
-      <section class="card stage-card">
+      <section id="camera-card" class="card stage-card">
         <div class="card-heading compact">
           <div>
-          <h2>Live camera</h2>
-            <span id="target-label" class="muted mono">not connected</span>
+            <h2>Camera</h2>
           </div>
           <span id="camera-view-label" class="vision-status">OpenCV: no picture checked</span>
         </div>
@@ -299,11 +298,20 @@
     </div>
   </div>
 
-  <div id="help-modal" class="ranch-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
+  <div id="help-highlight" class="help-highlight" aria-hidden="true"></div>
+
+  <div id="help-modal" class="ranch-backdrop help-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
     <div class="help-modal">
       <div class="qsg-title-row"><h2 id="help-title">🌈 Quick start</h2><span id="help-progress"></span></div>
-      <p class="help-intro">One small step at a time. Follow the arrow, try the highlighted control, then move on.</p>
-      <div id="help-arrow" class="help-arrow" aria-hidden="true">👇</div>
+      <p class="help-intro">One small step at a time. Follow the focus panel and yellow highlight, then move on.</p>
+      <div class="help-focus" aria-live="polite">
+        <span class="help-focus-icon" aria-hidden="true">⌖</span>
+        <div>
+          <span class="help-focus-caption">Look here</span>
+          <strong id="help-target-label"></strong>
+          <span id="help-target-hint"></span>
+        </div>
+      </div>
       <div id="help-step" class="help-step"></div>
       <div class="help-footer">You can reopen this guide with <strong>? Help</strong> any time.</div>
       <div class="ranch-actions">
@@ -317,6 +325,6 @@
 
   <script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
-  <script src="{{ url_for('static', filename='app.js', v=21) }}"></script>
+  <script src="{{ url_for('static', filename='app.js', v=23) }}"></script>
 </body>
 </html>
