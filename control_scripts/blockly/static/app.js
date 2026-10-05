@@ -165,7 +165,7 @@ Blockly.defineBlocksWithJsonArray([
     message0: "scan robot QR code",
     output: "String",
     colour: 285,
-    tooltip: "Return the robot name such as trilo-09 from a Lincoln robot QR code."
+    tooltip: "Return the robot name such as trilo-xx from a Lincoln robot QR code."
   },
   {
     type: "robot_show_live_camera",
@@ -981,7 +981,7 @@ const PYTHON_API = [
   ["stop", "stop()", "Stop the motors."],
   ["take_picture", "take_picture()", "Return a BGR NumPy image from the camera."],
   ["show_in_live_camera", "show_in_live_camera(${1:image})", "Show a grayscale or BGR OpenCV image in the camera panel."],
-  ["scan_robot_qr", "scan_robot_qr()", "Return a robot name such as trilo-09 from its Lincoln QR code, or an empty string."],
+  ["scan_robot_qr", "scan_robot_qr()", "Return a robot name such as trilo-xx from its Lincoln QR code, or an empty string."],
   ["sees_colour", "sees_colour(\"${1|" + COLOUR_CHOICES + "|}\", tolerance=${2:18}, min_area=${3:500})", "Block-friendly OpenCV HSV and contour check."],
   ["distance", "distance()", "Distance sensor reading in cm (nan if it could not be read)."],
   ["button_pressed", "button_pressed(\"${1|A,B,X,Y|}\")", "True while a button on the robot is held down."],
