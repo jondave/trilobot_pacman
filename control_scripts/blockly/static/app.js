@@ -448,6 +448,8 @@ document.querySelector(".blocklyToolboxDiv")?.addEventListener("click", () => {
 
 const $ = (id) => document.getElementById(id);
 const urlInput = $("robot-url");
+const robotSelect = $("robot-select");
+const manualRobotAddress = $("manual-robot-address");
 const teleopEnabled = $("teleop-enabled");
 const fileInput = $("program-file");
 const librarySelect = $("library-select");
@@ -458,6 +460,13 @@ const teleopButtons = new Map(
   )
 );
 let statusRequestInFlight = false;
+let robotChoices = [];
+const MANUAL_ROBOT_VALUE = "__manual__";
+const PING_STATUS = {
+  green: {icon: "🟢", label: "Seen within 10 minutes"},
+  orange: {icon: "🟠", label: "Not seen for more than 10 minutes"},
+  red: {icon: "🔴", label: "Not seen for more than 30 minutes"}
+};
 
 async function jsonRequest(path, options = {}) {
   const requestOptions = {...options};
@@ -474,6 +483,71 @@ async function jsonRequest(path, options = {}) {
     throw new Error(data.error || "Request failed (" + response.status + ")");
   }
   return data;
+}
+
+function robotPingState(lastPing) {
+  const timestamp = Date.parse(lastPing || "");
+  if (!Number.isFinite(timestamp)) return "red";
+  const age = Math.max(0, Date.now() - timestamp) / 1000;
+  if (age <= 10 * 60) return "green";
+  if (age <= 30 * 60) return "orange";
+  return "red";
+}
+
+function updateManualAddressVisibility(focus = false) {
+  const manual = robotSelect.value === MANUAL_ROBOT_VALUE;
+  manualRobotAddress.hidden = !manual;
+  if (manual && focus) urlInput.focus();
+}
+
+function updateRobotPingStatuses() {
+  for (const option of robotSelect.options) {
+    const robot = robotChoices.find((item) => item.url === option.value);
+    if (!robot) continue;
+    const state = PING_STATUS[robotPingState(robot.last_ping)];
+    option.textContent = state.icon + " " + robot.name + " (" + robot.ip + ")";
+    option.title = state.label + (robot.last_ping ? ": " + robot.last_ping : "");
+  }
+}
+
+function populateRobotChoices(robots) {
+  const previous = robotSelect.value;
+  robotChoices = robots.filter((robot) => robot && robot.url && robot.ip && robot.name);
+  robotSelect.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = robotChoices.length ? "Choose a robot…" : "No robots found";
+  robotSelect.appendChild(placeholder);
+  for (const robot of robotChoices) {
+    const option = document.createElement("option");
+    option.value = robot.url;
+    option.textContent = robot.name + " (" + robot.ip + ")";
+    option.title = robot.url;
+    robotSelect.appendChild(option);
+  }
+  const manualOption = document.createElement("option");
+  manualOption.value = MANUAL_ROBOT_VALUE;
+  manualOption.textContent = "Enter address manually…";
+  robotSelect.appendChild(manualOption);
+  if (previous && [...robotSelect.options].some((option) => option.value === previous)) {
+    robotSelect.value = previous;
+  } else if (robotChoices.length) {
+    robotSelect.selectedIndex = 1;
+  } else {
+    robotSelect.value = MANUAL_ROBOT_VALUE;
+  }
+  updateManualAddressVisibility();
+  updateRobotPingStatuses();
+}
+
+async function refreshRobots() {
+  try {
+    const data = await jsonRequest("/api/robots");
+    const robots = Array.isArray(data.robots) ? data.robots : [];
+    populateRobotChoices(robots);
+  } catch (error) {
+    populateRobotChoices([]);
+  }
 }
 
 function setMessage(message, error = false) {
@@ -656,14 +730,21 @@ function setVideoSettings(video) {
 }
 
 async function connectRobot() {
+  const address = robotSelect.value === MANUAL_ROBOT_VALUE
+    ? urlInput.value.trim()
+    : robotSelect.value;
+  if (!address) {
+    setMessage("Choose a robot or enter a manual WebSocket address", true);
+    return;
+  }
   try {
     const data = await jsonRequest("/api/connect", {
       method: "POST",
-      body: JSON.stringify({url: urlInput.value, video: videoSettings()})
+      body: JSON.stringify({url: address, video: videoSettings()})
     });
     setVideoSettings(data.video);
     setMessage("Connecting…");
-    $("target-label").textContent = data.url || urlInput.value;
+    $("target-label").textContent = data.url || address;
   } catch (error) {
     setMessage(error.message, true);
   }
@@ -823,6 +904,11 @@ updateTeleopState();
 
 $("connect-button").addEventListener("click", connectRobot);
 $("disconnect-button").addEventListener("click", disconnectRobot);
+$("refresh-robots").addEventListener("click", refreshRobots);
+robotSelect.addEventListener("change", () => {
+  updateManualAddressVisibility(true);
+  updateRobotPingStatuses();
+});
 $("apply-video").addEventListener("click", applyVideoSettings);
 $("run-button").addEventListener("click", startProgram);
 $("stop-button").addEventListener("click", stopProgram);
@@ -876,6 +962,9 @@ async function pollStatus() {
 
 setInterval(pollStatus, 250);
 pollStatus();
+refreshRobots();
+setInterval(updateRobotPingStatuses, 30_000);
+setInterval(refreshRobots, 5 * 60 * 1000);
 refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));
 
 // ---- Python mode: Monaco editor kept in sync with the blocks ----

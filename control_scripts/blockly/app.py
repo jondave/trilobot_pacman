@@ -6,7 +6,10 @@ from __future__ import annotations
 import asyncio
 import colorsys
 import ctypes
+from datetime import datetime, timezone
 import functools
+import ipaddress
+import json
 import logging
 import math
 import re
@@ -14,6 +17,7 @@ import sys
 import threading
 import time
 import traceback
+import urllib.request
 from collections import deque
 from pathlib import Path
 from urllib.parse import urlparse
@@ -53,6 +57,10 @@ DEFAULT_VIDEO_CONFIG = {
     "fps": 20.0,
     "jpeg_quality": 60,
 }
+ROBOT_DIRECTORY_URL = "https://findmyrobot.services.lcas.group/api/robots"
+ROBOT_DIRECTORY_TIMEOUT = 6
+ROBOT_PING_GREEN_SECONDS = 10 * 60
+ROBOT_PING_ORANGE_SECONDS = 30 * 60
 STREAM_JPEG_QUALITY = 72
 HEALTH_WINDOW_SECONDS = 3.0
 MAX_PYTHON_CHARS = 50_000
@@ -1384,6 +1392,68 @@ runner = ProgramRunner(session)
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+def _robot_directory_entries(payload):
+    """Convert the robot directory response into safe WebSocket choices."""
+    if isinstance(payload, dict):
+        payload = payload.get("robots", payload.get("data", []))
+    if not isinstance(payload, list):
+        raise ValueError("Robot directory returned an unexpected response")
+
+    entries = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        private_ip = item.get("privateIP") or item.get("private_ip") or item.get("ip")
+        name = item.get("name") or item.get("hostname") or item.get("host")
+        if not private_ip or not name:
+            continue
+        last_ping = item.get("lastPing") or item.get("last_ping")
+        try:
+            private_ip = str(ipaddress.ip_address(str(private_ip).strip()))
+        except ValueError:
+            continue
+        ping_age = None
+        if last_ping:
+            try:
+                ping_time = datetime.fromisoformat(str(last_ping).replace("Z", "+00:00"))
+                if ping_time.tzinfo is None:
+                    ping_time = ping_time.replace(tzinfo=timezone.utc)
+                ping_age = max(0, (datetime.now(timezone.utc) - ping_time).total_seconds())
+            except ValueError:
+                last_ping = None
+        if ping_age is not None and ping_age <= ROBOT_PING_GREEN_SECONDS:
+            ping_status = "green"
+        elif ping_age is not None and ping_age <= ROBOT_PING_ORANGE_SECONDS:
+            ping_status = "orange"
+        else:
+            ping_status = "red"
+        entries.append({
+            "name": str(name).strip(),
+            "hostname": str(item.get("hostname") or name).strip(),
+            "ip": private_ip,
+            "url": f"ws://{private_ip}:8765",
+            "last_ping": last_ping,
+            "ping_status": ping_status,
+        })
+    return sorted(entries, key=lambda item: (item["name"].casefold(), item["ip"]))
+
+
+@app.get("/api/robots")
+def robot_directory():
+    """Proxy the robot directory so the browser does not depend on CORS."""
+    try:
+        request = urllib.request.Request(
+            ROBOT_DIRECTORY_URL,
+            headers={"Accept": "application/json", "User-Agent": "Trilobot Blockly"},
+        )
+        with urllib.request.urlopen(request, timeout=ROBOT_DIRECTORY_TIMEOUT) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return jsonify({"robots": _robot_directory_entries(payload)})
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        LOG.warning("Could not load robot directory: %s", error)
+        return jsonify({"robots": [], "error": "Robot list unavailable; enter an address manually."}), 502
 
 
 @app.post("/api/connect")

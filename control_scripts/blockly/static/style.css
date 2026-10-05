@@ -49,6 +49,9 @@ input, select {
   background: #fbfcff;
 }
 #robot-url { width: 220px; font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+#robot-select { min-width: 170px; max-width: 220px; }
+#manual-robot-address { display: flex; align-items: center; gap: 7px; }
+#manual-robot-address[hidden] { display: none !important; }
 button { border-radius: 8px; padding: 8px 11px; background: #edf2fa; color: var(--ink); font-weight: 750; }
 button.primary { background: var(--blue); color: #fff; }
 button.run { background: var(--green); color: #fff; }
@@ -136,6 +139,8 @@ kbd { display: inline-block; padding: 2px 5px; border: 1px solid #ccd6e7; border
   .brand span { display: block; margin-top: 3px; }
   .connection-controls { justify-content: flex-start; }
   #robot-url { width: 180px; }
+  #robot-select { min-width: 150px; max-width: 180px; }
+  #manual-robot-address input { width: 180px; }
   .app-grid { padding: 9px; }
   .right-column { grid-template-columns: 1fr; grid-template-rows: 400px auto; }
   .workspace-card { height: 620px; }
