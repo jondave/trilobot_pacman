@@ -61,7 +61,7 @@ DEFAULT_VIDEO_CONFIG = {
     "fps": 20.0,
     "jpeg_quality": 60,
 }
-ROBOT_DIRECTORY_URL = "https://findmyrobot.services.lcas.group/api/robots"
+ROBOT_DIRECTORY_URL = "https://findmyrobot.services.lcas.group/api/robots?filter=trilo"
 ROBOT_DIRECTORY_TIMEOUT = 6
 ROBOT_PING_GREEN_SECONDS = 10 * 60
 ROBOT_PING_ORANGE_SECONDS = 30 * 60
