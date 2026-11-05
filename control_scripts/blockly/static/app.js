@@ -760,7 +760,7 @@ async function refreshLibrary(selectedName = "") {
   for (const demo of data.demos || []) {
     const option = document.createElement("option");
     option.value = demo.name;
-    option.textContent = demo.name;
+    option.textContent = demo.saved ? demo.name + " (mine)" : demo.name;
     if (!demo.block_compatible && demo.block_error) option.title = demo.block_error;
     groups[demo.kind === "python" ? "python" : "blocks"].appendChild(option);
   }
@@ -809,27 +809,30 @@ async function saveLibraryDemo() {
   if (!name || !name.trim()) return;
   try {
     const cleanName = name.trim();
-    await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
+    const result = await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
       method: "POST",
       body: JSON.stringify(mode === "python" && editor ? {
         python: editor.getValue()
       } : workspaceData())
     });
-    await refreshLibrary(cleanName);
-    setMessage("Saved demo: " + cleanName);
+    await refreshLibrary(result.name);
+    setMessage("Saved demo: " + result.name);
   } catch (error) {
     setMessage("Could not save demo: " + error.message, true);
   }
 }
 
 function downloadProgram() {
+  const name = window.prompt("File name:", "trilobot_trait");
+  if (name === null) return;
+  const fileName = (name.trim().replace(/\.json$/i, "").replace(/[\\/:*?"<>|]/g, "_")) || "trilobot_trait";
   const data = JSON.stringify(workspaceData(), null, 2);
   const blob = new Blob([data], {
     type: "application/json"
   });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "trilobot_trait.json";
+  link.download = fileName + ".json";
   document.body.appendChild(link);
   link.click();
   link.remove();

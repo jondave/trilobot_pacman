@@ -47,6 +47,11 @@ LOG = logging.getLogger("trilobot_blockly")
 app = Flask(__name__)
 LIBRARY_DIR = Path(__file__).resolve().parent / "demos"
 LIBRARY_DIR.mkdir(exist_ok=True)
+# User-saved demos live in their own folder so a Docker volume can persist them.
+USER_LIBRARY_DIR = Path(
+    os.environ.get("TRILOBOT_USER_DEMOS_DIR") or LIBRARY_DIR / "saved"
+)
+USER_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
 
 VIDEO_SIZES = (
     (640, 480),
@@ -1531,14 +1536,43 @@ def status():
     return jsonify({**session.status(), "program": runner.status()})
 
 
-def _library_files(name):
-    """Return the safe (blocks .json, python .py) paths inside the demo library."""
+def _library_name(name):
     name = str(name or "").strip()
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _-]{0,63}", name):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _()-]{0,63}", name):
         raise ValueError(
-            "Demo name may use letters, numbers, spaces, hyphens, and underscores"
+            "Demo name may use letters, numbers, spaces, hyphens, underscores, and brackets"
         )
-    return LIBRARY_DIR / f"{name}.json", LIBRARY_DIR / f"{name}.py"
+    return name
+
+
+def _library_files(name, directory=None):
+    """Return the safe (blocks .json, python .py) paths for a demo.
+
+    Without a directory, the user's saved demos take priority over bundled ones.
+    """
+    name = _library_name(name)
+    if directory is None:
+        directory = USER_LIBRARY_DIR
+        if not (directory / f"{name}.json").is_file() and not (
+            directory / f"{name}.py"
+        ).is_file():
+            directory = LIBRARY_DIR
+    return directory / f"{name}.json", directory / f"{name}.py"
+
+
+def _unique_library_name(name):
+    """Never overwrite an existing demo: append (1), (2), ... when needed."""
+    name = _library_name(name)
+    candidate, number = name, 0
+    while any(
+        (directory / f"{candidate}{suffix}").exists()
+        for directory in (LIBRARY_DIR, USER_LIBRARY_DIR)
+        for suffix in (".json", ".py")
+    ):
+        number += 1
+        suffix = f" ({number})"
+        candidate = name[: 64 - len(suffix)].rstrip() + suffix
+    return candidate
 
 
 def _validate_demo(path, kind):
@@ -1566,11 +1600,21 @@ def _validate_demo(path, kind):
 @app.get("/api/library")
 def list_library():
     demos = []
-    for pattern, kind in (("*.json", "blocks"), ("*.py", "python")):
-        for path in LIBRARY_DIR.glob(pattern):
-            demos.append(
-                {"name": path.stem, "kind": kind, **_validate_demo(path, kind)}
-            )
+    seen = set()
+    for directory, saved in ((USER_LIBRARY_DIR, True), (LIBRARY_DIR, False)):
+        for pattern, kind in (("*.json", "blocks"), ("*.py", "python")):
+            for path in directory.glob(pattern):
+                if path.stem in seen:
+                    continue
+                seen.add(path.stem)
+                demos.append(
+                    {
+                        "name": path.stem,
+                        "kind": kind,
+                        "saved": saved,
+                        **_validate_demo(path, kind),
+                    }
+                )
     demos.sort(key=lambda item: item["name"].lower())
     return jsonify({"demos": demos})
 
@@ -1595,7 +1639,8 @@ def save_library(name):
     import json
 
     try:
-        blocks_path, python_path = _library_files(name)
+        name = _unique_library_name(name)
+        blocks_path, python_path = _library_files(name, USER_LIBRARY_DIR)
         program = request.get_json(silent=True)
         if isinstance(program, dict) and isinstance(program.get("python"), str):
             code = program["python"]
@@ -1608,10 +1653,6 @@ def save_library(name):
             text = json.dumps(program, indent=2) + "\n"
         else:
             raise ValueError("The saved Blockly program is not valid JSON")
-        if other.exists():
-            raise ValueError(
-                "A demo with that name already exists as a different kind; pick another name"
-            )
         path.write_text(text, encoding="utf-8")
         return jsonify({"name": path.stem, "saved": True})
     except (OSError, ValueError) as error:

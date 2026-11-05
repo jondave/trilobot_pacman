@@ -11,7 +11,7 @@ You need:
 On your computer, run:
 
 ```bash
-docker run -p 8750:8750 uolcs/trilobot_pacman
+docker run -p 8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
 ```
 
 Leave this terminal running. Open the Blockly app in a browser:
