@@ -9,9 +9,12 @@ import asyncio
 import json
 import logging
 import math
+import random
 import time
 from contextlib import suppress
 from io import BytesIO
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from threading import Lock
 
 from PIL import Image
@@ -44,6 +47,12 @@ DEFAULT_JPEG_QUALITY = 75
 MAX_VIDEO_FPS = 30.0
 MOTION_EXPOSURE_US = 10000  # Short exposure reduces motion blur.
 WATCHDOG_SECONDS = 0.6
+
+SESSION_WORDS = json.loads(
+    (Path(__file__).with_name("session_words.json")).read_text(encoding="utf-8")
+)
+CLOSE_BUSY = 4001
+CLOSE_KICKED = 4002
 
 BUTTONS = {
     "A": BUTTON_A,
@@ -261,8 +270,62 @@ async def motor_watchdog():
         await asyncio.sleep(0.1)
 
 
+active_sessions = {}
+
+
+def new_session_name():
+    taken = {session["name"] for session in active_sessions.values()}
+    while True:
+        name = "-".join(word.capitalize() for word in random.sample(SESSION_WORDS, 2))
+        if name not in taken:
+            return name
+
+
+def wants_takeover(websocket):
+    request = getattr(websocket, "request", None)
+    path = getattr(request, "path", None) or getattr(websocket, "path", "") or ""
+    return parse_qs(urlparse(path).query).get("force", ["0"])[0] in ("1", "true")
+
+
+async def kick_all_sessions():
+    """Close every active session so a new client can take over the robot."""
+    for session in list(active_sessions.values()):
+        with suppress(Exception):
+            await send_json(
+                session["websocket"],
+                {"type": "kicked", "message": "Another user took over this robot"},
+                session["send_lock"],
+            )
+        with suppress(Exception):
+            await session["websocket"].close(CLOSE_KICKED, "Kicked off")
+    for _ in range(50):
+        if not active_sessions:
+            break
+        await asyncio.sleep(0.1)
+
+
 async def handle_client(websocket, *ignored):
-    logging.info("Control client connected")
+    send_lock = asyncio.Lock()
+    if active_sessions:
+        if not wants_takeover(websocket):
+            names = ", ".join(s["name"] for s in active_sessions.values())
+            with suppress(Exception):
+                await send_json(
+                    websocket,
+                    {"type": "busy", "session": names},
+                    send_lock,
+                )
+                await websocket.close(CLOSE_BUSY, "Robot is in use")
+            logging.info("Rejected client; robot is in use by %s", names)
+            return
+        await kick_all_sessions()
+    session_name = new_session_name()
+    active_sessions[id(websocket)] = {
+        "name": session_name,
+        "websocket": websocket,
+        "send_lock": send_lock,
+    }
+    logging.info("Control client connected as %s", session_name)
     send_lock = asyncio.Lock()
     tasks = [
         asyncio.create_task(send_video(websocket, send_lock)),
@@ -275,6 +338,7 @@ async def handle_client(websocket, *ignored):
             websocket,
             {
                 "type": "hello",
+                "session": session_name,
                 "video": {"format": "jpeg", **config},
             },
             send_lock,
@@ -300,11 +364,13 @@ async def handle_client(websocket, *ignored):
                 reply = {"type": "error", "message": str(error)}
             await send_json(websocket, reply, send_lock)
     finally:
+        active_sessions.pop(id(websocket), None)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        stop_robot()
-        logging.info("Control client disconnected; motors stopped")
+        if not active_sessions:
+            stop_robot()
+        logging.info("Session %s disconnected", session_name)
 
 
 async def main():

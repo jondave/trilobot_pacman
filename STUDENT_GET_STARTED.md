@@ -14,6 +14,8 @@ On your computer, run:
 docker run -p 8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
 ```
 
+Your saved demos are kept in the `trilobot_demos` volume, so they survive restarts. See [docs/BLOCKLY.md](docs/BLOCKLY.md) and [docs/PYTHON.md](docs/PYTHON.md) for guides.
+
 Leave this terminal running. Open the Blockly app in a browser:
 
 [http://localhost:8750](http://localhost:8750)

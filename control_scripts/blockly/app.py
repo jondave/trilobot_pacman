@@ -218,8 +218,11 @@ class RobotSession:
         self.last_command_ms = None
         self.command_times = deque(maxlen=30)
         self.video_config = dict(DEFAULT_VIDEO_CONFIG)
+        self.session_name = ""
+        self.busy_session = ""
+        self.kicked = False
 
-    def connect(self, url, video_config=None):
+    def connect(self, url, video_config=None, force=False):
         url = str(url or "").strip()
         if not url.startswith(("ws://", "wss://")):
             raise ValueError("Robot address must start with ws:// or wss://")
@@ -234,7 +237,11 @@ class RobotSession:
             self.latest_frame = None
             self.latest_jpeg = _placeholder_jpeg()
             self.camera_overlay = None
-            self.frame_sequence = 0
+            # Keep the sequence increasing so open camera streams never stall.
+            self.frame_sequence += 1
+            self.session_name = ""
+            self.busy_session = ""
+            self.kicked = False
             self.frame_times.clear()
             self.telemetry_times.clear()
             self.last_frame_at = 0.0
@@ -246,11 +253,17 @@ class RobotSession:
 
         self.thread = threading.Thread(
             target=self._thread_main,
-            args=(url, config, event),
+            args=(
+                (url + ("&" if "?" in url else "?") + "force=1") if force else url,
+                config,
+                event,
+            ),
             daemon=True,
             name="trilobot-websocket",
         )
         self.thread.start()
+        with self.frame_condition:
+            self.frame_condition.notify_all()
 
     def disconnect(self):
         with self.lock:
@@ -312,11 +325,21 @@ class RobotSession:
                         self.last_telemetry_at = now
                         self.telemetry_times.append(now)
 
+                with self.lock:
+                    self.session_name = client.session_name
+
                 await asyncio.sleep(0.001)
 
-            if client.error and not event.is_set():
+            if not event.is_set():
                 with self.lock:
-                    self.error = str(client.error)
+                    if client.busy_session:
+                        self.busy_session = client.busy_session
+                        self.error = f"Robot is in use by session {client.busy_session}"
+                    elif client.kicked:
+                        self.kicked = True
+                        self.error = "Another user took over this robot"
+                    elif client.error:
+                        self.error = str(client.error)
 
     def _store_frame(self, frame):
         with self.lock:
@@ -447,6 +470,9 @@ class RobotSession:
             "connected": connected,
             "url": self.url,
             "error": error,
+            "session_name": self.session_name,
+            "busy_session": self.busy_session,
+            "kicked": self.kicked,
             "telemetry": self.telemetry_snapshot(),
             "video": config,
             "connection": {
@@ -1518,7 +1544,9 @@ def robot_directory():
 def connect():
     try:
         payload = request.get_json(silent=True) or {}
-        session.connect(payload.get("url"), payload.get("video"))
+        session.connect(
+            payload.get("url"), payload.get("video"), bool(payload.get("force"))
+        )
         return jsonify(session.status())
     except Exception as error:
         return jsonify({"error": str(error)}), 400
