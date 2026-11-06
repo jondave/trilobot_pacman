@@ -334,7 +334,10 @@ class _Generator:
             name = self.variable(fields.get("VAR"))
             delta = self.value(block, "DELTA", default="1")
             return [f"{pad}{name} += {delta}"]
-        return [f"{pad}pass  # unsupported block: {kind}"]
+        raise ValueError(
+            f"The block type '{kind}' cannot be turned into Python. "
+            "Remove it from the workspace and try again."
+        )
 
     def expression(self, block):
         kind = block.get("type")
@@ -432,7 +435,10 @@ class _Generator:
             symbol = "<" if fields.get("OPERATOR", "LESS_THAN") == "LESS_THAN" else ">"
             limit = self.value(block, "CENTIMETRES", COMPARE + 1, "20")
             return f"distance() {symbol} {limit}", COMPARE
-        return "None", ATOM
+        raise ValueError(
+            f"The block type '{kind}' cannot be turned into Python. "
+            "Remove it from the workspace and try again."
+        )
 
 
 def _pad(depth):
@@ -550,7 +556,7 @@ class _Parser:
         names = [name for name, _ in params]
         if len(call.args) > len(names):
             self.fail(call, f"`{call.func.id}` was given too many values")
-        bound = dict(zip(names, call.args))
+        bound = dict(zip(names, call.args, strict=False))
         for key in call.keywords:
             if key.arg not in names or key.arg in bound:
                 self.fail(
@@ -956,7 +962,7 @@ class _Parser:
                                     "fields": {"NUM": value},
                                 }
                             }
-                            for name, value in zip(("H", "S", "V"), values)
+                            for name, value in zip(("H", "S", "V"), values, strict=False)
                         },
                     )
                 }

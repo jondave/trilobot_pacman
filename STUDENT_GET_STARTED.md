@@ -11,8 +11,10 @@ You need:
 On your computer, run:
 
 ```bash
-docker run -p 8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
+docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
 ```
+
+The `127.0.0.1:` prefix keeps the app reachable only from your own computer, because it can control the robot and run code with no password.
 
 Your saved demos are kept in the `trilobot_demos` volume, so they survive restarts. See [docs/BLOCKLY.md](docs/BLOCKLY.md) and [docs/PYTHON.md](docs/PYTHON.md) for guides.
 

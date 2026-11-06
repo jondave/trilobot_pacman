@@ -1,0 +1,19 @@
+# systemd unit that starts robot_sender.py at boot and restarts it on failure.
+# Install: see robot_scripts/README.md
+[Unit]
+Description=Trilobot WebSocket robot sender
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# CHANGE: the Linux user that owns the checkout and can access the hardware.
+User=pi
+# CHANGE: absolute path to the robot_scripts folder on the robot.
+WorkingDirectory=/home/pi/trilobot_pacman/robot_scripts
+# CHANGE: path to python3 (use the venv python if you made one).
+ExecStart=/usr/bin/python3 robot_sender.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

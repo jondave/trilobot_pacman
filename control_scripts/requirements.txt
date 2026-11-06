@@ -1,4 +1,4 @@
 # Install this on the student's lab machine.
-websockets
-opencv-python
-numpy
+websockets==17.4
+opencv-python==5.0.0.93
+numpy==2.5.4

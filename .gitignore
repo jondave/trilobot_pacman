@@ -33,3 +33,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Frontend libraries fetched by scripts/fetch_vendor.sh
+control_scripts/blockly/static/vendor/

@@ -9,7 +9,7 @@ program or the reusable WebSocket client.
 From the repository root:
 
 ```bash
-cd /home/cheddar/code/trilobot_pacman
+cd path/to/trilobot_pacman  # the folder you cloned
 python3 -m venv .venv
 .venv/bin/python -m pip install -r control_scripts/blockly/requirements.txt
 .venv/bin/python control_scripts/blockly/app.py
@@ -62,3 +62,14 @@ before driving, and release a key to stop.
 
 The OpenCV block takes a snapshot and searches it for a sufficiently large HSV
 colour region. The camera panel reports the last detection result.
+
+## Run with Docker
+
+```bash
+docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
+```
+
+Publishing on `127.0.0.1` keeps the unauthenticated app off the network. The
+image bundles Blockly and Monaco (via `scripts/fetch_vendor.sh`), so it works
+offline. When running outside Docker, run `scripts/fetch_vendor.sh` once for
+offline use; otherwise the page falls back to the CDNs.
