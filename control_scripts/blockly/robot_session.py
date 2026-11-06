@@ -284,6 +284,11 @@ class RobotSession:
         if state == "idle":
             if reason == "user":
                 return "You disconnected from the robot."
+            if reason == "tab_closed":
+                return (
+                    f"Let go of {robot} because the app tab was closed. "
+                    "Press Connect to use it again."
+                )
             return "Not connected. Choose a robot and press Connect."
         if state == "connecting":
             return f"Connecting to {robot}…"
@@ -404,15 +409,27 @@ class RobotSession:
         with self.frame_condition:
             self.frame_condition.notify_all()
 
-    def disconnect(self):
+    def disconnect(self, reason="user"):
+        """Close the robot link and stay idle (no auto-reconnect).
+
+        reason "tab_closed" means the app page went away; the robot is let
+        go so other students can use it.
+        """
         with self.lock:
             was = self.state
         self._stop_worker()
         self._set_state(
-            None, "idle", "user", attempt=0, holder=None, holder_since=None, error=""
+            None, "idle", reason, attempt=0, holder=None, holder_since=None, error=""
         )
         if was != "idle":
-            self._event("info", "Disconnected from the robot.")
+            if reason == "tab_closed":
+                self._event(
+                    "warning",
+                    f"Let go of {self._robot_label()} because the app tab was "
+                    "closed, so other students can use it.",
+                )
+            else:
+                self._event("info", "Disconnected from the robot.")
 
     # -- websocket thread -------------------------------------------------
 

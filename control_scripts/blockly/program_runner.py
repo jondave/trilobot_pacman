@@ -32,6 +32,7 @@ STOP_REASONS = {
     "user": "you disconnected from the robot",
     "refused": "the robot stopped accepting connections",
     "timeout": "the robot could not be reached",
+    "tab_closed": "the browser tab was closed",
 }
 ROBOT_QR_PATTERN = re.compile(
     r"^https://lcastor\.lincoln\.ac\.uk/#(trilo-\d{2})$", re.IGNORECASE
@@ -771,3 +772,208 @@ class ProgramRunner:
             default=0.0,
         )
         return area >= min_area, area
+
+
+# -- the app page going away ---------------------------------------------------
+
+# A reload polls again well inside this window and cancels the stop.
+PAGE_CLOSE_GRACE_SECONDS = 5.0
+# Without a closing beacon (crash, laptop asleep). Long on purpose: Chrome
+# throttles hidden tabs and may space their polls about a minute apart.
+PAGE_HEARTBEAT_TIMEOUT_SECONDS = 150.0
+# How long after a closing beacon the robot is handed back for others.
+PAGE_RELEASE_AFTER_SECONDS = 60.0
+PAGE_CLOSED_MESSAGE = "Your program was stopped because the browser tab was closed."
+PAGE_SILENT_MESSAGE = (
+    "Your program was stopped because the app page stopped responding "
+    "(tab closed or computer asleep)."
+)
+
+
+def _env_seconds(name, default):
+    raw = os.environ.get(name)
+    if raw is None:
+        return float(default)
+    try:
+        seconds = float(raw)
+    except ValueError:
+        LOG.warning("Ignoring invalid %s=%r", name, raw)
+        return float(default)
+    return seconds if seconds > 0 else float(default)
+
+
+class PageWatch:
+    """Stop the program and release the robot when the app page goes away.
+
+    The page's /api/status polls are its heartbeat. pagehide sends a closing
+    beacon; if no poll follows within close_grace the program is stopped, and
+    after release_after the robot is disconnected so others can use it. With
+    no beacon at all, heartbeat_timeout of silence does both. One daemon
+    thread sleeps on a condition until the next deadline (never busy-waits).
+
+    Each page load has its own id, so a late poll from the page that just
+    closed cannot cancel its own closing.
+    """
+
+    def __init__(
+        self,
+        session,
+        runner,
+        *,
+        close_grace=None,
+        heartbeat_timeout=None,
+        release_after=None,
+        clock=time.monotonic,
+    ):
+        self.session = session
+        self.runner = runner
+        self.close_grace = float(
+            close_grace
+            if close_grace is not None
+            else _env_seconds("PAGE_CLOSE_GRACE_SECONDS", PAGE_CLOSE_GRACE_SECONDS)
+        )
+        self.heartbeat_timeout = float(
+            heartbeat_timeout
+            if heartbeat_timeout is not None
+            else _env_seconds(
+                "PAGE_HEARTBEAT_TIMEOUT_SECONDS", PAGE_HEARTBEAT_TIMEOUT_SECONDS
+            )
+        )
+        self.release_after = float(
+            release_after
+            if release_after is not None
+            else _env_seconds("PAGE_RELEASE_AFTER_SECONDS", PAGE_RELEASE_AFTER_SECONDS)
+        )
+        self.clock = clock
+        self.condition = threading.Condition()
+        self.last_beat = None
+        self.closing_at = None
+        self.closed_pages = deque(maxlen=16)
+        # What has already been done for the current absence of the page.
+        self._stopped = False
+        self._released = False
+        self._thread = None
+        self._shutdown = False
+
+    def _ensure_thread(self):
+        # Called with self.condition held.
+        if self._thread is None and not self._shutdown:
+            self._thread = threading.Thread(
+                target=self._main, daemon=True, name="trilobot-page-watch"
+            )
+            self._thread.start()
+
+    def beat(self, page_id):
+        """A status poll from the app page with this page id."""
+        page_id = str(page_id or "")[:64]
+        if not page_id:
+            return
+        with self.condition:
+            if page_id in self.closed_pages:
+                return
+            # Wake the thread only if it may be sleeping on an old plan:
+            # a closing deadline, or nothing at all. Ordinary polls just
+            # move last_beat; the thread re-plans when its deadline comes.
+            replan = (
+                self.last_beat is None
+                or self.closing_at is not None
+                or self._stopped
+                or self._released
+            )
+            self.last_beat = self.clock()
+            self.closing_at = None
+            self._stopped = self._released = False
+            if replan:
+                self._ensure_thread()
+                self.condition.notify_all()
+
+    def closing(self, page_id):
+        """The page sent its pagehide beacon: it is closing or reloading."""
+        page_id = str(page_id or "")[:64]
+        with self.condition:
+            if page_id:
+                self.closed_pages.append(page_id)
+            self.closing_at = self.clock()
+            self._stopped = self._released = False
+            self._ensure_thread()
+            self.condition.notify_all()
+
+    def shutdown(self):
+        with self.condition:
+            self._shutdown = True
+            self.condition.notify_all()
+            thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=2)
+
+    def _plan(self, now):
+        """Return (action, closed, seconds until next deadline or None)."""
+        if self.closing_at is not None:
+            closed, base = True, self.closing_at
+            stop_at = base + self.close_grace
+            release_at = base + self.release_after
+        elif self.last_beat is not None:
+            closed, base = False, self.last_beat
+            stop_at = release_at = base + self.heartbeat_timeout
+        else:
+            return None, False, None
+        if not self._stopped and now >= stop_at:
+            self._stopped = True
+            return "stop", closed, 0
+        if not self._released and now >= release_at:
+            self._released = True
+            return "release", closed, 0
+        pending = [
+            when
+            for when, done in ((stop_at, self._stopped), (release_at, self._released))
+            if not done
+        ]
+        return None, closed, (min(pending) - now if pending else None)
+
+    def _run(self, action, closed):
+        try:
+            if action == "stop":
+                self._stop_program(closed)
+            else:
+                self._release_robot(closed)
+        except Exception:
+            LOG.exception("Page watch %s failed", action)
+
+    def check(self):
+        """Run every action that is due now; return the seconds to the next."""
+        while True:
+            with self.condition:
+                action, closed, wait = self._plan(self.clock())
+            if action is None:
+                return wait
+            self._run(action, closed)
+
+    def _stop_program(self, closed):
+        if not self.runner.is_running():
+            return
+        message = PAGE_CLOSED_MESSAGE if closed else PAGE_SILENT_MESSAGE
+        if self.runner.stop(message):
+            self.session._event("warning", message)
+
+    def _release_robot(self, closed):
+        # A program still going (heartbeat path) is stopped first, so its
+        # stop reason is the page, not the disconnect.
+        self._stop_program(closed)
+        with self.session.lock:
+            state = self.session.state
+        if state == "idle":
+            return
+        self.session.disconnect(reason="tab_closed")
+        self.runner.stop()
+
+    def _main(self):
+        while True:
+            with self.condition:
+                if self._shutdown:
+                    return
+                action, closed, wait = self._plan(self.clock())
+                if action is None:
+                    # Planned and waited under one lock: no lost wake-ups.
+                    self.condition.wait(timeout=wait)
+                    continue
+            self._run(action, closed)

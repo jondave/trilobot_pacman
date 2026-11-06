@@ -19,11 +19,34 @@ import { initVideo } from "./video.js";
 let statusRequestInFlight = false;
 let statusFailures = 0;
 
+// Each page load polls with its own id: the polls are the page's heartbeat.
+// On pagehide (tab closed, reload, navigation) a beacon tells the server; if
+// no poll from a new page follows within a few seconds the server stops the
+// program, and later lets go of the robot. A reload polls again at once, so
+// it keeps the program running. Hidden tabs keep polling (slowly), so
+// switching tabs never counts as closing.
+function newPageId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+let pageId = newPageId();
+
+window.addEventListener("pagehide", () => {
+  navigator.sendBeacon("/api/page/closing", pageId);
+});
+window.addEventListener("pageshow", (event) => {
+  // Restored from the back/forward cache: the old id was marked closed.
+  if (event.persisted) {
+    pageId = newPageId();
+    pollStatus();
+  }
+});
+
 async function pollStatus() {
   if (statusRequestInFlight) return;
   statusRequestInFlight = true;
   try {
-    const data = await jsonRequest("/api/status");
+    const data = await jsonRequest("/api/status?page=" + encodeURIComponent(pageId));
     statusFailures = 0;
     const connection = data.connection || {};
     const program = data.program || {};

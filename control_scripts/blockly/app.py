@@ -23,7 +23,7 @@ from blocks_python import (  # noqa: E402
     blocks_to_python,
     python_to_blocks,
 )
-from program_runner import MAX_PYTHON_CHARS, ProgramRunner  # noqa: E402
+from program_runner import MAX_PYTHON_CHARS, PageWatch, ProgramRunner  # noqa: E402
 from robot_config import block_definitions, browser_config  # noqa: E402
 from robot_directory import RobotDirectoryError, fetch_robot_directory  # noqa: E402
 from robot_session import RobotSession, _clamp, _number  # noqa: E402
@@ -40,6 +40,8 @@ USER_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
 
 session = RobotSession()
 runner = ProgramRunner(session)
+# Stops the program and lets go of the robot when the app tab goes away.
+page_watch = PageWatch(session, runner)
 
 
 @app.get("/")
@@ -96,7 +98,20 @@ def disconnect():
 
 @app.get("/api/status")
 def status():
+    # Only the app page's own polls (?page=<id>) count as its heartbeat, so
+    # scripts or tests reading the status cannot keep a closed tab alive.
+    page_watch.beat(request.args.get("page"))
     return jsonify({**session.status(), "program": runner.status()})
+
+
+@app.post("/api/page/closing")
+def page_closing():
+    """navigator.sendBeacon from pagehide: the tab is closing or reloading."""
+    origin = request.headers.get("Origin")
+    if origin and urlparse(origin).netloc != request.host:
+        abort(403)
+    page_watch.closing(request.get_data(as_text=True).strip())
+    return "", 204
 
 
 def _library_name(name):
