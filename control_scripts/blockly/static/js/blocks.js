@@ -74,7 +74,7 @@ function getBlockDrawerBounds(flyout) {
   }
 
   // Keep the controls usable if Blockly changes the flyout SVG class name.
-  const toolboxBounds = document.querySelector(".blocklyToolboxDiv")?.getBoundingClientRect();
+  const toolboxBounds = document.querySelector(".blocklyToolbox, .blocklyToolboxDiv")?.getBoundingClientRect();
   const width = flyout.getWidth() || 260;
   const left = toolboxBounds?.right ?? editorBounds.left;
   return {
@@ -113,20 +113,6 @@ function reflowToolbox() {
   const flyout = toolbox && toolbox.getFlyout();
   if (!flyout || !flyout.isVisible()) return;
   flyout.reflow();
-  // Blockly 11 can leave flyout blocks at (0, 0) when the page uses a
-  // flexible, resized workspace. Put each top-level flyout block in a real
-  // vertical list while preserving Blockly's own model coordinates.
-  setTimeout(() => {
-    const flyoutWorkspace = flyout.getWorkspace && flyout.getWorkspace();
-    if (!flyoutWorkspace) return;
-    let y = 8;
-    for (const block of flyoutWorkspace.getTopBlocks(false)) {
-      const xy = block.getRelativeToSurfaceXY();
-      const size = block.getHeightWidth();
-      block.moveBy(8 - xy.x, y - xy.y);
-      y += Math.max(35, size.height) + 8;
-    }
-  }, 0);
 }
 
 export function workspaceData() {
@@ -195,7 +181,7 @@ export function initBlocks() {
   });
   setTimeout(() => Blockly.svgResize(workspace), 0);
 
-  document.querySelector(".blocklyToolboxDiv")?.addEventListener("click", () => {
+  document.querySelector(".blocklyToolbox, .blocklyToolboxDiv")?.addEventListener("click", () => {
     setTimeout(() => {
       reflowToolbox();
       syncBlockDrawerCloseButton();

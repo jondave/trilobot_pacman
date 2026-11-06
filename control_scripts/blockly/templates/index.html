@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=14) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=15) }}">
 </head>
 <body>
   <header class="topbar">
@@ -335,11 +335,11 @@
   <script id="app-config" type="application/json">{{ config|tojson }}</script>
   <script id="block-definitions" type="application/json">{{ blocks|tojson }}</script>
   <script src="/static/vendor/blockly/blockly.min.js"></script>
-  <script>window.Blockly || document.write('<script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"><\/script>');</script>
+  <script>window.Blockly || (window.BLOCKLY_FROM_CDN = true, document.write('<script src="https://unpkg.com/blockly@12.5.1/blockly.min.js"><\/script>'));</script>
   <script src="/static/vendor/monaco/min/vs/loader.js"></script>
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=31) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=32) }}"></script>
 </body>
 </html>

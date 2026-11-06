@@ -325,6 +325,7 @@ button.icon-button {
   background: var(--surface-alt);
 }
 
+.blocklyToolbox,
 .blocklyToolboxDiv {
   border-right: 1px solid var(--border);
 }

@@ -222,3 +222,17 @@ def test_index_embeds_config_and_blocks():
     default = robot_config.DEFAULT_VIDEO_CONFIG
     assert re.search(rf"<option selected>{int(default['fps'])}</option>", html)
     assert re.search(rf"<option selected>{default['jpeg_quality']}</option>", html)
+
+
+def test_blockly_version_matches_cdn_fallback():
+    script = (BLOCKLY.parents[1] / "scripts" / "fetch_vendor.sh").read_text(encoding="utf-8")
+    pinned = re.search(r"^BLOCKLY_VERSION=(\S+)", script, re.M).group(1)
+    assert f"unpkg.com/blockly@{pinned}/blockly.min.js" in TEMPLATE
+
+
+def test_toolbox_class_keeps_both_blockly_names():
+    for path in [*JS_MODULES, BLOCKLY / "static" / "style.css"]:
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"blocklyToolboxDiv", text):
+            context = text[max(0, match.start() - 40) : match.end() + 40]
+            assert ".blocklyToolbox," in context or ".blocklyToolbox\n" in context, path.name

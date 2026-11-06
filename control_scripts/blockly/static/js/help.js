@@ -17,7 +17,7 @@ const helpSteps = [{
 }, {
   emoji: "🧩",
   title: "Choose a block",
-  target: ".blocklyToolboxDiv",
+  target: ".blocklyToolbox, .blocklyToolboxDiv",
   targetLabel: "Block toolbox",
   targetHint: "Drag a block into the program area.",
   body: "Open a colourful category and drag out an action. The toolbox is your menu of robot, logic, and OpenCV blocks."

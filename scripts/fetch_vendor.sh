@@ -3,7 +3,7 @@
 # control_scripts/blockly/static/vendor/ (not tracked in git).
 set -euo pipefail
 
-BLOCKLY_VERSION=11.2.2
+BLOCKLY_VERSION=12.5.1
 MONACO_VERSION=0.52.2
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
