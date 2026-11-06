@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=20) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=21) }}">
 </head>
 <body>
   <header class="topbar">
@@ -53,9 +53,9 @@
           <button id="tab-python" role="tab" aria-selected="false">Python</button>
         </div>
         <div class="action-buttons">
+          <span id="program-status" class="program-status" role="status" title="Ready">Ready</span>
           <button id="run-button" class="run"><i class="fas fa-play" aria-hidden="true"></i> Run</button>
           <button id="stop-button" class="stop"><i class="fas fa-stop icon-danger" aria-hidden="true"></i> Stop</button>
-          <span id="program-status" class="program-status" role="status" title="Ready">Ready</span>
         </div>
       </div>
       <div class="editor-area">

@@ -395,6 +395,7 @@ button.icon-only > .fas {
   color: var(--text-muted);
   font-size: var(--fs-md);
   font-weight: 750;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
