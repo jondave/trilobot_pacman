@@ -101,8 +101,8 @@ export function initTeleop() {
   });
 
   window.addEventListener("keyup", (event) => {
-    const key = keyForEvent(event);
-    if (!key) return;
+    const key = event.key.toLowerCase();
+    if (!pressedKeys.has(key)) return;
     pressedKeys.delete(key);
     stopTeleop();
   });

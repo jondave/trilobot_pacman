@@ -4,6 +4,7 @@ import { jsonRequest } from "./api.js";
 import { workspaceData } from "./blocks.js";
 import { renderRunningStep } from "./running.js";
 import { state } from "./state.js";
+import { stopTeleop } from "./teleop.js";
 import { $, clock, problemText, setMessage } from "./ui.js";
 
 // Terminal = print() output and connection events, interleaved by time.
@@ -159,6 +160,7 @@ function startProgram() {
 }
 
 function stopProgram() {
+  stopTeleop(true);
   jsonRequest("/api/program/stop", {
       method: "POST"
     })

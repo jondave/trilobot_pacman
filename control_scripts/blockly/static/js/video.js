@@ -33,6 +33,8 @@ const SNAPSHOT_URL = "/api/video.jpg";
 let cameraMode = "none";
 let cameraLive = false;
 let cameraHasPicture = false;
+let streamRetryCount = 0;
+let streamRetryTimer = null;
 
 function wantedCameraMode() {
   if (document.visibilityState !== "visible") return "none";
@@ -44,10 +46,27 @@ function wantedCameraMode() {
 function syncCameraFeed() {
   if (!cameraImage) return;
   const mode = wantedCameraMode();
+  if (mode !== "stream") {
+    clearTimeout(streamRetryTimer);
+    streamRetryTimer = null;
+    streamRetryCount = 0;
+  }
   if (mode === cameraMode) return;
   cameraMode = mode;
   if (mode === "none") cameraImage.removeAttribute("src");
   else cameraImage.src = (mode === "stream" ? STREAM_URL : SNAPSHOT_URL) + "?t=" + Date.now();
+}
+
+function retryCameraStream() {
+  cameraImage.removeAttribute("src");
+  const delay = Math.min(500 * 2 ** streamRetryCount, 10000);
+  streamRetryCount = Math.min(streamRetryCount + 1, 10);
+  clearTimeout(streamRetryTimer);
+  streamRetryTimer = setTimeout(() => {
+    streamRetryTimer = null;
+    cameraMode = "none";
+    syncCameraFeed();
+  }, delay);
 }
 
 async function applyVideoSettings() {
@@ -128,6 +147,7 @@ export function initVideo() {
     cameraImage.addEventListener("error", () => {
       // A snapshot that failed to load: show nothing rather than a broken image.
       if (cameraMode === "snapshot") cameraImage.removeAttribute("src");
+      else if (cameraMode === "stream") retryCameraStream();
     });
   }
 }

@@ -215,7 +215,6 @@ function syncAlerts(connState, conn) {
 
 // A banner only when the student needs to act; the chip already says the state.
 function bannerContent(connState, conn) {
-  if (connState !== "idle") connectError = "";
   if (connectError) return {kind: "danger", icon: ICONS.error, text: problemText(connectError)};
   const robot = conn.robot || robotAddressName(conn.url) || "the robot";
   const holder = conn.holder || "Another user";

@@ -19,8 +19,7 @@ RUN useradd --create-home --uid 1000 trilobot \
 	&& chown -R trilobot:trilobot /data/demos /app/control_scripts/blockly/demos
 ENV TRILOBOT_USER_DEMOS_DIR=/data/demos
 VOLUME /data/demos
-USER trilobot
 
 EXPOSE 8750
 
-CMD ["python", "control_scripts/blockly/app.py"]
+CMD ["python", "scripts/docker_entrypoint.py"]

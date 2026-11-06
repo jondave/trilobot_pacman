@@ -80,7 +80,8 @@ docker build -t trilobot-pacman .
 ```
 
 The image installs `control_scripts/blockly/requirements.txt` with pip, fetches the
-vendor libraries and runs as a non-root user. To run it, see
+vendor libraries, migrates existing `/data/demos` volume ownership at startup, then
+runs as a non-root user. To run it, see
 [GET_STARTED.md](GET_STARTED.md).
 `.github/workflows/build-container.yaml` builds and publishes the image.
 

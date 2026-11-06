@@ -119,14 +119,16 @@ function createEditor() {
 
 async function formatDocument() {
   if (!state.editor) return;
+  const code = state.editor.getValue();
   try {
     const result = await jsonRequest("/api/python/format", {
       method: "POST",
       body: JSON.stringify({
-        code: state.editor.getValue()
+        code
       })
     });
-    if (result.code !== state.editor.getValue()) state.editor.setValue(result.code);
+    if (code !== state.editor.getValue()) return;
+    if (result.code !== code) state.editor.setValue(result.code);
     setMessage("Formatted document with Black");
   } catch (error) {
     setMessage("Format document: " + error.message, true);
@@ -198,6 +200,7 @@ function scheduleCheck() {
   clearTimeout(checkTimer);
   if (!state.syncingEditor && state.mode === "python") {
     state.generateTicket++;
+    state.checkTicket++;
     setSync("warn", "Syncing Python to blocks…");
     checkTimer = setTimeout(checkPython, 500);
   }
@@ -301,6 +304,7 @@ async function leavePython() {
     setMessage(error.message, true);
     return;
   }
+  if (state.editor.getValue() !== code) return;
   if (!result.ok) {
     showRanchModal(result);
     return;

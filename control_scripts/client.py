@@ -210,6 +210,10 @@ class RobotClient:
     async def next_frame_bytes(self):
         """Wait for a newer JPEG frame. Returns None once the connection closes."""
         while True:
+            if self._latest_jpeg is not None:
+                return self.take_frame_bytes()
+            if not self.connected:
+                return None
             await self._frame_event.wait()
             data = self.take_frame_bytes()
             if data is not None:
