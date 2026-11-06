@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import re
+import sys
 import threading
 import time
 import traceback
@@ -16,7 +17,7 @@ from collections import deque
 
 import cv2
 import numpy as np
-from blocks_python import BUTTONS, COLOURS, blocks_to_python
+from blocks_python import BUTTONS, COLOURS, block_labels, blocks_to_python_with_map
 from robot_session import ACTIVE_STATES, _clamp, _minutes_text
 
 LOG = logging.getLogger("trilobot_blockly")
@@ -55,6 +56,30 @@ _DIRECTION_MOVES = {
 
 class _Stopped(BaseException):
     """Raised inside student Python when Stop is pressed."""
+
+
+STUDENT_FILENAME = "<student>"
+MAX_LABEL_CHARS = 60
+
+
+def _line_tracer(thread):
+    """A sys.settrace function recording the running student line on thread.
+
+    Only frames compiled from student code get a local tracer, so library
+    code runs untraced. The hot path is one attribute write per line.
+    """
+
+    def local(frame, event, _arg):
+        if event == "line":
+            thread.current_line = frame.f_lineno
+        return local
+
+    def tracer(frame, _event, _arg):
+        if frame.f_code.co_filename == STUDENT_FILENAME:
+            return local
+        return None
+
+    return tracer
 
 
 def _finite(value, name):
@@ -126,6 +151,7 @@ class ProgramRunner:
             "area": 0,
         }
         self._status = {"status": "idle", "current": "", "error": ""}
+        self._mode = None
         session.add_state_listener(self._on_connection_state)
 
     def _program_max_seconds(self):
@@ -220,22 +246,34 @@ class ProgramRunner:
         # Blocks are a teaching interface for the same Python API exposed in the
         # Python tab. Running the generated program keeps the two modes honest:
         # a block cannot silently behave differently from its real Python twin.
-        self.start_python(blocks_to_python(program))
+        code, line_map = blocks_to_python_with_map(program)
+        self._start_code(code, "blocks", line_map, block_labels(program))
 
     def start_python(self, code):
+        self._start_code(code, "python")
+
+    def _start_code(self, code, mode, line_map=None, labels=None):
         if not isinstance(code, str) or not code.strip():
             raise ValueError("Write some Python before running")
         if len(code) > MAX_PYTHON_CHARS:
             raise ValueError("That Python program is too long")
         try:
-            compiled = compile(code, "<student>", "exec")
+            compiled = compile(code, STUDENT_FILENAME, "exec")
         except (SyntaxError, ValueError) as error:
             line = getattr(error, "lineno", None)
             message = getattr(error, "msg", None) or str(error)
             raise ValueError(f"Line {line}: {message}" if line else message) from None
-        self._launch(self._python_main, compiled, python=True)
+        self._launch(
+            self._python_main,
+            compiled,
+            python=True,
+            mode=mode,
+            source_lines=code.splitlines(),
+            line_map=line_map or {},
+            labels=labels or {},
+        )
 
-    def _launch(self, target, payload, python=False):
+    def _launch(self, target, payload, python=False, mode=None, **run_info):
         with self.lock:
             old_thread = self.thread
         self.stop()
@@ -266,6 +304,12 @@ class ProgramRunner:
         )
         thread.stop_event = stop_event
         thread.in_student_code = False
+        # Written by the line tracer in the program thread, read by status().
+        thread.current_line = None
+        thread.mode = mode
+        thread.source_lines = run_info.get("source_lines", [])
+        thread.line_map = run_info.get("line_map", {})
+        thread.labels = run_info.get("labels", {})
         seconds = self._program_max_seconds()
         with self.lock:
             if self._limit_timer is not None:
@@ -277,6 +321,7 @@ class ProgramRunner:
             self._stop_message = ""
             self._stop_by_connection = False
             self.output.clear()
+            self._mode = mode
             self.thread = thread
             self.python_thread = thread if python else None
             timer = threading.Timer(
@@ -335,8 +380,32 @@ class ProgramRunner:
             result = dict(self._status)
             result["output"] = "\n".join(self.output)
             result["camera_view"] = self.camera_view or "Live camera"
+            thread = self.thread
+            mode = self._mode
+            running = result.get("status") == "running"
         result["vision"] = dict(self.vision)
+        result["current_step"] = self._current_step(thread, mode, running)
         return result
+
+    @staticmethod
+    def _current_step(thread, mode, running):
+        """Where the student program is: its line and, for blocks, the block."""
+        step = {"mode": mode, "line": None, "block": None, "label": None}
+        line = getattr(thread, "current_line", None) if running else None
+        if line is None:
+            return step
+        step["line"] = line
+        if mode == "blocks":
+            block = thread.line_map.get(line)
+            step["block"] = block
+            step["label"] = thread.labels.get(block) if block else None
+        else:
+            lines = thread.source_lines
+            text = lines[line - 1].strip() if 0 < line <= len(lines) else ""
+            if len(text) > MAX_LABEL_CHARS:
+                text = text[: MAX_LABEL_CHARS - 3] + "..."
+            step["label"] = text or None
+        return step
 
     def _set_status(self, **values):
         with self.lock:
@@ -351,6 +420,8 @@ class ProgramRunner:
 
     def _python_main(self, compiled):
         me = threading.current_thread()
+        # Covers this thread only: report which student line is running.
+        sys.settrace(_line_tracer(me))
         stop_event = self._run_stop_event()
         result = {}
         try:
@@ -361,6 +432,8 @@ class ProgramRunner:
                 pass
             finally:
                 me.in_student_code = False
+                sys.settrace(None)
+                me.current_line = None
             with self.lock:
                 message = self._stop_message
             if message:
@@ -385,6 +458,8 @@ class ProgramRunner:
                     status="error", current="", error=self._student_error(error)
                 )
         finally:
+            sys.settrace(None)
+            me.current_line = None
             with self.lock:
                 # Only the current run may report, cancel the timer or reset
                 # the robot; a newer run owns all of those otherwise.
@@ -400,7 +475,7 @@ class ProgramRunner:
     def _student_error(error):
         line = None
         for frame, frame_line in traceback.walk_tb(error.__traceback__):
-            if frame.f_code.co_filename == "<student>":
+            if frame.f_code.co_filename == STUDENT_FILENAME:
                 line = frame_line
         text = f"{type(error).__name__}: {error}"
         return f"Line {line}: {text}" if line else text
