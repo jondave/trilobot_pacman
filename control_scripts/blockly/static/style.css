@@ -252,6 +252,33 @@ button.quiet-button {
   border-right: 1px solid var(--line);
 }
 
+.block-drawer-close {
+  position: absolute;
+  z-index: 2147483647;
+  pointer-events: auto;
+  padding: 6px 10px 6px 8px;
+  border: 1px solid #e7a546;
+  border-left: 0;
+  border-radius: 0 10px 10px 0;
+  background: #fff8ea;
+  color: #7a4b08;
+  box-shadow: 0 3px 10px rgba(21, 35, 59, .18);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.block-drawer-close.left-edge {
+  padding: 6px 8px 6px 10px;
+  border-right: 0;
+  border-left: 1px solid #e7a546;
+  border-radius: 10px 0 0 10px;
+}
+
+.block-drawer-close[hidden] {
+  display: none;
+}
+
 .workspace-footer {
   min-height: 48px;
   padding: 8px 11px;

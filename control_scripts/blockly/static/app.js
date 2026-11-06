@@ -559,8 +559,6 @@ Blockly.defineBlocksWithJsonArray([{
 
 const workspace = Blockly.inject("blockly-workspace", {
   toolbox: document.getElementById("toolbox"),
-  // Keep the block drawer open after dragging out a block.
-  autoClose: false,
   trashcan: true,
   move: {
     scrollbars: true,
@@ -576,10 +574,85 @@ const workspace = Blockly.inject("blockly-workspace", {
   }
 });
 
+// The flyout owns this setting; setting it in Blockly.inject is ignored by
+// Blockly 11's category toolbox.
+workspace.getToolbox()?.getFlyout()?.setAutoClose(false);
+
+const blockDrawerCloseButton = document.getElementById("close-block-drawer");
+function getBlockDrawerBounds(flyout) {
+  const editorArea = document.querySelector(".editor-area");
+  if (!editorArea) return null;
+
+  const editorBounds = editorArea.getBoundingClientRect();
+  const flyoutElement = document.querySelector("#blockly-workspace .blocklyFlyout");
+  const renderedBounds = flyoutElement?.getBoundingClientRect();
+  if (renderedBounds?.width > 0 && renderedBounds?.height > 0) {
+    return {
+      left: renderedBounds.left,
+      right: renderedBounds.right,
+      top: renderedBounds.top,
+      bottom: renderedBounds.bottom,
+      editorBounds
+    };
+  }
+
+  // Keep the controls usable if Blockly changes the flyout SVG class name.
+  const toolboxBounds = document.querySelector(".blocklyToolboxDiv")?.getBoundingClientRect();
+  const width = flyout.getWidth() || 260;
+  const left = toolboxBounds?.right ?? editorBounds.left;
+  return {
+    left,
+    right: left + width,
+    top: editorBounds.top,
+    bottom: editorBounds.bottom,
+    editorBounds
+  };
+}
+
+function syncBlockDrawerCloseButton() {
+  const flyout = workspace.getToolbox()?.getFlyout();
+  const bounds = flyout && getBlockDrawerBounds(flyout);
+  if (!flyout?.isVisible() || !bounds) {
+    blockDrawerCloseButton.hidden = true;
+    return;
+  }
+
+  blockDrawerCloseButton.hidden = false;
+  const drawerRight = bounds.right - bounds.editorBounds.left;
+  const drawerLeft = bounds.left - bounds.editorBounds.left;
+  const buttonWidth = blockDrawerCloseButton.offsetWidth;
+  const editorWidth = bounds.editorBounds.width;
+  const useLeftEdge = drawerRight + buttonWidth > editorWidth;
+  const buttonLeft = useLeftEdge
+    ? Math.max(0, drawerLeft - buttonWidth + 1)
+    : drawerRight - 1;
+  blockDrawerCloseButton.classList.toggle("left-edge", useLeftEdge);
+  blockDrawerCloseButton.style.left = `${buttonLeft}px`;
+  blockDrawerCloseButton.style.top = `${bounds.top - bounds.editorBounds.top + 8}px`;
+}
+
+blockDrawerCloseButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const toolbox = workspace.getToolbox();
+  toolbox?.setSelectedItem(null);
+  toolbox?.getFlyout()?.hide();
+  blockDrawerCloseButton.hidden = true;
+});
+
+workspace.addChangeListener((event) => {
+  if (event.type === Blockly.Events.TOOLBOX_ITEM_SELECT) {
+    setTimeout(syncBlockDrawerCloseButton, 0);
+  }
+});
+
 workspace.registerButtonCallback("CREATE_VARIABLE", (button) => {
   Blockly.Variables.createVariableButtonHandler(button.getTargetWorkspace());
 });
-window.addEventListener("resize", () => Blockly.svgResize(workspace));
+window.addEventListener("resize", () => {
+  Blockly.svgResize(workspace);
+  requestAnimationFrame(syncBlockDrawerCloseButton);
+});
 setTimeout(() => Blockly.svgResize(workspace), 0);
 
 function reflowToolbox() {
@@ -603,7 +676,10 @@ function reflowToolbox() {
   }, 0);
 }
 document.querySelector(".blocklyToolboxDiv")?.addEventListener("click", () => {
-  setTimeout(reflowToolbox, 0);
+  setTimeout(() => {
+    reflowToolbox();
+    syncBlockDrawerCloseButton();
+  }, 0);
 });
 
 const $ = (id) => document.getElementById(id);

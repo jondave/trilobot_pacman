@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=9) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=12) }}">
 </head>
 <body>
   <header class="topbar">
@@ -49,6 +49,7 @@
       </div>
       <div class="editor-area">
         <div id="blockly-workspace" class="blockly-workspace"></div>
+        <button id="close-block-drawer" class="block-drawer-close" title="Close the block drawer" aria-label="Close drawer" hidden>✕ Close drawer</button>
         <div id="python-pane" class="python-pane" hidden>
           <div id="python-editor" class="python-editor"></div>
           <div id="python-sync" class="python-sync">Loading editor…</div>
@@ -326,6 +327,6 @@
 
   <script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
-  <script src="{{ url_for('static', filename='app.js', v=23) }}"></script>
+  <script src="{{ url_for('static', filename='app.js', v=27) }}"></script>
 </body>
 </html>
