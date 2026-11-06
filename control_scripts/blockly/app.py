@@ -21,11 +21,12 @@ import traceback
 import urllib.request
 from collections import deque
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import cv2
 import numpy as np
 from flask import Flask, Response, abort, jsonify, render_template, request
+from websockets.exceptions import ConnectionClosed, InvalidHandshake
 
 CONTROL_SCRIPTS = Path(__file__).resolve().parents[1]
 if str(CONTROL_SCRIPTS) not in sys.path:
@@ -41,7 +42,12 @@ from blocks_python import (  # noqa: E402
     blocks_to_python,
     python_to_blocks,
 )
-from client import RobotClient  # noqa: E402
+from client import (  # noqa: E402
+    CLOSE_BUSY,
+    CLOSE_REPLACED,
+    CLOSE_TAKEN_OVER,
+    RobotClient,
+)
 
 LOG = logging.getLogger("trilobot_blockly")
 app = Flask(__name__)
@@ -73,6 +79,32 @@ ROBOT_PING_ORANGE_SECONDS = 30 * 60
 STREAM_JPEG_QUALITY = 72
 HEALTH_WINDOW_SECONDS = 3.0
 MAX_PYTHON_CHARS = 50_000
+# Connection supervision (see RobotSession).
+CONNECTION_BACKOFF = (1, 2, 4, 8, 10)
+OFFLINE_AFTER_SECONDS = 120
+SLOW_RETRY_SECONDS = 10
+TELEMETRY_TIMEOUT_SECONDS = 2.0
+HELLO_TIMEOUT_SECONDS = 5.0
+OPEN_TIMEOUT_SECONDS = 5.0
+WEAK_EVENT_INTERVAL = 30.0
+ACTIVE_STATES = ("connected", "weak")
+EVENT_LIMIT = 50
+COMMAND_QUEUE_LIMIT = 32
+# The robot watchdog stops after 0.6s, so an older drive is not worth sending.
+STALE_DRIVE_SECONDS = 0.5
+PRIORITY_COMMANDS = frozenset({"stop"})
+COALESCED_COMMANDS = frozenset({"drive"})
+DEFAULT_PROGRAM_MAX_SECONDS = 900
+# Student code stuck in pure Python is interrupted this long after a stop.
+FORCE_STOP_SECONDS = 1.5
+STOP_REASONS = {
+    "wifi": "the robot's Wi-Fi connection dropped",
+    "taken_over": "someone else took control of the robot",
+    "busy": "the robot is being used by someone else",
+    "user": "you disconnected from the robot",
+    "refused": "the robot stopped accepting connections",
+    "timeout": "the robot could not be reached",
+}
 ROBOT_QR_PATTERN = re.compile(
     r"^https://lcastor\.lincoln\.ac\.uk/#(trilo-\d{2})$", re.IGNORECASE
 )
@@ -194,10 +226,51 @@ def _placeholder_jpeg():
     return encoded.tobytes() if ok else b""
 
 
-class RobotSession:
-    """Own one asyncio RobotClient loop while Flask serves HTTP requests."""
+def _with_query(url, *, force=False, resume=None):
+    """Return url with the robot's force/resume query parameters set."""
+    parts = urlparse(url)
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key not in ("force", "resume")
+    ]
+    if force:
+        query.append(("force", "1"))
+    if resume:
+        query.append(("resume", resume))
+    return urlunparse(parts._replace(query=urlencode(query)))
 
-    def __init__(self):
+
+def _minutes_text(seconds):
+    minutes = seconds / 60
+    if float(minutes).is_integer():
+        return str(int(minutes))
+    return f"{minutes:.1f}"
+
+
+class RobotSession:
+    """Own one asyncio RobotClient loop while Flask serves HTTP requests.
+
+    A daemon thread runs a supervisor coroutine that connects, watches the link
+    and reconnects after Wi-Fi drops. Flask threads read state under self.lock.
+    """
+
+    def __init__(
+        self,
+        *,
+        backoff=CONNECTION_BACKOFF,
+        offline_after=OFFLINE_AFTER_SECONDS,
+        slow_retry=SLOW_RETRY_SECONDS,
+        telemetry_timeout=TELEMETRY_TIMEOUT_SECONDS,
+        hello_timeout=HELLO_TIMEOUT_SECONDS,
+        open_timeout=OPEN_TIMEOUT_SECONDS,
+    ):
+        self.backoff = tuple(backoff)
+        self.offline_after = offline_after
+        self.slow_retry = slow_retry
+        self.telemetry_timeout = telemetry_timeout
+        self.hello_timeout = hello_timeout
+        self.open_timeout = open_timeout
         self.lock = threading.RLock()
         self.frame_condition = threading.Condition(self.lock)
         self.loop = None
@@ -214,24 +287,156 @@ class RobotSession:
         self.telemetry_times = deque(maxlen=30)
         self.last_frame_at = 0.0
         self.last_telemetry_at = 0.0
-        self.last_telemetry_object = None
         self.last_command_ms = None
         self.command_times = deque(maxlen=30)
         self.video_config = dict(DEFAULT_VIDEO_CONFIG)
         self.session_name = ""
         self.busy_session = ""
         self.kicked = False
+        # Set by ProgramRunner: did the last disconnect stop a running program?
+        self.program_stopped = False
+        # Connection state machine (see /api/status "connection").
+        self.generation = 0
+        self.state = "idle"
+        self.reason = None
+        self.state_since = time.time()
+        self.attempt = 0
+        self.holder = None
+        self.holder_since = None
+        self.robot_name = None
+        self.resume_token = None
+        self.connected_at = 0.0
+        self._weak_since = None
+        self._weak_event_at = 0.0
+        self._main_task = None
+        self._listeners = []
+        self.events = deque(maxlen=EVENT_LIMIT)
+        self._event_id = 0
+        # Outgoing commands: stop jumps the queue, drive keeps only the latest.
+        self._priority = deque(maxlen=COMMAND_QUEUE_LIMIT)
+        self._pending_drive = None
+        self._commands = deque(maxlen=COMMAND_QUEUE_LIMIT)
+        self._command_wake = None
 
-    def connect(self, url, video_config=None, force=False):
+    # -- state and events -------------------------------------------------
+
+    def add_state_listener(self, listener):
+        """Call listener(old_state, new_state, reason) on every state change."""
+        with self.lock:
+            self._listeners.append(listener)
+
+    def _event(self, level, text):
+        getattr(LOG, level if level != "error" else "error")("%s", text)
+        with self.lock:
+            self._event_id += 1
+            self.events.append(
+                {"id": self._event_id, "t": time.time(), "level": level, "text": text}
+            )
+
+    def _alive(self, generation):
+        with self.lock:
+            return generation == self.generation and not self.stop_event.is_set()
+
+    def _set_state(self, generation, state, reason=None, **fields):
+        """Move to a new state. Returns False if this connection is stale."""
+        with self.lock:
+            if generation is not None and generation != self.generation:
+                return False
+            old = self.state
+            if state != old or reason != self.reason:
+                self.state_since = time.time()
+            self.state = state
+            self.reason = reason
+            for name, value in fields.items():
+                setattr(self, name, value)
+            if state not in ACTIVE_STATES:
+                self._weak_since = None
+            listeners = list(self._listeners)
+        if old != state:
+            LOG.info("Connection state %s -> %s (%s)", old, state, reason)
+            for listener in listeners:
+                try:
+                    listener(old, state, reason)
+                except Exception:
+                    LOG.exception("Connection state listener failed")
+        with self.frame_condition:
+            self.frame_condition.notify_all()
+        return True
+
+    def _robot_label(self, capital=False):
+        if self.robot_name:
+            return self.robot_name
+        return "The robot" if capital else "the robot"
+
+    def _connection_message(self, state, reason, wall):
+        robot = self._robot_label()
+        Robot = self._robot_label(capital=True)
+        retry = f"Still trying every {self.slow_retry:g} seconds."
+        if state == "idle":
+            if reason == "user":
+                return "You disconnected from the robot."
+            return "Not connected. Choose a robot and press Connect."
+        if state == "connecting":
+            return f"Connecting to {robot}…"
+        if state == "connected":
+            if self.session_name:
+                return f"Connected to {robot} as {self.session_name}."
+            return f"Connected to {robot}."
+        if state == "weak":
+            return (
+                f"Connected to {robot}, but the Wi-Fi signal is weak, "
+                "so it may respond slowly."
+            )
+        if state == "reconnecting":
+            return (
+                f"Lost contact with {robot} over Wi-Fi. Reconnecting "
+                f"(attempt {self.attempt})…"
+            )
+        if state == "taken_over":
+            who = self.holder or "Someone else"
+            return f"{who} took control of {robot}. Press Connect if you need it back."
+        if state == "busy":
+            who = self.holder or "someone else"
+            since = ""
+            if isinstance(self.holder_since, (int, float)):
+                minutes = int((wall - self.holder_since) // 60)
+                if minutes >= 1:
+                    since = f" for {minutes} minute{'s' if minutes != 1 else ''}"
+            return (
+                f"{Robot} is being used by {who}{since}. Ask them before taking over."
+            )
+        if state == "robot_offline":
+            if reason == "refused":
+                return (
+                    f"{Robot} is not accepting connections. Check it is switched "
+                    f"on and its robot program is running. {retry}"
+                )
+            if reason == "timeout":
+                return (
+                    f"Could not reach {robot}. Check it is switched on and on "
+                    f"the same Wi-Fi as this computer. {retry}"
+                )
+            return (
+                f"Lost contact with {robot} for over "
+                f"{_minutes_text(self.offline_after)} minutes. {retry}"
+            )
+        return ""
+
+    # -- connect / disconnect ---------------------------------------------
+
+    def connect(
+        self, url, video_config=None, force=False, resume=None, robot_name=None
+    ):
         url = str(url or "").strip()
-        if not url.startswith(("ws://", "wss://")):
+        if not url.startswith(("ws://", "wss://")) or not urlparse(url).hostname:
             raise ValueError("Robot address must start with ws:// or wss://")
         config = _video_config(video_config, self.video_config)
-        self.disconnect()
+        self._stop_worker()
 
-        event = threading.Event()
         with self.lock:
-            self.stop_event = event
+            self.generation += 1
+            generation = self.generation
+            self.stop_event = threading.Event()
             self.url = url
             self.error = ""
             self.latest_frame = None
@@ -244,163 +449,440 @@ class RobotSession:
             self.kicked = False
             self.frame_times.clear()
             self.telemetry_times.clear()
-            self.last_frame_at = 0.0
+            # last_frame_at is kept on purpose: "last picture Ns ago" must keep
+            # counting up across disconnects and reconnect attempts.
             self.last_telemetry_at = 0.0
-            self.last_telemetry_object = None
+            self.program_stopped = False
             self.video_config = config
             self.client = None
             self.loop = None
+            self.holder = None
+            self.holder_since = None
+            self.resume_token = str(resume).strip() if resume else None
+            self.robot_name = str(robot_name).strip() if robot_name else None
+            self._clear_commands()
 
+        self._set_state(generation, "connecting", None, attempt=0)
+        self._event("info", f"Connecting to {self.robot_name or url}")
         self.thread = threading.Thread(
             target=self._thread_main,
-            args=(
-                (url + ("&" if "?" in url else "?") + "force=1") if force else url,
-                config,
-                event,
-            ),
+            args=(generation, url, config, bool(force)),
             daemon=True,
             name="trilobot-websocket",
         )
         self.thread.start()
+
+    def _stop_worker(self):
+        """Stop the websocket thread without changing the visible state."""
+        with self.lock:
+            self.generation += 1
+            self.stop_event.set()
+            loop = self.loop
+            task = self._main_task
+            thread = self.thread
+        if loop is not None and task is not None:
+            try:
+                loop.call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                LOG.debug("Robot loop already closed")
+        if thread and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=3)
+            if thread.is_alive():
+                LOG.warning("Robot connection thread did not stop within 3 seconds")
+        with self.lock:
+            self.client = None
+            self._clear_commands()
         with self.frame_condition:
             self.frame_condition.notify_all()
 
     def disconnect(self):
         with self.lock:
-            event = self.stop_event
-            loop = self.loop
-            client = self.client
-        event.set()
-        if loop and client:
-            try:
-                future = asyncio.run_coroutine_threadsafe(client.close(), loop)
-                future.result(timeout=2)
-            except Exception:
-                pass
-        with self.frame_condition:
-            self.frame_condition.notify_all()
+            was = self.state
+        self._stop_worker()
+        self._set_state(
+            None, "idle", "user", attempt=0, holder=None, holder_since=None, error=""
+        )
+        if was != "idle":
+            self._event("info", "Disconnected from the robot.")
 
-    def _thread_main(self, url, video_config, event):
+    # -- websocket thread -------------------------------------------------
+
+    def _thread_main(self, generation, url, video_config, force):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        with self.lock:
-            self.loop = loop
         try:
-            loop.run_until_complete(self._client_main(url, video_config, event))
+            with self.lock:
+                if generation != self.generation:
+                    return
+                self.loop = loop
+                task = loop.create_task(
+                    self._supervise(generation, url, video_config, force)
+                )
+                self._main_task = task
+            loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            LOG.debug("Robot connection task cancelled")
         except Exception as error:
-            if not event.is_set():
-                with self.lock:
-                    self.error = str(error)
+            LOG.exception("Robot connection thread crashed")
+            if self._set_state(generation, "idle", None, error=str(error)):
+                self._event("error", f"The robot connection stopped: {error}")
         finally:
             with self.lock:
-                self.client = None
-                self.loop = None
-            loop.close()
+                if self.loop is loop:
+                    self.loop = None
+                    self.client = None
+                    self._main_task = None
+            try:
+                loop.run_until_complete(loop.shutdown_default_executor())
+            finally:
+                loop.close()
             with self.frame_condition:
                 self.frame_condition.notify_all()
 
-    async def _client_main(self, url, video_config, event):
-        async with RobotClient(url) as client:
+    async def _supervise(self, generation, url, video_config, force):
+        had_connected = False
+        lost_at = None
+        attempt = 0
+        offline_logged = False
+        use_force = force
+        while self._alive(generation):
             with self.lock:
-                self.client = client
+                resume = self.resume_token
+            client = RobotClient(
+                _with_query(url, force=use_force, resume=resume),
+                on_message=functools.partial(self._on_message, generation),
+                open_timeout=self.open_timeout,
+            )
+            # Only the first, user-requested attempt may take over.
+            use_force = False
+            try:
+                outcome = await self._run_connection(
+                    generation, client, video_config, had_connected
+                )
+            finally:
+                with self.lock:
+                    if self.client is client:
+                        self.client = None
+                await client.close()
 
-            # A low-latency default is requested immediately after connection.
+            kind = outcome[0]
+            if kind == "stop" or not self._alive(generation):
+                return
+            if kind == "busy":
+                _, holder, since = outcome
+                self._set_state(
+                    generation,
+                    "busy",
+                    "busy",
+                    holder=holder,
+                    holder_since=since,
+                    busy_session=holder,
+                    error=f"Robot is in use by session {holder}",
+                )
+                self._event("warning", f"The robot is being used by {holder}.")
+                return
+            if kind == "taken_over":
+                _, by = outcome
+                self._set_state(
+                    generation,
+                    "taken_over",
+                    "taken_over",
+                    holder=by,
+                    kicked=True,
+                    error=f"{by} took over this robot",
+                )
+                self._event("warning", f"{by} took control of the robot.")
+                return
+            if kind == "superseded":
+                # Another connection of ours resumed this session. While this
+                # one is still current, treat it like a normal drop.
+                LOG.info("Robot session was resumed elsewhere; reconnecting")
+                kind = "lost"
+            if kind == "lost":
+                had_connected = True
+                lost_at = time.monotonic()
+                attempt = 0
+                offline_logged = False
+                self._event(
+                    "warning", "Lost contact with the robot. Trying to reconnect…"
+                )
+
+            attempt += 1
+            if lost_at is None:
+                reason = outcome[1] if len(outcome) > 1 else "timeout"
+                self._set_state(generation, "robot_offline", reason, attempt=attempt)
+                if attempt == 1:
+                    with self.lock:
+                        text = self._connection_message(
+                            "robot_offline", reason, time.time()
+                        )
+                    self._event("error", text)
+                delay = self.slow_retry
+            elif time.monotonic() - lost_at >= self.offline_after:
+                self._set_state(generation, "robot_offline", "wifi", attempt=attempt)
+                if not offline_logged:
+                    offline_logged = True
+                    self._event(
+                        "error",
+                        "The robot has not answered for "
+                        f"{_minutes_text(self.offline_after)} minutes. "
+                        "Still trying in the background.",
+                    )
+                delay = self.slow_retry
+            else:
+                self._set_state(generation, "reconnecting", "wifi", attempt=attempt)
+                delay = self.backoff[min(attempt - 1, len(self.backoff) - 1)]
+            LOG.info("Retrying robot connection in %ss (attempt %s)", delay, attempt)
+            await asyncio.sleep(delay)
+
+    async def _run_connection(self, generation, client, video_config, had_connected):
+        """Run one websocket connection and say how it ended."""
+        try:
+            await client.open()
+        except ConnectionRefusedError as error:
+            LOG.info("Robot refused the connection: %s", error)
+            return ("failed", "refused")
+        except InvalidHandshake as error:
+            LOG.warning("Robot rejected the websocket handshake: %s", error)
+            return ("failed", "refused")
+        except (TimeoutError, OSError) as error:
+            LOG.info("Could not reach the robot: %r", error)
+            return ("failed", "timeout")
+        with self.lock:
+            if generation != self.generation:
+                return ("stop",)
+            self.client = client
+
+        waiters = [
+            asyncio.create_task(client.hello_event.wait()),
+            asyncio.create_task(client.closed_event.wait()),
+        ]
+        try:
+            await asyncio.wait(
+                waiters,
+                timeout=self.hello_timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+        finally:
+            for waiter in waiters:
+                waiter.cancel()
+        if not client.hello_event.is_set():
+            if not client.closed_event.is_set():
+                LOG.warning("Robot did not say hello within %ss", self.hello_timeout)
+            return self._closed_outcome(client, connected=False)
+
+        now = time.monotonic()
+        with self.lock:
+            if generation != self.generation:
+                return ("stop",)
+            previous_name = self.session_name
+            self.session_name = client.session_name
+            if client.resume_token:
+                self.resume_token = client.resume_token
+            if client.robot_name and not self.robot_name:
+                self.robot_name = client.robot_name
+            # Give the robot a moment before telemetry counts as missing.
+            self.last_telemetry_at = now
+            self.connected_at = now
+            self.frame_times.clear()
+            self.telemetry_times.clear()
+            self._clear_commands()
+            wake = asyncio.Event()
+            self._command_wake = wake
+        self._set_state(
+            generation,
+            "connected",
+            None,
+            attempt=0,
+            holder=None,
+            holder_since=None,
+            error="",
+            busy_session="",
+            kicked=False,
+        )
+        name = client.session_name or "a new session"
+        if had_connected:
+            text = f"Reconnected as {name}"
+            if not client.resumed and previous_name and previous_name != name:
+                text += f" (you were {previous_name} before)"
+            self._event("info", text)
+        else:
+            self._event("info", f"Connected to {self._robot_label()} as {name}")
+
+        tasks = []
+        try:
             await client.configure_video(
                 video_config["width"],
                 video_config["height"],
                 video_config["fps"],
                 video_config["jpeg_quality"],
             )
+            tasks = [
+                asyncio.create_task(self._frame_pump(client)),
+                asyncio.create_task(self._command_sender(client, wake)),
+            ]
+            watchdog = asyncio.create_task(self._telemetry_watchdog())
+            closed = asyncio.create_task(client.closed_event.wait())
+            tasks += [watchdog, closed]
+            await asyncio.wait({watchdog, closed}, return_when=asyncio.FIRST_COMPLETED)
+            if watchdog.done() and not client.closed_event.is_set():
+                self._event(
+                    "warning",
+                    "No data from the robot for "
+                    f"{self.telemetry_timeout:g} seconds (Wi-Fi problem?).",
+                )
+                await client.abort()
+                return ("lost",)
+        except ConnectionClosed as error:
+            LOG.info("Robot connection closed during setup: %s", error)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            with self.lock:
+                if self._command_wake is wake:
+                    self._command_wake = None
+        await client.closed_event.wait()
+        return self._closed_outcome(client, connected=True)
 
-            while not event.is_set() and client.connected:
-                frame = client.take_frame()
-                if frame is not None:
-                    self._store_frame(frame)
+    @staticmethod
+    def _closed_outcome(client, connected):
+        code = client.close_code
+        if client.busy_holder or code == CLOSE_BUSY:
+            holder = client.busy_holder or client.busy_session or "another user"
+            return ("busy", holder, client.busy_since)
+        if client.kicked or code == CLOSE_TAKEN_OVER:
+            return ("taken_over", client.taken_over_by or "Another user")
+        if code == CLOSE_REPLACED:
+            return ("superseded",)
+        LOG.info("Robot connection ended (code %s): %s", code, client.error)
+        return ("lost",) if connected else ("failed", "timeout")
 
-                telemetry = client.telemetry
-                if telemetry is not self.last_telemetry_object:
-                    self.last_telemetry_object = telemetry
-                    with self.lock:
-                        now = time.monotonic()
-                        self.last_telemetry_at = now
-                        self.telemetry_times.append(now)
-
-                with self.lock:
-                    self.session_name = client.session_name
-
-                await asyncio.sleep(0.001)
-
-            if not event.is_set():
-                with self.lock:
-                    if client.busy_session:
-                        self.busy_session = client.busy_session
-                        self.error = f"Robot is in use by session {client.busy_session}"
-                    elif client.kicked:
-                        self.kicked = True
-                        self.error = "Another user took over this robot"
-                    elif client.error:
-                        self.error = str(client.error)
-
-    def _store_frame(self, frame):
-        with self.lock:
-            config = dict(self.video_config)
-            overlay = (
-                None if self.camera_overlay is None else self.camera_overlay.copy()
-            )
-        display_frame = overlay if overlay is not None else frame
-        if overlay is not None and overlay.shape[:2] != frame.shape[:2]:
-            display_frame = cv2.resize(overlay, (frame.shape[1], frame.shape[0]))
-        ok, encoded = cv2.imencode(
-            ".jpg",
-            display_frame,
-            [cv2.IMWRITE_JPEG_QUALITY, config["jpeg_quality"]],
-        )
-        if not ok:
+    def _on_message(self, generation, payload):
+        if payload.get("type") != "telemetry":
             return
-        now = time.monotonic()
-        with self.frame_condition:
-            self.latest_frame = frame.copy()
-            self.latest_jpeg = encoded.tobytes()
-            self.frame_sequence += 1
-            self.last_frame_at = now
-            self.frame_times.append(now)
-            self.frame_condition.notify_all()
-
-    def set_camera_overlay(self, frame):
         with self.lock:
-            self.camera_overlay = frame.copy()
-        with self.frame_condition:
-            self.frame_sequence += 1
-            self.frame_condition.notify_all()
+            if generation != self.generation:
+                return
+            now = time.monotonic()
+            self.last_telemetry_at = now
+            self.telemetry_times.append(now)
 
-    def clear_camera_overlay(self):
+    async def _telemetry_watchdog(self):
+        interval = max(0.02, min(0.25, self.telemetry_timeout / 4))
+        while True:
+            await asyncio.sleep(interval)
+            with self.lock:
+                age = time.monotonic() - self.last_telemetry_at
+            if age > self.telemetry_timeout:
+                LOG.warning("No telemetry from the robot for %.1fs", age)
+                return age
+
+    async def _frame_pump(self, client):
+        # Awaits frames; the client only keeps the newest, so slow decoding
+        # drops old frames instead of building up latency.
+        while True:
+            data = await client.next_frame_bytes()
+            if data is None:
+                return
+            await asyncio.to_thread(self._store_jpeg_bytes, data)
+
+    def _store_jpeg_bytes(self, data):
+        frame = RobotClient.decode_frame(data)
+        if frame is None:
+            LOG.debug("Dropped a camera frame that could not be decoded")
+            return
+        self._store_frame(frame)
+
+    # -- commands ---------------------------------------------------------
+
+    def _clear_commands(self):
         with self.lock:
-            self.camera_overlay = None
+            self._priority.clear()
+            self._commands.clear()
+            self._pending_drive = None
 
-    def call(self, method, *args, timeout=5):
+    def _next_command(self):
+        with self.lock:
+            if self._priority:
+                return self._priority.popleft()
+            if self._commands:
+                return self._commands.popleft()
+            item, self._pending_drive = self._pending_drive, None
+            return item
+
+    async def _command_sender(self, client, wake):
+        while True:
+            await wake.wait()
+            wake.clear()
+            while (item := self._next_command()) is not None:
+                method, args, queued_at = item
+                age = time.monotonic() - queued_at
+                if method in COALESCED_COMMANDS and age > STALE_DRIVE_SECONDS:
+                    LOG.debug("Dropped a %.2fs old %s command", age, method)
+                    continue
+                try:
+                    await getattr(client, method)(*args)
+                except ConnectionClosed:
+                    return
+                except Exception:
+                    LOG.exception("Sending %s to the robot failed", method)
+                    continue
+                self._record_command(time.monotonic() - queued_at)
+
+    def _require_connection(self):
         with self.lock:
             loop = self.loop
             client = self.client
-        if loop is None or client is None or not client.connected:
+            state = self.state
+        if (
+            loop is None
+            or client is None
+            or not client.connected
+            or state not in ACTIVE_STATES
+        ):
             raise RuntimeError("Connect to the robot first")
+        return loop, client
+
+    def call(self, method, *args, timeout=5):
+        loop, client = self._require_connection()
         started = time.monotonic()
         future = asyncio.run_coroutine_threadsafe(getattr(client, method)(*args), loop)
-        result = future.result(timeout=timeout)
+        try:
+            result = future.result(timeout=timeout)
+        except TimeoutError:
+            future.cancel()
+            raise RuntimeError("The robot did not respond in time") from None
         self._record_command(time.monotonic() - started)
         return result
 
     def dispatch(self, method, *args):
-        """Queue a command without waiting for an HTTP response or robot ACK."""
+        """Queue a command without waiting for an HTTP response or robot ACK.
+
+        stop jumps the queue (and cancels a pending drive), drive keeps only
+        the newest pending value, and other commands use a bounded FIFO.
+        """
+        if not callable(getattr(RobotClient, method, None)):
+            raise ValueError(f"Unknown robot command {method!r}")
+        loop, _client = self._require_connection()
+        item = (method, args, time.monotonic())
         with self.lock:
-            loop = self.loop
-            client = self.client
-        if loop is None or client is None or not client.connected:
+            if method in PRIORITY_COMMANDS:
+                self._pending_drive = None
+                self._priority.append(item)
+            elif method in COALESCED_COMMANDS:
+                self._pending_drive = item
+            else:
+                if len(self._commands) == self._commands.maxlen:
+                    LOG.warning("Robot command queue full; dropping the oldest")
+                self._commands.append(item)
+            wake = self._command_wake
+        if wake is None:
             raise RuntimeError("Connect to the robot first")
-        started = time.monotonic()
-        future = asyncio.run_coroutine_threadsafe(getattr(client, method)(*args), loop)
-        future.add_done_callback(
-            lambda completed: self._record_command(time.monotonic() - started)
-        )
+        try:
+            loop.call_soon_threadsafe(wake.set)
+        except RuntimeError:
+            raise RuntimeError("Connect to the robot first") from None
 
     def reset_lights(self):
         """Turn off the underlights and all button LEDs."""
@@ -427,6 +909,45 @@ class RobotSession:
             self.video_config = config
         return config
 
+    # -- frames and status ------------------------------------------------
+
+    def _store_frame(self, frame):
+        with self.lock:
+            config = dict(self.video_config)
+            overlay = (
+                None if self.camera_overlay is None else self.camera_overlay.copy()
+            )
+        display_frame = overlay if overlay is not None else frame
+        if overlay is not None and overlay.shape[:2] != frame.shape[:2]:
+            display_frame = cv2.resize(overlay, (frame.shape[1], frame.shape[0]))
+        ok, encoded = cv2.imencode(
+            ".jpg",
+            display_frame,
+            [cv2.IMWRITE_JPEG_QUALITY, config["jpeg_quality"]],
+        )
+        if not ok:
+            LOG.debug("Could not encode a camera frame")
+            return
+        now = time.monotonic()
+        with self.frame_condition:
+            self.latest_frame = frame.copy()
+            self.latest_jpeg = encoded.tobytes()
+            self.frame_sequence += 1
+            self.last_frame_at = now
+            self.frame_times.append(now)
+            self.frame_condition.notify_all()
+
+    def set_camera_overlay(self, frame):
+        with self.lock:
+            self.camera_overlay = frame.copy()
+        with self.frame_condition:
+            self.frame_sequence += 1
+            self.frame_condition.notify_all()
+
+    def clear_camera_overlay(self):
+        with self.lock:
+            self.camera_overlay = None
+
     def frame_copy(self):
         with self.lock:
             return None if self.latest_frame is None else self.latest_frame.copy()
@@ -443,8 +964,13 @@ class RobotSession:
 
     def status(self):
         now = time.monotonic()
+        wall = time.time()
+        weak_event = None
         with self.lock:
-            connected = bool(self.client and self.client.connected)
+            state = self.state
+            connected = bool(
+                state in ACTIVE_STATES and self.client and self.client.connected
+            )
             frame_hz = _rate(self.frame_times, now)
             telemetry_hz = _rate(self.telemetry_times, now)
             frame_age = _age_ms(self.last_frame_at, now)
@@ -453,29 +979,51 @@ class RobotSession:
             config = dict(self.video_config)
             error = self.error
 
-        if not connected or error:
-            health = "red"
-            health_text = "Offline"
-        elif frame_age is None or frame_age > 2000:
-            health = "red"
-            health_text = "No camera data"
-        elif frame_hz < max(1.0, config["fps"] * 0.55) or telemetry_age > 1500:
-            health = "orange"
-            health_text = "Slow"
-        else:
-            health = "green"
-            health_text = "Good"
+            if not connected or error:
+                health = "red"
+                health_text = "Offline"
+            elif frame_age is None or frame_age > 2000:
+                health = "red"
+                health_text = "No camera data"
+            elif frame_hz < max(1.0, config["fps"] * 0.55) or telemetry_age > 1500:
+                health = "orange"
+                health_text = "Slow"
+            else:
+                health = "green"
+                health_text = "Good"
 
-        return {
-            "connected": connected,
-            "url": self.url,
-            "error": error,
-            "session_name": self.session_name,
-            "busy_session": self.busy_session,
-            "kicked": self.kicked,
-            "telemetry": self.telemetry_snapshot(),
-            "video": config,
-            "connection": {
+            # weak = connected but slow video or late telemetry, after a short
+            # warm-up so a fresh connection is not flagged straight away.
+            weak = (
+                connected
+                and health != "green"
+                and now - self.connected_at > HEALTH_WINDOW_SECONDS
+            )
+            if weak and self._weak_since is None:
+                self._weak_since = wall
+                if wall - self._weak_event_at > WEAK_EVENT_INTERVAL:
+                    self._weak_event_at = wall
+                    weak_event = "The Wi-Fi signal to the robot is weak."
+            elif not weak and state in ACTIVE_STATES:
+                self._weak_since = None
+            shown_state = "weak" if weak else state
+            connection = {
+                "state": shown_state,
+                "reason": self.reason,
+                "message": self._connection_message(shown_state, self.reason, wall),
+                "since": self._weak_since if weak else self.state_since,
+                "attempt": self.attempt,
+                "session": self.session_name or None,
+                "holder": self.holder,
+                "robot": self.robot_name,
+                "url": self.url or None,
+                "resume": self.resume_token,
+                "last_frame_age": (
+                    None if frame_age is None else round(frame_age / 1000, 2)
+                ),
+                "telemetry_age": (
+                    None if telemetry_age is None else round(telemetry_age / 1000, 2)
+                ),
                 "health": health,
                 "health_text": health_text,
                 "video_hz": round(frame_hz, 1),
@@ -484,19 +1032,42 @@ class RobotSession:
                 "last_frame_ms": frame_age,
                 "last_telemetry_ms": telemetry_age,
                 "last_command_ms": self.last_command_ms,
-            },
-        }
+                "program_stopped": bool(self.program_stopped),
+            }
+            result = {
+                "connected": connected,
+                "url": self.url,
+                "error": error,
+                "session_name": self.session_name,
+                "busy_session": self.busy_session,
+                "kicked": self.kicked,
+                "telemetry": self.telemetry_snapshot(),
+                "video": config,
+                "connection": connection,
+            }
+        if weak_event:
+            self._event("warning", weak_event)
+        with self.lock:
+            result["events"] = list(self.events)
+        return result
 
 
 class ProgramRunner:
     """Run student programs, either Blockly blocks or plain Python."""
 
-    def __init__(self, session):
+    def __init__(self, session, max_seconds=None):
         self.session = session
+        self.max_seconds = max_seconds
         self.lock = threading.RLock()
         self.thread = None
         self.python_thread = None
+        # Each run gets its own id and stop event, so a slow-to-die old
+        # thread can never stop, reset or report over a newer run.
+        self.run_id = 0
         self.stop_event = threading.Event()
+        self._stop_message = ""
+        self._stop_by_connection = False
+        self._limit_timer = None
         self.picture = None
         self.camera_view = None
         self.output = deque(maxlen=200)
@@ -507,6 +1078,85 @@ class ProgramRunner:
             "area": 0,
         }
         self._status = {"status": "idle", "current": "", "error": ""}
+        session.add_state_listener(self._on_connection_state)
+
+    def _program_max_seconds(self):
+        if self.max_seconds is not None:
+            return float(self.max_seconds)
+        raw = os.environ.get("PROGRAM_MAX_SECONDS", DEFAULT_PROGRAM_MAX_SECONDS)
+        try:
+            seconds = float(raw)
+        except (TypeError, ValueError):
+            LOG.warning("Ignoring invalid PROGRAM_MAX_SECONDS=%r", raw)
+            return float(DEFAULT_PROGRAM_MAX_SECONDS)
+        return seconds if seconds > 0 else float(DEFAULT_PROGRAM_MAX_SECONDS)
+
+    def is_running(self):
+        with self.lock:
+            thread = self.thread
+            running = self._status.get("status") == "running"
+        return running and thread is not None and thread.is_alive()
+
+    def _connection_stop_reason(self, state, reason):
+        holder = self.session.holder
+        if state == "taken_over":
+            return f"{holder or 'someone else'} took control of the robot"
+        if state == "busy":
+            return f"the robot is being used by {holder or 'someone else'}"
+        if state == "idle" and reason == "user":
+            return STOP_REASONS["user"]
+        if state == "robot_offline":
+            if reason in ("refused", "timeout"):
+                return STOP_REASONS[reason]
+            return "the robot went offline"
+        if reason == "wifi":
+            return STOP_REASONS["wifi"]
+        return STOP_REASONS.get(reason, "the connection to the robot was lost")
+
+    def _on_connection_state(self, old, new, reason):
+        """Stop student code when the robot link stops being usable."""
+        if new in ACTIVE_STATES:
+            # Back online: the old "stopped because..." note is stale. It
+            # stays in the events log; the program panel starts clean.
+            with self.lock:
+                if self._stop_by_connection and self._status.get("status") != "running":
+                    self._status.update(error="")
+                    self._stop_message = ""
+                self._stop_by_connection = False
+            self.session.program_stopped = False
+            return
+        if new in ("connecting", "reconnecting") and old not in ACTIVE_STATES:
+            return
+        because = self._connection_stop_reason(new, reason)
+        message = f"Your program was stopped because {because}."
+        if old in ACTIVE_STATES and self.is_running():
+            with self.lock:
+                self._stop_by_connection = True
+            self.session.program_stopped = True
+            self.stop(message)
+            self.session._event("warning", message)
+            return
+        # A program stopped earlier in this outage (say "Wi-Fi dropped") now
+        # has a more precise explanation: taken over, busy, offline, ...
+        with self.lock:
+            refine = (
+                self._stop_by_connection
+                and self._status.get("status") != "running"
+                and self._status.get("error") != message
+            )
+            if refine:
+                self._status.update(error=message)
+                self._stop_message = message
+        if refine:
+            self.session._event("warning", message)
+
+    def _time_limit(self, run_id, seconds):
+        message = (
+            f"Your program was stopped after {_minutes_text(seconds)} minutes "
+            "(time limit)."
+        )
+        if self.stop(message, run_id=run_id):
+            self.session._event("warning", message)
 
     def start(self, program):
         if not isinstance(program, dict):
@@ -538,15 +1188,18 @@ class ProgramRunner:
         self._launch(self._python_main, compiled, python=True)
 
     def _launch(self, target, payload, python=False):
+        with self.lock:
+            old_thread = self.thread
         self.stop()
-        old_thread = self.thread
         if (
             old_thread
             and old_thread.is_alive()
             and old_thread is not threading.current_thread()
         ):
-            old_thread.join(timeout=1)
-        self.stop_event.clear()
+            # Long enough for the forced stop (FORCE_STOP_SECONDS) to land.
+            old_thread.join(timeout=FORCE_STOP_SECONDS + 1.5)
+            if old_thread.is_alive():
+                LOG.warning("The previous program did not stop; starting anyway")
         self.picture = None
         self.camera_view = None
         self.session.clear_camera_overlay()
@@ -556,35 +1209,75 @@ class ProgramRunner:
             "matched": False,
             "area": 0,
         }
-        with self.lock:
-            self._status = {"status": "running", "current": "", "error": ""}
-            self.output.clear()
+        stop_event = threading.Event()
         thread = threading.Thread(
             target=target,
             args=(payload,),
             daemon=True,
             name="trilobot-program",
         )
-        self.thread = thread
-        self.python_thread = thread if python else None
+        thread.stop_event = stop_event
+        thread.in_student_code = False
+        seconds = self._program_max_seconds()
+        with self.lock:
+            if self._limit_timer is not None:
+                self._limit_timer.cancel()
+            self.run_id += 1
+            thread.run_id = self.run_id
+            self.stop_event = stop_event
+            self._status = {"status": "running", "current": "", "error": ""}
+            self._stop_message = ""
+            self._stop_by_connection = False
+            self.output.clear()
+            self.thread = thread
+            self.python_thread = thread if python else None
+            timer = threading.Timer(
+                seconds, self._time_limit, args=(self.run_id, seconds)
+            )
+            timer.daemon = True
+            self._limit_timer = timer
+        self.session.program_stopped = False
         thread.start()
+        timer.start()
 
-    def stop(self):
-        self.stop_event.set()
-        thread = self.python_thread
+    def _run_stop_event(self):
+        """The stop event of the run that owns the calling thread."""
+        event = getattr(threading.current_thread(), "stop_event", None)
+        return event if event is not None else self.stop_event
+
+    def stop(self, message=None, run_id=None):
+        """Stop the program. message (if given) is shown as the reason.
+
+        With run_id, only stop if that run is still the current one; returns
+        whether anything was stopped.
+        """
+        with self.lock:
+            if run_id is not None:
+                thread = self.thread
+                if run_id != self.run_id or thread is None or not thread.is_alive():
+                    return False
+            if message and not self._stop_message:
+                self._stop_message = message
+            self.stop_event.set()
+            thread = self.python_thread
         if thread and thread.is_alive() and thread is not threading.current_thread():
             # Student code that never calls a robot command can only be interrupted this way.
-            timer = threading.Timer(1.5, self._force_stop, args=(thread,))
+            timer = threading.Timer(
+                FORCE_STOP_SECONDS, self._force_stop, args=(thread,)
+            )
             timer.daemon = True
             timer.start()
         try:
             self.session.dispatch("stop")
-        except Exception:
-            pass
+        except RuntimeError as error:
+            LOG.debug("Could not send stop: %s", error)
+        return True
 
     @staticmethod
     def _force_stop(thread):
-        if thread.is_alive() and thread.ident:
+        # Only interrupt student code, never the cleanup that follows it.
+        in_student = getattr(thread, "in_student_code", True)
+        if thread.is_alive() and thread.ident and in_student:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(
                 ctypes.c_ulong(thread.ident), ctypes.py_object(_Stopped)
             )
@@ -605,48 +1298,55 @@ class ProgramRunner:
         try:
             self.session.dispatch("stop")
             self.session.reset_lights()
-        except Exception:
-            pass
-
-    def _thread_main(self, program):
-        try:
-            variables = self._variables(program)
-            blocks = program.get("blocks", {})
-            top_blocks = blocks.get("blocks", []) if isinstance(blocks, dict) else []
-            if not top_blocks:
-                raise ValueError("Add an action block to the workspace before running")
-            if len(top_blocks) > 1:
-                raise ValueError(
-                    f"Join the {len(top_blocks)} separate block stacks together before running"
-                )
-            self._run_chain(top_blocks[0], variables)
-            self._set_status(
-                status="stopped" if self.stop_event.is_set() else "complete",
-                current="",
-            )
-        except Exception as error:
-            LOG.exception("Blockly program failed")
-            self._set_status(status="error", current="", error=str(error))
-        finally:
-            self._shutdown_robot()
+        except RuntimeError as error:
+            LOG.debug("Could not reset the robot after a program: %s", error)
 
     def _python_main(self, compiled):
+        me = threading.current_thread()
+        stop_event = self._run_stop_event()
+        result = {}
         try:
             try:
+                me.in_student_code = True
                 exec(compiled, self._python_namespace())
             except (_Stopped, SystemExit):
                 pass
-            self._set_status(
-                status="stopped" if self.stop_event.is_set() else "complete",
-                current="",
-            )
+            finally:
+                me.in_student_code = False
+            with self.lock:
+                message = self._stop_message
+            if message:
+                result = dict(status="stopped", current="", error=message)
+            else:
+                result = dict(
+                    status="stopped" if stop_event.is_set() else "complete",
+                    current="",
+                )
+        except _Stopped:
+            result = dict(status="stopped", current="")
         except Exception as error:
-            LOG.info("Student Python failed", exc_info=True)
-            self._set_status(
-                status="error", current="", error=self._student_error(error)
-            )
+            with self.lock:
+                message = self._stop_message
+            if message:
+                # A command failed because we were stopping; show why instead.
+                LOG.info("Student Python stopped: %s (%s)", message, error)
+                result = dict(status="stopped", current="", error=message)
+            else:
+                LOG.info("Student Python failed", exc_info=True)
+                result = dict(
+                    status="error", current="", error=self._student_error(error)
+                )
         finally:
-            self._shutdown_robot()
+            with self.lock:
+                # Only the current run may report, cancel the timer or reset
+                # the robot; a newer run owns all of those otherwise.
+                current = getattr(me, "run_id", None) == self.run_id
+                if current:
+                    self._status.update(result)
+                    if self._limit_timer is not None:
+                        self._limit_timer.cancel()
+            if current:
+                self._shutdown_robot()
 
     @staticmethod
     def _student_error(error):
@@ -836,7 +1536,7 @@ class ProgramRunner:
         }
 
     def _check_stopped(self):
-        if self.stop_event.is_set():
+        if self._run_stop_event().is_set():
             raise _Stopped()
 
     def _take_picture(self):
@@ -925,434 +1625,13 @@ class ProgramRunner:
         }
         return matched
 
-    def _variables(self, program):
-        result = {}
-        raw = program.get("variables", {})
-        if isinstance(raw, dict):
-            for item in raw.get("variables", []):
-                if isinstance(item, dict) and item.get("id"):
-                    variable_id = item["id"]
-                    variable_name = item.get("name", variable_id)
-                    result[variable_id] = None
-                    result[variable_name] = None
-        return result
-
-    def _run_chain(self, block, variables):
-        while block and not self.stop_event.is_set():
-            block_type = block.get("type")
-            self._set_status(current=self._friendly_block_name(block_type))
-
-            if block_type in {
-                "robot_forward",
-                "robot_backward",
-                "robot_turn_left",
-                "robot_turn_right",
-                "robot_drive_for",
-            }:
-                self._run_movement(block, block_type, variables)
-            elif block_type == "robot_turn_around":
-                seconds = self._value(block, "SECONDS", variables, 1)
-                speed = _clamp(self._value(block, "SPEED", variables, 60), 0, 100)
-                self._drive_for((speed, -speed), seconds)
-            elif block_type == "robot_take_picture":
-                self._take_picture()
-            elif block_type == "robot_show_live_camera":
-                image = self._any_value(block, "IMAGE", variables)
-                self._show_in_live_camera(
-                    self._take_picture() if image is None else image
-                )
-            elif block_type == "robot_if_color":
-                colour = self._colour_value(block, "COLOR", variables, "#ff0000")
-                tolerance = _clamp(
-                    self._value(block, "TOLERANCE", variables, 18), 1, 90
-                )
-                min_area = max(1, self._value(block, "MIN_AREA", variables, 500))
-                matched = self._check_colour(colour, tolerance, min_area)
-                nested = self._statement(block, "THEN" if matched else "ELSE")
-                if nested:
-                    self._run_chain(nested, variables)
-            elif block_type == "robot_if_distance":
-                distance = self._distance_cm()
-                limit = self._value(block, "CENTIMETRES", variables, 20)
-                operator = block.get("fields", {}).get("OPERATOR", "LESS_THAN")
-                matched = distance is not None and (
-                    distance < limit if operator == "LESS_THAN" else distance > limit
-                )
-                nested = self._statement(block, "THEN" if matched else "ELSE")
-                if nested:
-                    self._run_chain(nested, variables)
-            elif block_type == "robot_underlights_on":
-                self.session.call("set_underlights", (255, 255, 255))
-            elif block_type == "robot_underlights_off":
-                self.session.call("set_underlights", (0, 0, 0))
-            elif block_type in {
-                "robot_lights_red",
-                "robot_lights_green",
-                "robot_lights_blue",
-                "robot_lights_yellow",
-                "robot_lights_white",
-                "robot_lights_purple",
-            }:
-                named_lights = {
-                    "robot_lights_red": (255, 0, 0),
-                    "robot_lights_green": (0, 255, 0),
-                    "robot_lights_blue": (0, 0, 255),
-                    "robot_lights_yellow": (255, 255, 0),
-                    "robot_lights_white": (255, 255, 255),
-                    "robot_lights_purple": (255, 0, 255),
-                }
-                self.session.call("set_underlights", named_lights[block_type])
-            elif block_type == "robot_set_lights":
-                self.session.call(
-                    "set_underlights",
-                    _hex_colour(
-                        self._colour_value(block, "COLOR", variables, "#00ff00"),
-                        "#00ff00",
-                    ),
-                )
-            elif block_type == "robot_flash_lights":
-                colour = self._colour_value(block, "COLOR", variables, "#00ff00")
-                times = max(0, int(self._value(block, "TIMES", variables, 3)))
-                on_seconds = max(0, self._value(block, "ON_SECONDS", variables, 0.2))
-                off_seconds = max(0, self._value(block, "OFF_SECONDS", variables, 0.2))
-                self._flash(colour, times, on_seconds, off_seconds)
-            elif block_type == "robot_button_light":
-                button = block.get("fields", {}).get("BUTTON", "A")
-                brightness = _clamp(
-                    self._value(block, "BRIGHTNESS", variables, 1), 0, 1
-                )
-                self.session.call("set_button_led", button, brightness)
-            elif block_type in {"robot_repeat", "controls_repeat_ext"}:
-                times = max(0, int(self._value(block, "TIMES", variables, 2)))
-                nested = self._statement(block, "DO")
-                for _ in range(times):
-                    if self.stop_event.is_set() or not nested:
-                        break
-                    self._run_chain(nested, variables)
-            elif block_type == "controls_whileUntil":
-                until = block.get("fields", {}).get("MODE") == "UNTIL"
-                nested = self._statement(block, "DO")
-                while (
-                    not self.stop_event.is_set()
-                    and self._condition(block, "BOOL", variables) != until
-                ):
-                    if nested:
-                        self._run_chain(nested, variables)
-                    self._wait(0.02)
-            elif block_type == "controls_for":
-                key = self._variable_key(block.get("fields", {}).get("VAR"))
-                start = self._value(block, "FROM", variables, 1)
-                end = self._value(block, "TO", variables, 10)
-                step = abs(self._value(block, "BY", variables, 1))
-                if step == 0:
-                    raise ValueError("The 'by' step of a count loop cannot be 0")
-                step = step if start <= end else -step
-                nested = self._statement(block, "DO")
-                value = start
-                while not self.stop_event.is_set() and (
-                    value <= end if step > 0 else value >= end
-                ):
-                    variables[key] = value
-                    if nested:
-                        self._run_chain(nested, variables)
-                    value += step
-            elif block_type == "controls_if":
-                inputs = block.get("inputs", {})
-                index = 0
-                matched = False
-                while f"IF{index}" in inputs and not self.stop_event.is_set():
-                    if self._condition(block, f"IF{index}", variables):
-                        matched = True
-                        nested = self._statement(block, f"DO{index}")
-                        if nested:
-                            self._run_chain(nested, variables)
-                        break
-                    index += 1
-                if not matched:
-                    nested = self._statement(block, "ELSE")
-                    if nested:
-                        self._run_chain(nested, variables)
-            elif block_type == "robot_wait_until":
-                while not self.stop_event.is_set() and not self._condition(
-                    block, "CONDITION", variables
-                ):
-                    self._wait(0.05)
-            elif block_type == "robot_wait":
-                self._wait(self._value(block, "SECONDS", variables, 1))
-            elif block_type == "robot_stop":
-                self.session.call("stop")
-            elif block_type == "robot_print":
-                values = [self._any_value(block, "VALUE", variables)]
-                second = self._input_block(block, "VALUE2")
-                if second is not None:
-                    values.append(self._evaluate(second, variables))
-                with self.lock:
-                    self.output.append(" ".join(str(value) for value in values))
-            elif block_type == "variables_set":
-                variables[self._variable_key(block.get("fields", {}).get("VAR"))] = (
-                    self._any_value(block, "VALUE", variables)
-                )
-            elif block_type == "math_change":
-                key = self._variable_key(block.get("fields", {}).get("VAR"))
-                variables[key] = _number(variables.get(key)) + self._value(
-                    block, "DELTA", variables, 1
-                )
-
-            # Blockly serialises the following block as {"next": {"block": {...}}}.
-            following = block.get("next")
-            block = following.get("block") if isinstance(following, dict) else None
-
-    def _run_movement(self, block, block_type, variables):
-        seconds = self._value(block, "SECONDS", variables, 1)
-        speed = _clamp(self._value(block, "SPEED", variables, 60), 0, 100)
-        if block_type == "robot_forward":
-            speeds = (speed, speed)
-        elif block_type == "robot_backward":
-            speeds = (-speed, -speed)
-        elif block_type == "robot_turn_left":
-            speeds = (-speed, speed)
-        elif block_type == "robot_turn_right":
-            speeds = (speed, -speed)
-        else:
-            direction = block.get("fields", {}).get("DIRECTION", "FORWARD")
-            speeds = {
-                "FORWARD": (speed, speed),
-                "BACKWARD": (-speed, -speed),
-                "LEFT": (-speed, speed),
-                "RIGHT": (speed, -speed),
-            }.get(direction, (0, 0))
-        self._drive_for(speeds, seconds)
-
-    @staticmethod
-    def _friendly_block_name(block_type):
-        return {
-            "robot_forward": "Move forward",
-            "robot_backward": "Move backward",
-            "robot_turn_left": "Turn left",
-            "robot_turn_right": "Turn right",
-            "robot_turn_around": "Turn around",
-            "robot_take_picture": "Take a picture",
-            "opencv_camera_image": "Take an OpenCV image",
-            "opencv_to_hsv": "Convert image to HSV",
-            "opencv_blur": "Blur image",
-            "opencv_box_blur": "Box blur image",
-            "opencv_hsv_value": "HSV bound",
-            "opencv_hsv_mask": "Make HSV mask",
-            "opencv_count_nonzero": "Count mask pixels",
-            "opencv_mask_or": "Combine masks",
-            "robot_show_live_camera": "Show OpenCV image",
-            "robot_scan_qr": "Scan robot QR code",
-            "robot_distance_value": "Read distance",
-            "robot_if_color": "OpenCV colour check",
-            "robot_if_distance": "Distance check",
-            "robot_underlights_on": "Turn on underlights",
-            "robot_underlights_off": "Turn off underlights",
-            "robot_lights_red": "Set lights red",
-            "robot_lights_green": "Set lights green",
-            "robot_lights_blue": "Set lights blue",
-            "robot_lights_yellow": "Set lights yellow",
-            "robot_lights_white": "Set lights white",
-            "robot_lights_purple": "Set lights purple",
-            "robot_repeat": "Repeat",
-            "controls_repeat_ext": "Repeat",
-            "controls_whileUntil": "Repeat while",
-            "controls_for": "Count loop",
-            "controls_if": "If",
-            "robot_wait_until": "Wait until",
-            "robot_set_lights": "Set lights",
-            "robot_flash_lights": "Flash lights",
-            "robot_button_light": "Button light",
-            "robot_wait": "Wait",
-            "robot_stop": "Stop",
-        }.get(block_type, block_type or "Block")
-
-    def _statement(self, block, name):
-        value = block.get("inputs", {}).get(name, {})
-        if not isinstance(value, dict):
-            return None
-        return value.get("block") or value.get("shadow")
-
-    def _input_block(self, block, name):
-        value = block.get("inputs", {}).get(name, {})
-        if not isinstance(value, dict):
-            return None
-        return value.get("block") or value.get("shadow")
-
-    def _any_value(self, block, name, variables):
-        return self._evaluate(self._input_block(block, name), variables)
-
-    @staticmethod
-    def _variable_key(field):
-        # Blockly saves variable fields as {"id": ...}.
-        if isinstance(field, dict):
-            return str(field.get("id") or field.get("name") or "variable")
-        return str(field or "variable")
-
-    def _condition(self, block, name, variables):
-        if self._input_block(block, name) is None:
-            raise ValueError("A block is missing its condition")
-        return bool(self._any_value(block, name, variables))
-
     def _button_pressed(self, button):
         buttons = self.session.telemetry_snapshot().get("buttons")
         return bool(isinstance(buttons, dict) and buttons.get(button))
 
-    def _evaluate(self, child, variables):
-        if not child:
-            return None
-        child_type = child.get("type")
-        fields = child.get("fields", {})
-        if child_type == "math_number":
-            return _number(fields.get("NUM"))
-        if child_type == "colour_picker":
-            return fields.get("COLOUR", "#ff0000")
-        if child_type == "text":
-            return str(fields.get("TEXT", ""))
-        if child_type == "variables_get":
-            return variables.get(self._variable_key(fields.get("VAR")))
-        if child_type == "opencv_camera_image":
-            return self._take_picture()
-        if child_type == "opencv_to_hsv":
-            image = self._any_value(child, "IMAGE", variables)
-            if image is None:
-                image = self._take_picture()
-            return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        if child_type == "opencv_blur":
-            image = self._any_value(child, "IMAGE", variables)
-            if image is None:
-                image = self._take_picture()
-            kernel = max(1, int(self._value(child, "KERNEL", variables, 5)))
-            if kernel % 2 == 0:
-                kernel += 1
-            return cv2.GaussianBlur(image, (kernel, kernel), 0)
-        if child_type == "opencv_box_blur":
-            image = self._any_value(child, "IMAGE", variables)
-            if image is None:
-                image = self._take_picture()
-            kernel = max(1, int(self._value(child, "KERNEL", variables, 5)))
-            if kernel % 2 == 0:
-                kernel += 1
-            return cv2.blur(image, (kernel, kernel))
-        if child_type == "opencv_hsv_value":
-            return tuple(
-                int(_clamp(self._value(child, name, variables, default), 0, limit))
-                for name, default, limit in (
-                    ("H", 40, 179),
-                    ("S", 70, 255),
-                    ("V", 70, 255),
-                )
-            )
-        if child_type == "opencv_hsv_mask":
-            image = self._any_value(child, "IMAGE", variables)
-            if image is None:
-                image = self._take_picture()
-            low = self._any_value(child, "LOW", variables)
-            high = self._any_value(child, "HIGH", variables)
-            if low is None or high is None:
-                low = tuple(
-                    int(_clamp(self._value(child, name, variables, default), 0, limit))
-                    for name, default, limit in (
-                        ("LOW_H", 40, 179),
-                        ("LOW_S", 70, 255),
-                        ("LOW_V", 70, 255),
-                    )
-                )
-                high = tuple(
-                    int(_clamp(self._value(child, name, variables, default), 0, limit))
-                    for name, default, limit in (
-                        ("HIGH_H", 80, 179),
-                        ("HIGH_S", 255, 255),
-                        ("HIGH_V", 255, 255),
-                    )
-                )
-            return cv2.inRange(image, low, high)
-        if child_type == "opencv_count_nonzero":
-            image = self._any_value(child, "IMAGE", variables)
-            if image is None:
-                return 0
-            return int(cv2.countNonZero(image))
-        if child_type == "opencv_mask_or":
-            left = self._any_value(child, "IMAGE1", variables)
-            right = self._any_value(child, "IMAGE2", variables)
-            return cv2.bitwise_or(left, right)
-        if child_type == "robot_scan_qr":
-            return self._scan_robot_qr()
-        if child_type == "math_arithmetic":
-            left = _number(self._any_value(child, "A", variables))
-            right = _number(self._any_value(child, "B", variables))
-            operator = fields.get("OP", "ADD")
-            if operator == "ADD":
-                return left + right
-            if operator == "MINUS":
-                return left - right
-            if operator == "MULTIPLY":
-                return left * right
-            if operator == "DIVIDE":
-                return left / right if right else 0.0
-            if operator == "POWER":
-                try:
-                    return _number(left**right)
-                except (OverflowError, ZeroDivisionError):
-                    return 0.0
-            return 0.0
-        if child_type == "logic_boolean":
-            return fields.get("BOOL") == "TRUE"
-        if child_type == "logic_compare":
-            left = _number(self._any_value(child, "A", variables))
-            right = _number(self._any_value(child, "B", variables))
-            return {
-                "EQ": left == right,
-                "NEQ": left != right,
-                "LT": left < right,
-                "LTE": left <= right,
-                "GT": left > right,
-                "GTE": left >= right,
-            }.get(fields.get("OP", "EQ"), False)
-        if child_type == "logic_negate":
-            return not self._any_value(child, "BOOL", variables)
-        if child_type == "logic_operation":
-            left = bool(self._any_value(child, "A", variables))
-            if fields.get("OP") == "OR":
-                return left or bool(self._any_value(child, "B", variables))
-            return left and bool(self._any_value(child, "B", variables))
-        if child_type == "robot_button_pressed":
-            return self._button_pressed(fields.get("BUTTON", "A"))
-        if child_type == "robot_distance_condition":
-            distance = self._distance_cm()
-            limit = self._value(child, "CENTIMETRES", variables, 20)
-            if distance is None:
-                return False
-            if fields.get("OPERATOR", "LESS_THAN") == "LESS_THAN":
-                return distance < limit
-            return distance > limit
-        if child_type == "robot_distance_value":
-            return self._distance_cm()
-        named_colours = {
-            "robot_colour_red": "#ff0000",
-            "robot_colour_green": "#00ff00",
-            "robot_colour_blue": "#0000ff",
-            "robot_colour_yellow": "#ffff00",
-            "robot_colour_white": "#ffffff",
-            "robot_colour_purple": "#ff00ff",
-        }
-        if child_type in named_colours:
-            return named_colours[child_type]
-        return None
-
-    def _value(self, block, name, variables, default):
-        value = self._any_value(block, name, variables)
-        return _number(default if value is None else value, default)
-
-    def _colour_value(self, block, name, variables, default):
-        field_value = block.get("fields", {}).get(name)
-        if isinstance(field_value, str) and field_value:
-            return field_value
-        value = self._any_value(block, name, variables)
-        return value if isinstance(value, str) else default
-
     def _wait(self, seconds):
         end = time.monotonic() + max(0, seconds)
-        while time.monotonic() < end and not self.stop_event.is_set():
+        while time.monotonic() < end and not self._run_stop_event().is_set():
             time.sleep(max(0.0, min(0.03, end - time.monotonic())))
 
     def _drive_for(self, speeds, seconds):
@@ -1362,20 +1641,21 @@ class ProgramRunner:
         right = speeds[1] / 100.0
         deadline = time.monotonic() + max(0.0, seconds)
         try:
-            while not self.stop_event.is_set() and time.monotonic() < deadline:
+            while not self._run_stop_event().is_set() and time.monotonic() < deadline:
                 self.session.dispatch("drive", left, right)
                 remaining = deadline - time.monotonic()
                 self._wait(min(0.18, max(0.0, remaining)))
         finally:
             try:
                 self.session.dispatch("stop")
-            except Exception:
-                pass
+            except RuntimeError as error:
+                LOG.debug("Could not stop the motors: %s", error)
 
     def _distance_cm(self):
         try:
             self.session.dispatch("request_distance")
-        except Exception:
+        except RuntimeError as error:
+            LOG.debug("Could not request distance: %s", error)
             return None
         self._wait(0.08)
         value = self.session.telemetry_snapshot().get("distance_cm")
@@ -1387,7 +1667,7 @@ class ProgramRunner:
     def _flash(self, colour, times, on_seconds, off_seconds):
         rgb = _hex_colour(colour, "#00ff00")
         for _ in range(times):
-            if self.stop_event.is_set():
+            if self._run_stop_event().is_set():
                 break
             self.session.call("set_underlights", rgb)
             self._wait(on_seconds)
@@ -1544,18 +1824,26 @@ def robot_directory():
 def connect():
     try:
         payload = request.get_json(silent=True) or {}
+        resume = payload.get("resume")
+        robot_name = payload.get("robot_name")
         session.connect(
-            payload.get("url"), payload.get("video"), bool(payload.get("force"))
+            payload.get("url"),
+            payload.get("video"),
+            bool(payload.get("force")),
+            resume=resume if isinstance(resume, str) else None,
+            robot_name=robot_name if isinstance(robot_name, str) else None,
         )
         return jsonify(session.status())
     except Exception as error:
+        LOG.info("Connect request failed: %s", error)
         return jsonify({"error": str(error)}), 400
 
 
 @app.post("/api/disconnect")
 def disconnect():
-    runner.stop()
+    # Disconnecting first lets the runner record why the program stopped.
     session.disconnect()
+    runner.stop()
     return jsonify(session.status())
 
 
@@ -1581,9 +1869,10 @@ def _library_files(name, directory=None):
     name = _library_name(name)
     if directory is None:
         directory = USER_LIBRARY_DIR
-        if not (directory / f"{name}.json").is_file() and not (
-            directory / f"{name}.py"
-        ).is_file():
+        if (
+            not (directory / f"{name}.json").is_file()
+            and not (directory / f"{name}.py").is_file()
+        ):
             directory = LIBRARY_DIR
     return directory / f"{name}.json", directory / f"{name}.py"
 
@@ -1824,4 +2113,8 @@ def stop_program():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    app.run(host=os.environ.get("HOST", "127.0.0.1"), port=8750, threaded=True)
+    app.run(
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8750")),
+        threaded=True,
+    )

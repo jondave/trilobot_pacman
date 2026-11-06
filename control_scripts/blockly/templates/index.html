@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=12) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=13) }}">
 </head>
 <body>
   <header class="topbar">
@@ -25,11 +25,17 @@
       <button id="connect-button" class="primary">Connect</button>
       <button id="disconnect-button" class="quiet-button">Disconnect</button>
       <span id="connection-status" class="status-pill">Disconnected</span>
-      <span id="quality-lamp" class="quality-lamp red" title="Offline"></span>
-      <span id="quality-text" class="quality-text">Offline</span>
+      <span id="quality-lamp" class="quality-lamp red" title="Not connected"></span>
+      <span id="quality-text" class="quality-text">Not connected</span>
       <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide">? Help</button>
     </div>
   </header>
+
+  <div id="conn-banner" class="conn-banner is-muted" role="status" aria-live="polite" hidden>
+    <span class="conn-icon" aria-hidden="true"></span>
+    <span class="conn-message"></span>
+    <span class="conn-actions"></span>
+  </div>
 
   <main class="app-grid">
     <section class="card workspace-card">
@@ -85,7 +91,7 @@
           </div>
           <span id="camera-view-label" class="vision-status">OpenCV: no picture checked</span>
         </div>
-        <div class="stage"><img src="{{ url_for('video') }}" alt="Live robot camera"></div>
+        <div class="stage"><img src="{{ url_for('video') }}" alt="Live robot camera"><div id="video-overlay" class="video-overlay" role="status" hidden></div></div>
         <div class="camera-settings">
           <label>Size
             <select id="video-size">
@@ -144,7 +150,7 @@
   </main>
 
   <xml id="toolbox" style="display:none">
-    <category name="Robot actions" colour="#f59e0b">
+    <category name="Robot actions" categorystyle="robot_category">
       <block type="robot_forward">
         <value name="SECONDS"><shadow type="math_number"><field name="NUM">10</field></shadow></value>
         <value name="SPEED"><shadow type="math_number"><field name="NUM">60</field></shadow></value>
@@ -171,7 +177,7 @@
       <block type="robot_wait_until"></block>
       <block type="robot_stop"></block>
     </category>
-    <category name="Loops" colour="#4caf7d">
+    <category name="Loops" categorystyle="loop_category">
       <block type="robot_repeat">
         <value name="TIMES"><shadow type="math_number"><field name="NUM">2</field></shadow></value>
       </block>
@@ -182,14 +188,14 @@
         <value name="BY"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
       </block>
     </category>
-    <category name="Logic" colour="#5c81a6">
+    <category name="Logic" categorystyle="logic_category">
       <block type="controls_if"></block>
       <block type="logic_boolean"></block>
       <block type="logic_compare"></block>
       <block type="logic_negate"></block>
       <block type="logic_operation"></block>
     </category>
-    <category name="Camera / OpenCV" colour="#a86de0">
+    <category name="Camera / OpenCV" categorystyle="opencv_category">
       <block type="robot_take_picture"></block>
       <block type="opencv_camera_image"></block>
       <block type="opencv_to_hsv"></block>
@@ -230,7 +236,7 @@
         <value name="MIN_AREA"><shadow type="math_number"><field name="NUM">500</field></shadow></value>
       </block>
     </category>
-    <category name="Distance sensor" colour="#36a890">
+    <category name="Distance sensor" categorystyle="sensor_category">
       <block type="robot_distance_value"></block>
       <block type="robot_if_distance">
         <value name="CENTIMETRES"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
@@ -239,15 +245,15 @@
         <value name="CENTIMETRES"><shadow type="math_number"><field name="NUM">20</field></shadow></value>
       </block>
     </category>
-    <category name="Robot buttons" colour="#36a890">
+    <category name="Robot buttons" categorystyle="sensor_category">
       <block type="robot_button_pressed"></block>
     </category>
-    <category name="Debug" colour="#4d8edb">
+    <category name="Debug" categorystyle="debug_category">
       <block type="robot_print">
         <value name="VALUE"><shadow type="math_number"><field name="NUM">42</field></shadow></value>
       </block>
     </category>
-    <category name="Lights &amp; colours" colour="#d957a7">
+    <category name="Lights &amp; colours" categorystyle="light_category">
       <block type="robot_underlights_on"></block>
       <sep gap="12"></sep>
       <block type="robot_underlights_off"></block>
@@ -277,11 +283,11 @@
         <value name="BRIGHTNESS"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
       </block>
     </category>
-    <category name="Numbers" colour="#4caf7d">
+    <category name="Numbers" categorystyle="math_category">
       <block type="math_number"></block>
       <block type="math_arithmetic"></block>
     </category>
-    <category name="Variables" colour="#e6a23c" custom="VARIABLE">
+    <category name="Variables" categorystyle="variable_category" custom="VARIABLE">
       <block type="math_change">
         <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
       </block>
@@ -325,8 +331,10 @@
   </div>
 
 
-  <script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
-  <script src="{{ url_for('static', filename='app.js', v=27) }}"></script>
+  <script src="/static/vendor/blockly/blockly.min.js"></script>
+  <script>window.Blockly || document.write('<script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"><\/script>');</script>
+  <script src="/static/vendor/monaco/min/vs/loader.js"></script>
+  <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
+  <script src="{{ url_for('static', filename='app.js', v=28) }}"></script>
 </body>
 </html>

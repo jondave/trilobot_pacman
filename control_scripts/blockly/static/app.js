@@ -14,7 +14,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35,
+  style: "robot_blocks",
   tooltip: "Drive straight ahead."
 }, {
   type: "robot_backward",
@@ -30,7 +30,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_turn_left",
   message0: "turn left for %1 seconds at %2% power",
@@ -45,7 +45,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_turn_right",
   message0: "turn right for %1 seconds at %2% power",
@@ -60,7 +60,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_turn_around",
   message0: "turn around for %1 seconds at %2% power",
@@ -75,7 +75,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_drive_for",
   message0: "drive %1 for %2 seconds at %3% power",
@@ -99,19 +99,19 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_take_picture",
   message0: "take a picture",
   previousStatement: null,
   nextStatement: null,
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Take a snapshot for the OpenCV blocks."
 }, {
   type: "opencv_camera_image",
   message0: "camera image",
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Take a BGR image from the live robot camera."
 }, {
   type: "opencv_to_hsv",
@@ -129,7 +129,7 @@ Blockly.defineBlocksWithJsonArray([{
     ]
   }],
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Convert an OpenCV BGR image to HSV."
 }, {
   type: "opencv_blur",
@@ -144,7 +144,7 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Number"
   }],
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Smooth an image before making a mask. Use an odd kernel such as 5."
 }, {
   type: "opencv_box_blur",
@@ -159,7 +159,7 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Number"
   }],
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Apply OpenCV's simple box blur. Use an odd kernel such as 5."
 }, {
   type: "opencv_hsv_value",
@@ -178,7 +178,7 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Number"
   }],
   output: "HSV",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "One HSV colour bound. H is 0–179; S and V are 0–255."
 }, {
   type: "opencv_hsv_mask",
@@ -201,7 +201,7 @@ Blockly.defineBlocksWithJsonArray([{
     check: "HSV"
   }],
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Keep pixels inside these HSV bounds and make a black-and-white mask."
 }, {
   type: "opencv_count_nonzero",
@@ -212,7 +212,7 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Image"
   }],
   output: "Number",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Count the white pixels in a mask."
 }, {
   type: "opencv_mask_or",
@@ -227,13 +227,13 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Image"
   }],
   output: "Image",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Combine two black-and-white masks with OpenCV bitwise OR."
 }, {
   type: "robot_scan_qr",
   message0: "scan robot QR code",
   output: "String",
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Return the robot name such as trilo-xx from a Lincoln robot QR code."
 }, {
   type: "robot_show_live_camera",
@@ -245,7 +245,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Show an image or mask variable in the live camera panel. Leave it empty to show a fresh picture."
 }, {
   type: "robot_if_color",
@@ -284,7 +284,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 285,
+  style: "opencv_blocks",
   tooltip: "Uses basic OpenCV HSV colour detection."
 }, {
   type: "robot_if_distance",
@@ -313,88 +313,88 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 165,
+  style: "sensor_blocks",
   tooltip: "Reads the robot's distance sensor."
 }, {
   type: "robot_underlights_on",
   message0: "turn on underlights",
   previousStatement: null,
   nextStatement: null,
-  colour: 315,
+  style: "light_blocks",
   tooltip: "Turn the robot underlights on white."
 }, {
   type: "robot_underlights_off",
   message0: "turn off underlights",
   previousStatement: null,
   nextStatement: null,
-  colour: 315,
+  style: "light_blocks",
   tooltip: "Turn all underlights off."
 }, {
   type: "robot_lights_red",
   message0: "set lights red",
   previousStatement: null,
   nextStatement: null,
-  colour: 0
+  style: "colour_red_blocks"
 }, {
   type: "robot_lights_green",
   message0: "set lights green",
   previousStatement: null,
   nextStatement: null,
-  colour: 120
+  style: "colour_green_blocks"
 }, {
   type: "robot_lights_blue",
   message0: "set lights blue",
   previousStatement: null,
   nextStatement: null,
-  colour: 210
+  style: "colour_blue_blocks"
 }, {
   type: "robot_lights_yellow",
   message0: "set lights yellow",
   previousStatement: null,
   nextStatement: null,
-  colour: 60
+  style: "colour_yellow_blocks"
 }, {
   type: "robot_lights_white",
   message0: "set lights white",
   previousStatement: null,
   nextStatement: null,
-  colour: 45
+  style: "colour_white_blocks"
 }, {
   type: "robot_lights_purple",
   message0: "set lights purple",
   previousStatement: null,
   nextStatement: null,
-  colour: 285
+  style: "colour_purple_blocks"
 }, {
   type: "robot_colour_red",
   message0: "red",
   output: "Colour",
-  colour: 0
+  style: "colour_red_blocks"
 }, {
   type: "robot_colour_green",
   message0: "green",
   output: "Colour",
-  colour: 120
+  style: "colour_green_blocks"
 }, {
   type: "robot_colour_blue",
   message0: "blue",
   output: "Colour",
-  colour: 210
+  style: "colour_blue_blocks"
 }, {
   type: "robot_colour_yellow",
   message0: "yellow",
   output: "Colour",
-  colour: 60
+  style: "colour_yellow_blocks"
 }, {
   type: "robot_colour_white",
   message0: "white",
   output: "Colour",
-  colour: 45
+  style: "colour_white_blocks"
 }, {
   type: "robot_colour_purple",
   message0: "purple",
   output: "Colour",
-  colour: 285
+  style: "colour_purple_blocks"
 }, {
   type: "robot_set_lights",
   message0: "set lights to %1",
@@ -412,7 +412,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 315
+  style: "light_blocks"
 }, {
   type: "robot_flash_lights",
   message0: "flash %1 for %2 times",
@@ -434,7 +434,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 315
+  style: "light_blocks"
 }, {
   type: "robot_button_light",
   message0: "set button %1 brightness to %2",
@@ -454,7 +454,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 315
+  style: "light_blocks"
 }, {
   type: "robot_repeat",
   message0: "repeat %1 times",
@@ -470,7 +470,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 120,
+  style: "loop_blocks",
   tooltip: "Repeat the blocks inside this loop."
 }, {
   type: "robot_wait",
@@ -482,13 +482,13 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35
+  style: "robot_blocks"
 }, {
   type: "robot_stop",
   message0: "stop the robot",
   previousStatement: null,
   nextStatement: null,
-  colour: 0
+  style: "stop_blocks"
 }, {
   type: "robot_print",
   message0: "print %1 %2",
@@ -501,7 +501,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 210,
+  style: "debug_blocks",
   tooltip: "Write a value to the terminal."
 }, {
   type: "robot_wait_until",
@@ -513,7 +513,7 @@ Blockly.defineBlocksWithJsonArray([{
   }],
   previousStatement: null,
   nextStatement: null,
-  colour: 35,
+  style: "robot_blocks",
   tooltip: "Pause the program until the condition is true."
 }, {
   type: "robot_distance_condition",
@@ -531,13 +531,13 @@ Blockly.defineBlocksWithJsonArray([{
     check: "Number"
   }],
   output: "Boolean",
-  colour: 165,
+  style: "sensor_blocks",
   tooltip: "True when the distance sensor reading matches."
 }, {
   type: "robot_distance_value",
   message0: "distance in cm",
   output: "Number",
-  colour: 165,
+  style: "sensor_blocks",
   tooltip: "Read the robot's distance sensor."
 }, {
   type: "robot_button_pressed",
@@ -553,12 +553,53 @@ Blockly.defineBlocksWithJsonArray([{
     ]
   }],
   output: "Boolean",
-  colour: 165,
+  style: "sensor_blocks",
   tooltip: "True while the button on the robot is held down."
 }]);
 
+const hex = {
+  orange: "#e49a32", green: "#2fb477", blue: "#3478f6", purple: "#9b62d7",
+  pink: "#d957a7", red: "#e75a5a", teal: "#36a890", slate: "#5c81a6", yellow: "#d9b21f", grey: "#8f9bb0"
+};
+const blockStyle = colour => ({ colourPrimary: colour });
+const labTheme = Blockly.Theme.defineTheme("trilobot_lab", {
+  name: "trilobot_lab",
+  base: Blockly.Themes.Classic,
+  blockStyles: {
+    robot_blocks: blockStyle(hex.orange),
+    loop_blocks: blockStyle(hex.green),
+    stop_blocks: blockStyle(hex.red),
+    debug_blocks: blockStyle(hex.blue),
+    opencv_blocks: blockStyle(hex.purple),
+    sensor_blocks: blockStyle(hex.teal),
+    light_blocks: blockStyle(hex.pink),
+    colour_red_blocks: blockStyle(hex.red),
+    colour_green_blocks: blockStyle(hex.green),
+    colour_blue_blocks: blockStyle(hex.blue),
+    colour_yellow_blocks: blockStyle(hex.yellow),
+    colour_white_blocks: blockStyle(hex.grey),
+    colour_purple_blocks: blockStyle(hex.purple),
+    logic_blocks: blockStyle(hex.slate),
+    math_blocks: blockStyle(hex.green),
+    variable_blocks: blockStyle(hex.orange)
+  },
+  categoryStyles: {
+    robot_category: { colour: hex.orange },
+    loop_category: { colour: hex.green },
+    logic_category: { colour: hex.slate },
+    opencv_category: { colour: hex.purple },
+    sensor_category: { colour: hex.teal },
+    debug_category: { colour: hex.blue },
+    light_category: { colour: hex.pink },
+    math_category: { colour: hex.green },
+    variable_category: { colour: hex.orange }
+  }
+});
+
 const workspace = Blockly.inject("blockly-workspace", {
+  ...(window.BLOCKLY_FROM_CDN ? {} : {media: "/static/vendor/blockly/media/"}),
   toolbox: document.getElementById("toolbox"),
+  theme: labTheme,
   trashcan: true,
   move: {
     scrollbars: true,
@@ -944,12 +985,59 @@ function updateProgram(program) {
     $("camera-view-label").textContent = (program.camera_view || vision.status) + area;
   }
 
+  programOutputText = program.output || "";
+  renderTerminal();
+}
+
+// Terminal = program output followed by connection events (bounded).
+let programOutputText = "";
+let renderedTerminalKey = "";
+const eventLog = [];
+let lastEventId = 0;
+const MAX_EVENT_LINES = 100;
+
+function clock(epochSeconds, withSeconds = false) {
+  if (!Number.isFinite(Number(epochSeconds)) || epochSeconds === null) return "";
+  const date = new Date(Number(epochSeconds) * 1000);
+  const pad = (n) => String(n).padStart(2, "0");
+  return pad(date.getHours()) + ":" + pad(date.getMinutes()) +
+    (withSeconds ? ":" + pad(date.getSeconds()) : "");
+}
+
+function renderTerminal() {
+  const key = programOutputText.length + "|" + programOutputText.slice(-64) + "|" +
+    (eventLog.length ? eventLog[eventLog.length - 1].id : 0) + "|" + eventLog.length;
+  if (key === renderedTerminalKey) return;
+  renderedTerminalKey = key;
   const output = $("terminal-output");
-  const text = program.output || "";
-  if (output.textContent !== text) {
-    output.textContent = text;
-    output.scrollTop = output.scrollHeight;
+  output.replaceChildren(document.createTextNode(programOutputText));
+  if (eventLog.length) {
+    if (programOutputText && !programOutputText.endsWith("\n")) {
+      output.appendChild(document.createTextNode("\n"));
+    }
+    for (const item of eventLog) {
+      const line = document.createElement("span");
+      line.className = "term-event level-" + item.level;
+      line.textContent = "[" + clock(item.t, true) + "] " + item.text + "\n";
+      output.appendChild(line);
+    }
   }
+  output.scrollTop = output.scrollHeight;
+}
+
+function ingestEvents(events) {
+  if (!Array.isArray(events)) return;
+  for (const item of events) {
+    if (!item || typeof item.id !== "number" || item.id <= lastEventId) continue;
+    lastEventId = item.id;
+    eventLog.push({
+      id: item.id,
+      t: item.t,
+      level: ["info", "warning", "error"].includes(item.level) ? item.level : "info",
+      text: String(item.text || "")
+    });
+  }
+  if (eventLog.length > MAX_EVENT_LINES) eventLog.splice(0, eventLog.length - MAX_EVENT_LINES);
 }
 
 function toggleTerminal(open) {
@@ -967,6 +1055,9 @@ function toggleTerminal(open) {
 
 $("terminal-tab").addEventListener("click", () => toggleTerminal());
 $("terminal-clear").addEventListener("click", () => {
+  eventLog.length = 0;
+  programOutputText = "";
+  renderedTerminalKey = "";
   $("terminal-output").textContent = "";
 });
 
@@ -989,8 +1080,6 @@ function setVideoSettings(video) {
   $("video-quality").value = String(video.jpeg_quality);
 }
 
-let wasConnected = false;
-let busyPromptShown = "";
 const cameraImage = document.querySelector("#camera-card .stage img");
 
 function reloadCameraFeed() {
@@ -999,24 +1088,59 @@ function reloadCameraFeed() {
   cameraImage.src = base + "?t=" + Date.now();
 }
 
-async function connectRobot(force = false) {
-  const address = robotSelect.value === MANUAL_ROBOT_VALUE ?
-    urlInput.value.trim() :
-    robotSelect.value;
+// Remembered robot-given identities, kept so a refresh or Wi-Fi drop resumes
+// the same session. Shape: {<url>: {session, resume, robot}}.
+const SESSIONS_KEY = "trilobot.sessions";
+
+function loadSessions() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SESSIONS_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function rememberSession(conn) {
+  if (!conn || !conn.resume || !conn.url) return;
+  try {
+    const sessions = loadSessions();
+    const current = sessions[conn.url] || {};
+    if (current.resume === conn.resume && current.session === conn.session) return;
+    sessions[conn.url] = {
+      session: conn.session || current.session || null,
+      resume: conn.resume,
+      robot: conn.robot || current.robot || null
+    };
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+  } catch (_) {}
+}
+
+function selectedAddress() {
+  return robotSelect.value === MANUAL_ROBOT_VALUE ? urlInput.value.trim() : robotSelect.value;
+}
+
+async function connectRobot(force = false, urlOverride = "") {
+  const address = urlOverride || selectedAddress();
   if (!address) {
     setMessage("Choose a robot or enter a manual WebSocket address", true);
     return;
   }
+  const stored = loadSessions()[address] || {};
+  const choice = robotChoices.find((robot) => robot.url === address);
+  const robotName = (choice && choice.name) || stored.robot || (lastConnection && lastConnection.robot);
+  const body = {
+    url: address,
+    video: videoSettings(),
+    force: force === true
+  };
+  if (stored.resume) body.resume = stored.resume;
+  if (robotName) body.robot_name = robotName;
   try {
     const data = await jsonRequest("/api/connect", {
       method: "POST",
-      body: JSON.stringify({
-        url: address,
-        video: videoSettings(),
-        force: force === true
-      })
+      body: JSON.stringify(body)
     });
-    busyPromptShown = "";
     setVideoSettings(data.video);
     setMessage("Connecting…");
   } catch (error) {
@@ -1220,32 +1344,203 @@ $("clear-button").addEventListener("click", () => {
   if (window.confirm("Clear all blocks?")) workspace.clear();
 });
 
+let statusFailures = 0;
+let lastConnection = null;
+let programRunning = false;
+
+const STATE_LABELS = {
+  idle: "Disconnected",
+  connecting: "Connecting…",
+  connected: "Connected",
+  weak: "Weak signal",
+  reconnecting: "Reconnecting…",
+  taken_over: "Taken over",
+  busy: "Robot busy",
+  robot_offline: "Robot offline",
+  app_down: "App not running"
+};
+const ALERT_STATES = ["reconnecting", "taken_over", "busy", "robot_offline", "app_down"];
+const BASE_TITLE = document.title;
+const banner = $("conn-banner");
+const bannerIcon = banner.querySelector(".conn-icon");
+const bannerMessage = banner.querySelector(".conn-message");
+const bannerActions = banner.querySelector(".conn-actions");
+let bannerState = null;
+let previousState = null;
+
+function focusRobotChooser() {
+  robotSelect.focus();
+}
+
+function bannerContent(state, conn) {
+  const robot = conn.robot || "the robot";
+  const holder = conn.holder || "Another user";
+  const since = clock(conn.since);
+  const at = since ? " at " + since : "";
+  const retry = {label: "Retry now", run: () => connectRobot(false, conn.url || "")};
+  const choose = {label: "Choose another robot", run: focusRobotChooser};
+  switch (state) {
+    case "connected":
+      return {kind: "info", icon: "✔", text: conn.session ?
+        "You are " + conn.session + " on " + robot : conn.message || "Connected to " + robot};
+    case "weak":
+      return {kind: "warning", icon: "⚠", text: "Weak signal. The video and controls may lag."};
+    case "reconnecting":
+      return {kind: "warning", icon: "⟳", text: "Connection lost. Reconnecting" +
+        (conn.session ? " as " + conn.session : "") + "… (attempt " + (conn.attempt || 1) + ")",
+        actions: [retry]};
+    case "taken_over":
+      return {kind: "danger", icon: "⛔", text: holder + " took over " + robot + at + "." +
+        (conn.program_stopped ? " Your program was stopped." : ""),
+        actions: [choose, {label: "Take it back", run: () => connectRobot(true, conn.url || "")}]};
+    case "busy":
+      return {kind: "muted", icon: "ℹ", text: (conn.robot || "The robot") + " is being used by " + holder +
+        (since ? " (since " + since + ")" : "") + ".",
+        actions: [choose, {label: "Take over", run: () => connectRobot(true, conn.url || "")}]};
+    case "robot_offline":
+      return {kind: "danger", icon: "⛔", text: "Can't reach " + robot +
+        ". Is it switched on and on the same Wi-Fi?",
+        actions: [{label: "Retry", run: () => connectRobot(false, conn.url || "")}]};
+    case "app_down":
+      return {kind: "danger", icon: "⛔", text: "The Trilobot app on your computer isn't running. " +
+        "Restart it (see the Get Started guide)."};
+    case "connecting":
+      return {kind: "muted", icon: "…", text: conn.message || "Connecting to " + robot + "…"};
+    default:
+      return null;
+  }
+}
+
+function renderBanner(state, conn) {
+  const content = bannerContent(state, conn);
+  if (!content) {
+    banner.hidden = true;
+    bannerState = null;
+    return;
+  }
+  const danger = content.kind === "danger";
+  const key = state + "|" + (conn.url || "") + "|" + (conn.holder || "");
+  banner.hidden = false;
+  banner.className = "conn-banner is-" + content.kind;
+  banner.setAttribute("aria-live", danger ? "assertive" : "polite");
+  bannerIcon.textContent = content.icon;
+  bannerMessage.textContent = content.text;
+  if (key === bannerState) return;
+  bannerState = key;
+  bannerActions.replaceChildren();
+  for (const action of content.actions || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = action.label;
+    button.addEventListener("click", action.run);
+    bannerActions.appendChild(button);
+  }
+}
+
+function renderVideo(state, conn) {
+  const live = state === "connected" || state === "weak";
+  const age = conn.last_frame_age;
+  const frozen = live && typeof age === "number" && age > 2;
+  const stale = !live || frozen;
+  const overlay = $("video-overlay");
+  let text = "";
+  if (frozen) {
+    text = "No new picture for " + Math.round(age) + "s";
+  } else if (!live) {
+    if (state === "reconnecting" || state === "connecting") text = "Reconnecting…";
+    else if (state === "idle" || state === "app_down") text = "Not connected";
+    else text = "Disconnected";
+    if (typeof age === "number" && text !== "Not connected") {
+      text += " · last picture " + (age < 2 ? "just now" : Math.round(age) + "s ago");
+    }
+  }
+  overlay.hidden = !stale;
+  overlay.textContent = text;
+  const stage = document.querySelector("#camera-card .stage");
+  stage.classList.toggle("is-stale", stale);
+  // No real picture yet: hide the placeholder so its text doesn't clash with the overlay.
+  stage.classList.toggle("no-picture", stale && typeof age !== "number");
+  if ((state === "connected") && previousState !== "connected" && previousState !== "weak") {
+    reloadCameraFeed();
+  }
+}
+
+function renderControls(state) {
+  const canDrive = state === "connected" || state === "weak";
+  $("run-button").disabled = !canDrive;
+  // Stop is the safety button: always available, harmless when idle.
+  $("stop-button").disabled = false;
+  teleopEnabled.disabled = !canDrive;
+  teleopButtons.forEach((button) => { button.disabled = !canDrive; });
+  $("reset-lights-button").disabled = !canDrive;
+  if (!canDrive && teleopEnabled.checked) {
+    teleopEnabled.checked = false;
+    updateTeleopState();
+    stopTeleop(true);
+  }
+  const connectButton = $("connect-button");
+  connectButton.textContent = canDrive ? "Connected" :
+    state === "connecting" ? "Connecting…" :
+    state === "reconnecting" ? "Reconnecting…" : "Connect";
+  connectButton.disabled = canDrive || state === "connecting" || state === "reconnecting";
+  $("disconnect-button").disabled = !["connected", "weak", "connecting", "reconnecting"].includes(state);
+}
+
+const LAMP_LABELS = {
+  connected: "Connected",
+  weak: "Weak signal",
+  reconnecting: "Reconnecting",
+  connecting: "Connecting",
+  taken_over: "Taken over",
+  busy: "Busy",
+  robot_offline: "Robot offline",
+  app_down: "App offline",
+  idle: "Not connected"
+};
+
+function renderLamp(state, conn) {
+  const lamp = $("quality-lamp");
+  const colour = state === "connected" ? (conn.health || "green") :
+    state === "weak" || state === "reconnecting" || state === "connecting" ? "orange" : "red";
+  const label = LAMP_LABELS[state] || "Not connected";
+  lamp.className = "quality-lamp " + colour;
+  lamp.title = conn.health_text && state === "connected" ? label + " · " + conn.health_text : label;
+  $("quality-text").textContent = label;
+}
+
+function renderConnection(conn) {
+  const state = conn.state || "idle";
+  const live = state === "connected" || state === "weak";
+  lastConnection = conn;
+  rememberSession(conn);
+  const pill = $("connection-status");
+  pill.textContent = live && conn.session ?
+    STATE_LABELS[state] + " · " + conn.session : STATE_LABELS[state] || conn.message || state;
+  pill.className = "status-pill " + (live ? "connected" : "");
+  // Controls first: they matter most and must not wait on the rest.
+  renderControls(state);
+  renderLamp(state, conn);
+  renderBanner(state, conn);
+  renderVideo(state, conn);
+  const title = (ALERT_STATES.includes(state) ? "⚠ " : "") + BASE_TITLE;
+  if (document.title !== title) document.title = title;
+  previousState = state;
+}
+
 async function pollStatus() {
   if (statusRequestInFlight) return;
   statusRequestInFlight = true;
   try {
     const data = await jsonRequest("/api/status");
+    statusFailures = 0;
     const connection = data.connection || {};
-    const lamp = $("quality-lamp");
-    lamp.className = "quality-lamp " + (connection.health || "red");
-    lamp.title = connection.health_text || "Offline";
-    $("quality-text").textContent = connection.health_text || "Offline";
-    $("connection-status").textContent = data.connected ?
-      "Connected" + (data.session_name ? " · " + data.session_name : "") :
-      "Disconnected";
-    if (data.connected && !wasConnected) reloadCameraFeed();
-    wasConnected = !!data.connected;
-    if (data.busy_session && busyPromptShown !== data.url) {
-      busyPromptShown = data.url;
-      if (window.confirm("This robot is already in use by session " + data.busy_session +
-          ". Kick everyone off and connect?")) {
-        connectRobot(true);
-      }
-    } else if (data.kicked && busyPromptShown !== "kicked:" + data.url) {
-      busyPromptShown = "kicked:" + data.url;
-      setMessage("Another user took over this robot. Press Connect to take it back.", true);
-    }
-    $("connection-status").className = "status-pill " + (data.connected ? "connected" : "");
+    const program = data.program || {};
+    programRunning = program.status === "running";
+    ingestEvents(data.events);
+    renderConnection({
+      ...connection,
+      state: connection.state || (data.connected ? "connected" : "idle")
+    });
     $("video-rate").textContent = (connection.video_hz || 0) + " fps";
     $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
     $("command-latency").textContent = connection.last_command_ms == null ?
@@ -1254,11 +1549,13 @@ async function pollStatus() {
     $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined ?
       "dist " + data.telemetry.distance_cm + " cm" :
       "dist —";
-    updateProgram(data.program || {});
+    updateProgram(program);
   } catch (_) {
-    const lamp = $("quality-lamp");
-    lamp.className = "quality-lamp red";
-    $("quality-text").textContent = "App offline";
+    statusFailures += 1;
+    if (statusFailures >= 2) {
+      programRunning = false;
+      renderConnection({state: "app_down"});
+    }
   } finally {
     statusRequestInFlight = false;
   }
@@ -1272,7 +1569,10 @@ setInterval(refreshRobots, 5 * 60 * 1000);
 refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));
 
 // ---- Python mode: Monaco editor kept in sync with the blocks ----
-const MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min";
+const MONACO_BASE = window.MONACO_FROM_CDN
+  ? "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min"
+  // Absolute: the worker is a data: URL with no base, so a bare path can't resolve.
+  : new URL("/static/vendor/monaco/min", location.href).href;
 const COLOUR_CHOICES = "red,green,blue,yellow,white,purple";
 const PYTHON_API = [
   ["forward", "forward(seconds=${1:2}, power=${2:60})",
