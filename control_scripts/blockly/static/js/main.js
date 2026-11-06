@@ -3,6 +3,7 @@
  * Entry point, loaded as a module after the classic Blockly and Monaco loader
  * scripts. It wires the modules together in the order the page needs and runs
  * the status polling loop. */
+import { initAlertModal } from "./alert-modal.js";
 import { jsonRequest } from "./api.js";
 import { initBlocks } from "./blocks.js";
 import { initConnection, renderConnection } from "./connection.js";
@@ -79,6 +80,7 @@ async function pollStatus() {
 initBlocks();
 initProgram();
 initTeleop();
+initAlertModal();
 initConnection();
 initDirectory();
 initVideo();

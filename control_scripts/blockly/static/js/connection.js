@@ -1,5 +1,6 @@
 // Connection: connect and disconnect, remembered sessions, and the header
 // lamp, banner and controls that show the connection state.
+import { alertState, closeAlert, isAlertOpen, showAlert } from "./alert-modal.js";
 import { jsonRequest } from "./api.js";
 import { robotSelect, selectedAddress } from "./directory.js";
 import { state } from "./state.js";
@@ -39,8 +40,11 @@ function rememberSession(conn) {
 // its message is kept here and shown in the banner until the next attempt.
 let connectError = "";
 
+let connectAttempted = false;
+
 async function connectRobot(force = false, urlOverride = "") {
   connectError = "";
+  connectAttempted = true;
   const address = urlOverride || selectedAddress();
   if (!address) {
     setMessage("Choose a robot or enter a manual WebSocket address", true);
@@ -114,6 +118,86 @@ function focusRobotChooser() {
   robotSelect.focus();
 }
 
+function takeoverTarget(conn) {
+  return {robot: conn.robot, holder: conn.holder, since: conn.since, url: conn.url || ""};
+}
+
+function usedBy(robot, holder, since) {
+  const time = clock(since);
+  return robot.charAt(0).toUpperCase() + robot.slice(1) + " is being used by " + holder + (time ? " (since " + time + ")" : "") + ".";
+}
+
+// Every force-connect goes through here: ask first, connect only on confirm.
+export function confirmTakeover({robot, holder, since, url = ""}) {
+  const name = robot || "the robot";
+  const current = state.lastConnection || {};
+  showAlert({
+    tone: "warning",
+    state: current.state || null,
+    fallbackFocus: $("connect-button"),
+    title: "Take over " + name + "?",
+    body: usedBy(name, holder || "Another user", since) +
+      " Taking over will stop their program and disconnect them.",
+    buttons: [
+      {label: "Cancel", isDefault: true},
+      {label: "Take over", variant: "stop", run: () => connectRobot(true, url)}
+    ]
+  });
+}
+
+// Alerts shown once per event, keyed on state + robot + holder + since so the
+// polling never re-opens a dismissed one. While the help tour is open nothing
+// is shown or marked as shown, so the alert appears on the first poll after it closes.
+const shownAlerts = {};
+
+function alertKey(conn) {
+  return [conn.state, conn.url || "", conn.holder || "", conn.since || ""].join("|");
+}
+
+function syncAlerts(connState, conn) {
+  if (isAlertOpen() && alertState() !== connState) closeAlert();
+  if (connState === "connected" || connState === "weak") connectAttempted = false;
+  if (connState !== "busy" && connState !== "taken_over") return;
+  if (!$("help-modal").hidden || isAlertOpen()) return;
+  const key = alertKey(conn);
+  if (shownAlerts[connState] === key) return;
+  const robot = conn.robot || "the robot";
+  const holder = conn.holder || "Another user";
+  const choose = {label: "Choose another robot", run: focusRobotChooser};
+  if (connState === "busy") {
+    if (!connectAttempted) return;
+    shownAlerts.busy = key;
+    connectAttempted = false;
+    showAlert({
+      tone: "warning",
+      state: "busy",
+      fallbackFocus: $("connect-button"),
+      title: (conn.robot || "This robot") + " is busy",
+      body: usedBy(robot, holder, conn.since) +
+        " Taking over will stop their program and disconnect them.",
+      buttons: [
+        Object.assign({isDefault: true}, choose),
+        {label: "Take over", variant: "stop", run: () => connectRobot(true, conn.url || "")}
+      ]
+    });
+    return;
+  }
+  shownAlerts.taken_over = key;
+  const at = clock(conn.since);
+  showAlert({
+    tone: "danger",
+    state: "taken_over",
+    fallbackFocus: $("connect-button"),
+    title: holder + " took over " + robot,
+    body: (at ? "at " + at + "." : "Just now.") + (conn.program_stopped ? " Your program was stopped." : ""),
+    buttons: [
+      {label: "OK", isDefault: true},
+      choose,
+      {label: "Take it back", variant: "stop", run: () => confirmTakeover(takeoverTarget(conn))}
+    ]
+  });
+}
+
 function bannerContent(connState, conn) {
   if (connState !== "idle") connectError = "";
   if (connectError) return {kind: "danger", icon: "⛔", text: connectError};
@@ -136,11 +220,11 @@ function bannerContent(connState, conn) {
     case "taken_over":
       return {kind: "danger", icon: "⛔", text: holder + " took over " + robot + at + "." +
         (conn.program_stopped ? " Your program was stopped." : ""),
-        actions: [choose, {label: "Take it back", run: () => connectRobot(true, conn.url || "")}]};
+        actions: [choose, {label: "Take it back", run: () => confirmTakeover(takeoverTarget(conn))}]};
     case "busy":
       return {kind: "muted", icon: "ℹ", text: (conn.robot || "The robot") + " is being used by " + holder +
         (since ? " (since " + since + ")" : "") + ".",
-        actions: [choose, {label: "Take over", run: () => connectRobot(true, conn.url || "")}]};
+        actions: [choose, {label: "Take over", run: () => confirmTakeover(takeoverTarget(conn))}]};
     case "robot_offline":
       return {kind: "danger", icon: "⛔", text: "Can't reach " + robot +
         ". Check it's switched on, or ask your teacher.",
@@ -223,6 +307,7 @@ export function renderConnection(conn) {
   renderControls(connState);
   renderLamp(connState, conn);
   renderBanner(connState, conn);
+  syncAlerts(connState, conn);
   renderVideo(connState, conn, previousState);
   const title = (ALERT_STATES.includes(connState) ? "⚠ " : "") + BASE_TITLE;
   if (document.title !== title) document.title = title;

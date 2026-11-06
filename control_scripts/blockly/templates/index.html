@@ -332,6 +332,14 @@
   </div>
 
 
+  <div id="alert-modal" class="ranch-backdrop alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="alert-title" aria-describedby="alert-body" hidden>
+    <div class="alert-modal is-warning">
+      <h2 id="alert-title"></h2>
+      <p id="alert-body"></p>
+      <div id="alert-actions" class="ranch-actions"></div>
+    </div>
+  </div>
+
   <script id="app-config" type="application/json">{{ config|tojson }}</script>
   <script id="block-definitions" type="application/json">{{ blocks|tojson }}</script>
   <script src="/static/vendor/blockly/blockly.min.js"></script>
@@ -340,6 +348,6 @@
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=32) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=34) }}"></script>
 </body>
 </html>
