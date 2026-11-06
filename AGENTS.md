@@ -64,7 +64,7 @@ Optional, uv instead of pip (never required): `uv sync`, `uv run pytest -q`, `uv
 ## Architecture notes
 
 - Connection state machine: `RobotSession` (`robot_session.py`) states are idle, connecting, connected, weak, reconnecting, taken_over, busy, robot_offline. `/api/status` (`app.py`) exposes `connection.*` plus a bounded `events` list; the UI (`static/js/connection.js`) renders from it. Add states in both places.
-- Resume tokens: the robot issues a `resume` token on connect; the session reuses it after Wi-Fi drops (and the app can pass `resume` on connect) so the robot treats it as the same student (`resumed` flag; the old socket is closed with 4003).
+- Resume tokens: the robot issues a `resume` token on connect; the session reuses it after the connection drops (and the app can pass `resume` on connect) so the robot treats it as the same student (`resumed` flag; the old socket is closed with 4003).
 - Takeover/busy: a second client gets 4001 (busy) unless it connects with `force`, which evicts the holder with 4002.
 - Tab close: `PageWatch` in `program_runner.py` uses the page's `/api/status?page=<id>` polls as a heartbeat; env-tunable `PAGE_CLOSE_GRACE_SECONDS`, `PAGE_HEARTBEAT_TIMEOUT_SECONDS`, `PAGE_RELEASE_AFTER_SECONDS` stop the program and release the robot.
 - Program runner: `ProgramRunner` gives each run an id so stale output and stops from earlier runs are ignored; runs are capped by `PROGRAM_MAX_SECONDS` (default 900).

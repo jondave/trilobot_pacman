@@ -26,7 +26,7 @@ DEFAULT_PROGRAM_MAX_SECONDS = 900
 # Student code stuck in pure Python is interrupted this long after a stop.
 FORCE_STOP_SECONDS = 1.5
 STOP_REASONS = {
-    "wifi": "the robot's Wi-Fi connection dropped",
+    "connection_lost": "the connection to the robot was lost",
     "taken_over": "someone else took control of the robot",
     "busy": "the robot is being used by someone else",
     "user": "you disconnected from the robot",
@@ -157,8 +157,8 @@ class ProgramRunner:
             if reason in ("refused", "timeout"):
                 return STOP_REASONS[reason]
             return "the robot went offline"
-        if reason == "wifi":
-            return STOP_REASONS["wifi"]
+        if reason == "connection_lost":
+            return STOP_REASONS["connection_lost"]
         return STOP_REASONS.get(reason, "the connection to the robot was lost")
 
     def _on_connection_state(self, old, new, reason):
@@ -184,7 +184,7 @@ class ProgramRunner:
             self.stop(message)
             self.session._event("warning", message)
             return
-        # A program stopped earlier in this outage (say "Wi-Fi dropped") now
+        # A program stopped earlier in this outage (say "connection lost") now
         # has a more precise explanation: taken over, busy, offline, ...
         with self.lock:
             refine = (

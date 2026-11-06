@@ -138,7 +138,7 @@ def test_abrupt_drop_reconnects_with_resume_token(robot, session):
     assert status["connection"]["session"] == "Fake-1"
     texts = [event["text"] for event in status["events"]]
     assert "Reconnected as Fake-1" in texts
-    assert ("reconnecting", "wifi") in session.reasons
+    assert ("reconnecting", "connection_lost") in session.reasons
     reconnecting_at = session.transitions.index("reconnecting")
     assert "connected" in session.transitions[reconnecting_at:]
 
@@ -153,12 +153,12 @@ def test_reconnect_with_new_name_is_announced(robot, session):
     assert "Reconnected as Fake-2 (you were Fake-1 before)" in texts
 
 
-def test_silent_robot_counts_as_wifi_drop(robot, session):
+def test_silent_robot_counts_as_connection_lost(robot, session):
     session.connect(robot.url)
     wait_for(lambda: connected(session))
     robot.send_telemetry = False
     wait_for(lambda: "reconnecting" in session.transitions, timeout=4)
-    assert ("reconnecting", "wifi") in session.reasons
+    assert ("reconnecting", "connection_lost") in session.reasons
     robot.send_telemetry = True
     wait_for(lambda: len(robot.requests) >= 2 and connected(session))
 
@@ -288,7 +288,6 @@ def test_takeover_stop_reason_names_taker_and_clears_on_reconnect(robot, session
     wait_for(lambda: runner.status()["status"] == "stopped", timeout=3)
     error = runner.status()["error"]
     assert "Rival-Robin took control of the robot" in error
-    assert "Wi-Fi" not in error
     assert session.status()["connection"]["program_stopped"] is True
 
     session.connect(robot.url)
@@ -308,7 +307,7 @@ def test_takeover_without_program_reports_nothing_stopped(robot, session):
     assert session.status()["connection"]["program_stopped"] is False
 
 
-def test_wifi_stop_reason_is_refined_by_takeover(robot, session):
+def test_connection_lost_stop_reason_is_refined_by_takeover(robot, session):
     runner = ProgramRunner(session)
     session.connect(robot.url)
     wait_for(lambda: connected(session))
@@ -317,7 +316,6 @@ def test_wifi_stop_reason_is_refined_by_takeover(robot, session):
     robot.drop()
     wait_for(lambda: state(session) == "busy", timeout=5)
     wait_for(lambda: "Rival-Robin" in runner.status()["error"], timeout=3)
-    assert "Wi-Fi" not in runner.status()["error"]
 
 
 def test_last_frame_age_keeps_growing_after_disconnect(robot, session):

@@ -21,7 +21,7 @@ CLOSE_BUSY = 4001
 CLOSE_TAKEN_OVER = 4002
 CLOSE_REPLACED = 4003
 
-# Matches the robot's own keepalive so a dead Wi-Fi link is noticed in ~10s.
+# Matches the robot's own keepalive so a dead connection is noticed in ~10s.
 PING_INTERVAL = 5
 PING_TIMEOUT = 5
 

@@ -109,7 +109,7 @@ def test_resume_after_abrupt_drop_keeps_name(robot_url):
     async def run():
         first = await connect(robot_url)
         hello = await wait_for_type(first, "hello")
-        first.transport.abort()  # Simulate a Wi-Fi drop: no close handshake.
+        first.transport.abort()  # Simulate a dropped connection: no close handshake.
         await asyncio.sleep(0.3)
         async with connect(f"{robot_url}/?resume={hello['resume']}") as second:
             again = await wait_for_type(second, "hello")

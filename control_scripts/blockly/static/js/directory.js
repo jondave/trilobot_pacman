@@ -8,6 +8,42 @@ const urlInput = $("robot-url");
 export const robotSelect = $("robot-select");
 const manualRobotAddress = $("manual-robot-address");
 const MANUAL_ROBOT_VALUE = "__manual__";
+const STORAGE_KEY = "trilobotBlocklyRobotChoice";
+const DEFAULT_PORT = "8765";
+const DEFAULT_MANUAL_ADDRESS = urlInput.value;
+// What the student last picked ("" until they pick, a directory URL, or manual).
+const preferred = {choice: "", manual: ""};
+
+function loadPreferred() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (typeof saved.choice === "string") preferred.choice = saved.choice;
+    if (typeof saved.manual === "string") preferred.manual = saved.manual;
+  } catch (error) {
+    // Storage unavailable: the defaults apply.
+  }
+}
+
+function savePreferred() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(preferred));
+  } catch (error) {
+    // Storage unavailable: nothing is remembered.
+  }
+}
+
+// Trim, add ws:// when there is no scheme, and :8765 when there is no port.
+export function normalizeAddress(raw) {
+  let text = String(raw || "").trim();
+  if (!text) return "";
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = "ws://" + text;
+  const match = /^([a-z][a-z0-9+.-]*:\/\/)([^/?#]*)(.*)$/i.exec(text);
+  if (!match) return text;
+  let host = match[2];
+  if (host && !/:\d+$/.test(host) && !host.endsWith("]")) host += ":" + DEFAULT_PORT;
+  return match[1] + host + match[3];
+}
+
 const PING_GREEN_SECONDS = APP_CONFIG.robot_ping.green_seconds;
 const PING_ORANGE_SECONDS = APP_CONFIG.robot_ping.orange_seconds;
 const PING_STATUS = {
@@ -69,8 +105,9 @@ function populateRobotChoices(robots) {
   manualOption.value = MANUAL_ROBOT_VALUE;
   manualOption.textContent = "Enter address manually…";
   robotSelect.appendChild(manualOption);
-  if (previous && [...robotSelect.options].some((option) => option.value === previous)) {
-    robotSelect.value = previous;
+  const wanted = preferred.choice || previous;
+  if (wanted && [...robotSelect.options].some((option) => option.value === wanted)) {
+    robotSelect.value = wanted;
   } else if (state.robotChoices.length) {
     robotSelect.selectedIndex = 1;
   } else {
@@ -91,12 +128,34 @@ export async function refreshRobots() {
 }
 
 export function selectedAddress() {
-  return robotSelect.value === MANUAL_ROBOT_VALUE ? urlInput.value.trim() : robotSelect.value;
+  if (robotSelect.value !== MANUAL_ROBOT_VALUE) return robotSelect.value;
+  const address = normalizeAddress(urlInput.value);
+  if (address) urlInput.value = address;
+  preferred.manual = urlInput.value;
+  savePreferred();
+  return address;
 }
 
 export function initDirectory() {
+  loadPreferred();
+  if (preferred.manual) urlInput.value = preferred.manual;
+  else urlInput.value = DEFAULT_MANUAL_ADDRESS;
+  urlInput.addEventListener("input", () => {
+    preferred.manual = urlInput.value;
+    savePreferred();
+  });
+  urlInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      $("connect-button").click();
+    }
+  });
   $("refresh-robots").addEventListener("click", refreshRobots);
   robotSelect.addEventListener("change", () => {
+    if (robotSelect.value) {
+      preferred.choice = robotSelect.value;
+      savePreferred();
+    }
     updateManualAddressVisibility(true);
     updateRobotPingStatuses();
   });

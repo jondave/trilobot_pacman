@@ -1,6 +1,6 @@
 # trilobot_pacman
 
-Tools for programming and driving a Pimoroni Trilobot robot over Wi-Fi. There
+Tools for programming and driving a Pimoroni Trilobot robot over the network. There
 are two parts:
 
 - **Robot side** (`robot_scripts/`): `robot_sender.py` runs on the robot's

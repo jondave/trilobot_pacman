@@ -161,7 +161,7 @@ class RobotSession:
     """Own one asyncio RobotClient loop while Flask serves HTTP requests.
 
     A daemon thread runs a supervisor coroutine that connects, watches the link
-    and reconnects after Wi-Fi drops. Flask threads read state under self.lock.
+    and reconnects after the connection drops. Flask threads read state under self.lock.
     """
 
     def __init__(
@@ -298,13 +298,13 @@ class RobotSession:
             return f"Connected to {robot}."
         if state == "weak":
             return (
-                f"Connected to {robot}, but the Wi-Fi signal is weak, "
-                "so it may respond slowly."
+                f"Slow connection to {robot}. The video and controls may lag."
             )
         if state == "reconnecting":
             return (
-                f"Lost contact with {robot} over Wi-Fi. Reconnecting "
-                f"(attempt {self.attempt})…"
+                f"Lost connection to {robot}. Reconnecting"
+                f"{' as ' + self.session_name if self.session_name else ''}"
+                f"… (attempt {self.attempt})"
             )
         if state == "taken_over":
             who = self.holder or "Someone else"
@@ -327,8 +327,8 @@ class RobotSession:
                 )
             if reason == "timeout":
                 return (
-                    f"Could not reach {robot}. Check it is switched on and on "
-                    f"the same Wi-Fi as this computer. {retry}"
+                    f"Can't reach {robot}. Check it's switched on, or ask your "
+                    f"teacher. {retry}"
                 )
             return (
                 f"Lost contact with {robot} for over "
@@ -343,7 +343,10 @@ class RobotSession:
     ):
         url = str(url or "").strip()
         if not url.startswith(("ws://", "wss://")) or not urlparse(url).hostname:
-            raise ValueError("Robot address must start with ws:// or wss://")
+            raise ValueError(
+                "That robot address doesn't look right. It should look like "
+                "ws://10.247.0.123:8765 (starting with ws:// or wss://)."
+            )
         config = _video_config(video_config, self.video_config)
         self._stop_worker()
 
@@ -545,7 +548,7 @@ class RobotSession:
                     self._event("error", text)
                 delay = self.slow_retry
             elif time.monotonic() - lost_at >= self.offline_after:
-                self._set_state(generation, "robot_offline", "wifi", attempt=attempt)
+                self._set_state(generation, "robot_offline", "connection_lost", attempt=attempt)
                 if not offline_logged:
                     offline_logged = True
                     self._event(
@@ -556,7 +559,7 @@ class RobotSession:
                     )
                 delay = self.slow_retry
             else:
-                self._set_state(generation, "reconnecting", "wifi", attempt=attempt)
+                self._set_state(generation, "reconnecting", "connection_lost", attempt=attempt)
                 delay = self.backoff[min(attempt - 1, len(self.backoff) - 1)]
             LOG.info("Retrying robot connection in %ss (attempt %s)", delay, attempt)
             await asyncio.sleep(delay)
@@ -655,7 +658,7 @@ class RobotSession:
                 self._event(
                     "warning",
                     "No data from the robot for "
-                    f"{self.telemetry_timeout:g} seconds (Wi-Fi problem?).",
+                    f"{self.telemetry_timeout:g} seconds (connection lost).",
                 )
                 await client.abort()
                 return ("lost",)
@@ -929,7 +932,7 @@ class RobotSession:
                 self._weak_since = wall
                 if wall - self._weak_event_at > WEAK_EVENT_INTERVAL:
                     self._weak_event_at = wall
-                    weak_event = "The Wi-Fi signal to the robot is weak."
+                    weak_event = "Slow connection to the robot. The video and controls may lag."
             elif not weak and state in ACTIVE_STATES:
                 self._weak_since = None
             shown_state = "weak" if weak else state

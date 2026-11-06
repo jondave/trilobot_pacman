@@ -65,7 +65,7 @@ The robot stops its motors if it hears nothing for 0.6 s, so keep re-sending
 
 Supported video sizes are `640x480`, `1640x1232`, `1920x1080` and `3280x2464`;
 FPS 1 to 30; JPEG quality 10 to 100. Smaller sizes and moderate quality
-usually give the smoothest Wi-Fi video.
+usually give the smoothest video.
 
 ## Frames and telemetry
 
