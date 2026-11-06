@@ -8,16 +8,40 @@
       "problemMatcher": []
     },
     {
-      "label": "Run tests",
+      "label": "uv sync",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/pytest",
-      "group": "test",
+      "command": "uv sync",
       "problemMatcher": []
     },
     {
-      "label": "Ruff check",
+      "label": "Run Blockly app (uv)",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/bin/ruff check",
+      "command": "uv run python control_scripts/blockly/app.py",
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "PORT": "8750",
+          "HOST": "127.0.0.1"
+        }
+      }
+    },
+    {
+      "label": "Run fake robot (uv)",
+      "type": "shell",
+      "command": "uv run python robot_scripts/robot_sender.py --fake --host 127.0.0.1 --port 8765",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests (uv)",
+      "type": "shell",
+      "command": "uv run pytest -q",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Ruff (uv)",
+      "type": "shell",
+      "command": "uv run ruff check .",
       "problemMatcher": []
     }
   ]

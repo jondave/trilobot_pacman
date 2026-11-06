@@ -1,6 +1,7 @@
 """Drift checks between blocks.json, the toolbox, the generator and robot_config."""
 
 import re
+import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -263,3 +264,24 @@ def test_close_codes_match_between_robot_and_client():
     library = {n: v for n, v in vars(client).items() if n.startswith("CLOSE_")}
     assert robot
     assert robot == library
+
+
+def test_client_requirements_match_uv_lock():
+    """control_scripts/requirements.txt (for library users) must not drift from uv.lock."""
+    root = BLOCKLY.parents[1]
+    lock = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))
+    locked = {pkg["name"].lower(): pkg["version"] for pkg in lock["package"]}
+    pins = {}
+    for line in (
+        (root / "control_scripts" / "requirements.txt").read_text().splitlines()
+    ):
+        line = line.split("#")[0].strip()
+        if line:
+            name, _, version = line.partition("==")
+            assert version, f"requirements.txt line is not pinned with ==: {line!r}"
+            pins[name.strip().lower().replace("_", "-")] = version.strip()
+    assert pins, "no pins found in control_scripts/requirements.txt"
+    for name, version in pins.items():
+        assert (
+            locked.get(name) == version
+        ), f"{name}: requirements.txt {version} != uv.lock {locked.get(name)}"

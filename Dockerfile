@@ -1,7 +1,12 @@
 FROM python:3.12-slim
 
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
 	PYTHONUNBUFFERED=1 \
+	UV_COMPILE_BYTECODE=1 \
+	UV_LINK_MODE=copy \
+	PATH="/app/.venv/bin:$PATH" \
 	HOST=0.0.0.0
 
 WORKDIR /app
@@ -10,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY . .
-RUN pip install --no-cache-dir -r control_scripts/blockly/requirements.txt \
+RUN uv sync --frozen --no-dev \
 	&& bash scripts/fetch_vendor.sh
 
 # Run as a non-root user; the app writes to demos/ and the user demos volume.
