@@ -8,13 +8,50 @@
       "problemMatcher": []
     },
     {
-      "label": "uv sync",
+      "label": "Install deps (pip)",
+      "type": "shell",
+      "command": "python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Blockly app",
+      "type": "shell",
+      "command": ".venv/bin/python control_scripts/blockly/app.py",
+      "problemMatcher": [],
+      "options": {
+        "env": {
+          "PORT": "8750",
+          "HOST": "127.0.0.1"
+        }
+      }
+    },
+    {
+      "label": "Run fake robot",
+      "type": "shell",
+      "command": ".venv/bin/python robot_scripts/robot_sender.py --fake --host 127.0.0.1 --port 8765",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests",
+      "type": "shell",
+      "command": ".venv/bin/pytest -q",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Ruff",
+      "type": "shell",
+      "command": ".venv/bin/ruff check .",
+      "problemMatcher": []
+    },
+    {
+      "label": "uv sync (optional)",
       "type": "shell",
       "command": "uv sync",
       "problemMatcher": []
     },
     {
-      "label": "Run Blockly app (uv)",
+      "label": "Run Blockly app (optional, uv)",
       "type": "shell",
       "command": "uv run python control_scripts/blockly/app.py",
       "problemMatcher": [],
@@ -26,20 +63,20 @@
       }
     },
     {
-      "label": "Run fake robot (uv)",
+      "label": "Run fake robot (optional, uv)",
       "type": "shell",
       "command": "uv run python robot_scripts/robot_sender.py --fake --host 127.0.0.1 --port 8765",
       "problemMatcher": []
     },
     {
-      "label": "Tests (uv)",
+      "label": "Tests (optional, uv)",
       "type": "shell",
       "command": "uv run pytest -q",
       "problemMatcher": [],
       "group": "test"
     },
     {
-      "label": "Ruff (uv)",
+      "label": "Ruff (optional, uv)",
       "type": "shell",
       "command": "uv run ruff check .",
       "problemMatcher": []

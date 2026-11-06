@@ -15,6 +15,7 @@ A teaching tool: students program a Pimoroni Trilobot robot in Blockly or Python
 control_scripts/client.py          PUBLIC RobotClient library (students import it)
 control_scripts/teleop_example.py  example student script
 control_scripts/requirements.txt   client-library deps (pip-installable)
+requirements-dev.txt               pip: runtime + pytest, ruff, playwright (pyproject/uv.lock mirror it for optional uv)
 control_scripts/blockly/app.py     Flask routes, /api/status
   robot_session.py                 connection state machine, reconnect, command queue
   program_runner.py                runs student programs; PageWatch (tab-close handling)
@@ -34,20 +35,23 @@ docs/                              student and developer docs
 ## Commands
 
 ```bash
-uv sync                                   # create .venv with runtime + dev deps
-uv add <pkg>                              # add a dependency (updates pyproject.toml and uv.lock)
-uv run pytest -q
-uv run ruff check .
-uv run python control_scripts/blockly/app.py          # HOST (default 127.0.0.1), PORT (default 8750)
-uv run python robot_scripts/robot_sender.py --fake --host 127.0.0.1 --port 8765
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt   # runtime + dev deps
+.venv/bin/pytest -q
+.venv/bin/ruff check .
+.venv/bin/python control_scripts/blockly/app.py          # HOST (default 127.0.0.1), PORT (default 8750)
+.venv/bin/python robot_scripts/robot_sender.py --fake --host 127.0.0.1 --port 8765
 scripts/fetch_vendor.sh                   # optional: offline Blockly/Monaco
 docker build -t trilobot-pacman .
 docker run --rm -p 127.0.0.1:8750:8750 trilobot-pacman
 ```
 
+Optional, uv instead of pip (never required): `uv sync`, `uv run pytest -q`, `uv add <pkg>`
+(then mirror the pin in the requirements files and `pyproject.toml`).
+
 ## Hard rules
 
-- `control_scripts/client.py` is a PUBLIC library imported by students' own scripts (`from client import RobotClient`). Do not move or rename it or break its API. `control_scripts/requirements.txt` must stay pip-installable and in sync with `uv.lock` (`test_client_requirements_match_uv_lock`).
+- `control_scripts/client.py` is a PUBLIC library imported by students' own scripts (`from client import RobotClient`). Do not move or rename it or break its API. `control_scripts/requirements.txt` must stay pip-installable.
+- uv is opt-in and must never be required: pip + venv is the default path everywhere (Dockerfile, CI, VS Code tasks, docs). The pip requirements files (`control_scripts/requirements.txt`, `control_scripts/blockly/requirements.txt`, `requirements-dev.txt`) and `pyproject.toml`/`uv.lock` must stay in sync; change both together. `test_pip_requirements_match_pyproject` and `test_client_requirements_match_uv_lock` enforce it.
 - `robot_scripts/robot_sender.py` runs on the Pi. Keep it standalone (no imports from `control_scripts`), compatible with Python 3.9, with `websockets>=12,<18`. Hardware imports stay lazy so `--fake` works on laptops.
 - Protocol close codes (4001 busy, 4002 taken over/kicked, 4003 replaced) are duplicated deliberately in the robot and `client.py`; `test_close_codes_match_between_robot_and_client` checks them. Change both together.
 - Block definitions live in `static/blocks.json`, shared values in `robot_config.py`. Add a block in `blocks.json`, the toolbox in `templates/index.html`, and `blocks_python.py` (generator and parser) together; drift tests in `tests/test_consistency.py` enforce this.
@@ -68,7 +72,7 @@ docker run --rm -p 127.0.0.1:8750:8750 trilobot-pacman
 
 ## Testing
 
-Run `uv run pytest -q` and `uv run ruff check .` before finishing. For UI changes, also check in a browser against the fake robot (Playwright is in the dev group). `tests/fake_ws.py` is a protocol stub; `tests/robot_helpers.py` starts the real robot in `--fake` mode.
+Run `.venv/bin/pytest -q` and `.venv/bin/ruff check .` before finishing. For UI changes, also check in a browser against the fake robot (Playwright is in the dev group). `tests/fake_ws.py` is a protocol stub; `tests/robot_helpers.py` starts the real robot in `--fake` mode.
 
 ## Style
 

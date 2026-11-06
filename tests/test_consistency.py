@@ -285,3 +285,59 @@ def test_client_requirements_match_uv_lock():
         assert (
             locked.get(name) == version
         ), f"{name}: requirements.txt {version} != uv.lock {locked.get(name)}"
+
+
+def _parse_pins(path):
+    pins = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#")[0].strip()
+        if not line or line.startswith("-r"):
+            continue
+        name, _, version = line.partition("==")
+        assert version, f"{path.name} line is not pinned with ==: {line!r}"
+        pins[name.strip().lower().replace("_", "-")] = version.strip()
+    return pins
+
+
+def _pyproject_pins(entries):
+    pins = {}
+    for entry in entries:
+        name, _, version = entry.partition("==")
+        assert version, f"pyproject entry is not pinned with ==: {entry!r}"
+        pins[name.strip().lower().replace("_", "-")] = version.strip()
+    return pins
+
+
+@pytest.mark.parametrize(
+    ("path", "group"),
+    [
+        ("control_scripts/requirements.txt", None),
+        ("control_scripts/blockly/requirements.txt", None),
+        ("requirements-dev.txt", "dev"),
+    ],
+)
+def test_pip_requirements_match_pyproject(path, group):
+    """The pip files and the optional uv metadata must carry the same pins."""
+    root = BLOCKLY.parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = _pyproject_pins(project["project"]["dependencies"])
+    expected = (
+        _pyproject_pins(project["dependency-groups"][group]) if group else runtime
+    )
+    pins = _parse_pins(root / path)
+    assert pins, f"no pins found in {path}"
+    for name, version in pins.items():
+        assert (
+            expected.get(name) == version
+        ), f"{name}: {path} {version} != pyproject {expected.get(name)}"
+
+
+def test_pyproject_runtime_and_dev_pins_are_all_in_pip_files():
+    root = BLOCKLY.parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = _pyproject_pins(project["project"]["dependencies"])
+    dev = _pyproject_pins(project["dependency-groups"]["dev"])
+    pip_runtime = _parse_pins(root / "control_scripts" / "requirements.txt")
+    pip_runtime |= _parse_pins(root / "control_scripts" / "blockly" / "requirements.txt")
+    assert pip_runtime == runtime
+    assert _parse_pins(root / "requirements-dev.txt") == dev
