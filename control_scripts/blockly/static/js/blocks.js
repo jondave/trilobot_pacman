@@ -175,10 +175,20 @@ export function initBlocks() {
   workspace.registerButtonCallback("CREATE_VARIABLE", (button) => {
     Blockly.Variables.createVariableButtonHandler(button.getTargetWorkspace());
   });
-  window.addEventListener("resize", () => {
-    Blockly.svgResize(workspace);
-    requestAnimationFrame(syncBlockDrawerCloseButton);
-  });
+  // Follow the container, not just the window: the banner, header wrapping,
+  // the terminal and the stacked layout all change its size without a window resize.
+  const container = document.getElementById("blockly-workspace");
+  let resizeFrame = 0;
+  const resize = () => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      if (!container.offsetWidth || !container.offsetHeight) return;
+      Blockly.svgResize(workspace);
+      syncBlockDrawerCloseButton();
+    });
+  };
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(container);
+  else window.addEventListener("resize", resize);
   setTimeout(() => Blockly.svgResize(workspace), 0);
 
   document.querySelector(".blocklyToolbox, .blocklyToolboxDiv")?.addEventListener("click", () => {

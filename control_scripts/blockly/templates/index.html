@@ -5,33 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=16) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=17) }}">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <h1>Trilobot Blockly</h1>
-      <span>Build a robot behaviours with blocks.</span>
     </div>
     <div class="connection-controls">
-      <label for="robot-select">Robot</label>
+      <label for="robot-select" class="robot-label">Robot</label>
       <select id="robot-select" aria-label="Select a robot">
         <option value="">Loading robots…</option>
         <option value="__manual__">Enter address manually…</option>
       </select>
       <span id="robot-ping" class="robot-ping" hidden><i class="fas fa-circle" aria-hidden="true"></i><span class="visually-hidden"></span></span>
-      <button id="refresh-robots" class="quiet-button" title="Refresh the robot list"><i class="fas fa-sync-alt icon-accent" aria-hidden="true"></i> Refresh</button>
+      <button id="refresh-robots" class="quiet-button" title="Refresh the robot list"><i class="fas fa-sync-alt icon-accent" aria-hidden="true"></i> <span class="btn-text">Refresh</span></button>
       <div id="manual-robot-address" hidden>
-        <label for="robot-url">Manual address</label>
+        <label for="robot-url" class="manual-label">Manual address</label>
         <input id="robot-url" value="ws://10.247.0.123:8765" spellcheck="false" autocomplete="off">
       </div>
       <button id="connect-button" class="primary"><i class="fas fa-plug" aria-hidden="true"></i> <span class="btn-label">Connect</span></button>
-      <button id="disconnect-button" class="quiet-button"><i class="fas fa-unlink icon-orange" aria-hidden="true"></i> Disconnect</button>
+      <button id="disconnect-button" class="quiet-button"><i class="fas fa-unlink icon-orange" aria-hidden="true"></i> <span class="btn-text">Disconnect</span></button>
       <span class="connection-indicator">
         <span id="quality-lamp" class="quality-lamp red" title="Disconnected" aria-hidden="true"></span>
         <span id="quality-text" class="quality-text" role="status">Disconnected</span>
       </span>
-      <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide"><i class="fas fa-question-circle icon-purple" aria-hidden="true"></i> Help</button>
+      <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide"><i class="fas fa-question-circle icon-purple" aria-hidden="true"></i> <span class="btn-text">Help</span></button>
     </div>
   </header>
 
@@ -352,6 +351,6 @@
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=36) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=37) }}"></script>
 </body>
 </html>
