@@ -225,7 +225,9 @@ def test_index_embeds_config_and_blocks():
 
 
 def test_blockly_version_matches_cdn_fallback():
-    script = (BLOCKLY.parents[1] / "scripts" / "fetch_vendor.sh").read_text(encoding="utf-8")
+    script = (BLOCKLY.parents[1] / "scripts" / "fetch_vendor.sh").read_text(
+        encoding="utf-8"
+    )
     pinned = re.search(r"^BLOCKLY_VERSION=(\S+)", script, re.M).group(1)
     assert f"unpkg.com/blockly@{pinned}/blockly.min.js" in TEMPLATE
 
@@ -235,4 +237,29 @@ def test_toolbox_class_keeps_both_blockly_names():
         text = path.read_text(encoding="utf-8")
         for match in re.finditer(r"blocklyToolboxDiv", text):
             context = text[max(0, match.start() - 40) : match.end() + 40]
-            assert ".blocklyToolbox," in context or ".blocklyToolbox\n" in context, path.name
+            assert (
+                ".blocklyToolbox," in context or ".blocklyToolbox\n" in context
+            ), path.name
+
+
+def test_close_codes_match_between_robot_and_client():
+    """robot_sender.py is parsed, not imported: it may need Pi hardware."""
+    import ast
+
+    import client
+
+    root = Path(__file__).resolve().parents[1]
+    tree = ast.parse((root / "robot_scripts" / "robot_sender.py").read_text("utf-8"))
+    robot = {
+        target.id: node.value.value
+        for node in tree.body
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+        for target in node.targets
+        if isinstance(target, ast.Name) and target.id.startswith("CLOSE_")
+    }
+    # The robot calls the takeover code CLOSE_KICKED; the client CLOSE_TAKEN_OVER.
+    robot_names = {"CLOSE_KICKED": "CLOSE_TAKEN_OVER"}
+    robot = {robot_names.get(name, name): code for name, code in robot.items()}
+    library = {n: v for n, v in vars(client).items() if n.startswith("CLOSE_")}
+    assert robot
+    assert robot == library

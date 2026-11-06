@@ -1,7 +1,7 @@
 # Robot scripts
 
 `robot_sender.py` runs on the Trilobot's Raspberry Pi and serves the robot over
-WebSocket (port 8765). Install `requirements.txt` first, then run
+WebSocket (port 8765). Install `requirements.txt` first (`python3 -m pip install -r requirements.txt`; the Pimoroni `trilobot` and `picamera2` packages must already be present), then run
 `python3 robot_sender.py` by hand to test (`--host` and `--port` change the
 listen address).
 
@@ -10,8 +10,7 @@ listen address).
 `python3 robot_sender.py --fake` runs on a laptop without the `trilobot` or
 `picamera2` libraries. It streams synthetic camera frames (moving marker, clock
 and session name), a slowly changing fake distance and buttons that are never
-pressed, and it logs motor and LED commands instead of running them. The tests
-use it via `tests/robot_helpers.py`.
+pressed, and it logs motor and LED commands instead of running them. See [docs/DEVELOPING.md](../docs/DEVELOPING.md) for running it with the app and tests.
 
 ## Sessions
 
@@ -22,7 +21,8 @@ Only one control client drives the robot at a time.
 - A second client gets `busy` (with `holder` and `since`) and is closed with
   code 4001.
 - `?force=1` takes over: the old client gets `taken_over` (`by`, `at`) and is
-  closed with code 4002.
+  closed with code 4002. What clients should do with these codes is in
+  [docs/CONTROL_LIBRARY.md](../docs/CONTROL_LIBRARY.md#close-codes).
 - `?resume=<token>` reconnects as the same session, without `force`, if that
   session is still connected or dropped less than 60 s ago. A half-dead old
   socket is closed with code 4003.
@@ -55,3 +55,11 @@ dropped, not queued, when the link is slow.
 
 Other commands: `sudo systemctl restart trilobot-robot`, `systemctl status
 trilobot-robot`.
+
+## Control PC
+
+Using the robot from your own scripts or the example teleop is covered in
+[docs/CONTROL_LIBRARY.md](../docs/CONTROL_LIBRARY.md). The motor watchdog
+stops the motors 0.6 s after the client or Wi-Fi connection disappears. The
+camera uses a short exposure to reduce motion blur, but the IMX219 is a
+rolling-shutter camera, so fast movement can still distort the image.

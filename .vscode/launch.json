@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Blockly app",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/control_scripts/blockly/app.py",
+      "cwd": "${workspaceFolder}/control_scripts/blockly",
+      "env": { "PORT": "8750", "HOST": "127.0.0.1" },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Fake robot",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/robot_scripts/robot_sender.py",
+      "args": ["--fake", "--host", "127.0.0.1", "--port", "8765"],
+      "cwd": "${workspaceFolder}/robot_scripts",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "pytest current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "App + fake robot",
+      "configurations": ["Blockly app", "Fake robot"],
+      "stopAll": true
+    }
+  ]
+}

@@ -30,5 +30,7 @@ while distance() > 20:
 stop()
 ```
 
-Saved demos are kept in the folder set by `TRILOBOT_USER_DEMOS_DIR`
-(`/data/demos` in Docker; run with `-v trilobot_demos:/data/demos`).
+Python demos open in this tab; see [Blockly guide](BLOCKLY.md) for **Save as demo**
+and where demos are stored. Python-only features such as `print()`, functions
+and lists cannot be shown as blocks; `import cv2` and `import numpy as np` are
+setup-only imports when switching back to blocks.

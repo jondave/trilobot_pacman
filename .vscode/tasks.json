@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Fetch vendor libs",
+      "type": "shell",
+      "command": "bash scripts/fetch_vendor.sh",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run tests",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/pytest",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Ruff check",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/ruff check",
+      "problemMatcher": []
+    }
+  ]
+}

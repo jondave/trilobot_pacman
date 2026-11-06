@@ -10,11 +10,8 @@ from urllib.parse import parse_qs, urlparse
 
 import cv2
 import numpy as np
+from client import CLOSE_BUSY, CLOSE_TAKEN_OVER
 from websockets.asyncio.server import serve
-
-CLOSE_BUSY = 4001
-CLOSE_KICKED = 4002
-CLOSE_REPLACED = 4003
 
 
 def free_port():
@@ -89,7 +86,7 @@ class FakeRobot:
         await websocket.send(
             json.dumps({"type": "taken_over", "by": by, "at": time.time()})
         )
-        await websocket.close(CLOSE_KICKED, "Kicked off")
+        await websocket.close(CLOSE_TAKEN_OVER, "Kicked off")
 
     async def _drop(self):
         self.active.transport.abort()
