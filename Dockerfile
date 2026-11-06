@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2
 COPY . .
 RUN pip install --no-cache-dir -r control_scripts/blockly/requirements.txt
 
+ENV TRILOBOT_USER_DEMOS_DIR=/data/demos
+VOLUME /data/demos
+
 EXPOSE 8750
 
 CMD ["python", "control_scripts/blockly/app.py"]

@@ -102,8 +102,9 @@
           </label>
           <label>Quality
             <select id="video-quality">
-              <option>40</option><option selected>60</option><option>70</option>
-              <option>80</option><option>90</option>
+              <option>10</option><option>20</option><option>30</option>
+              <option>40</option><option>50</option><option selected>60</option>
+              <option>70</option><option>80</option><option>90</option>
             </select>
           </label>
           <button id="apply-video">Apply</button>
@@ -125,15 +126,15 @@
           <div class="teleop-control"><span id="teleop-state" class="teleop-state disabled">DISABLED</span><label class="switch-label"><input id="teleop-enabled" type="checkbox"><span>Enable</span></label></div>
         </div>
         <div class="teleop-grid" aria-label="ROS2-style teleoperation controls">
-          <button data-key="u" data-left="-60" data-right="60">↖<small>U</small></button>
+          <button data-key="u" data-left="20" data-right="60">↖<small>U</small></button>
           <button data-key="i" data-left="60" data-right="60">↑<small>I</small></button>
-          <button data-key="o" data-left="60" data-right="-60">↗<small>O</small></button>
+          <button data-key="o" data-left="60" data-right="20">↗<small>O</small></button>
           <button data-key="j" data-left="-60" data-right="60">←<small>J</small></button>
           <button data-key="k" data-stop="true">■<small>K</small></button>
           <button data-key="l" data-left="60" data-right="-60">→<small>L</small></button>
-          <button data-key="m" data-left="-60" data-right="-60">↙<small>M</small></button>
+          <button data-key="m" data-left="-20" data-right="-60">↙<small>M</small></button>
           <button data-key="," data-left="-60" data-right="-60">↓<small>,</small></button>
-          <button data-key="." data-left="-60" data-right="60">↘<small>.</small></button>
+          <button data-key="." data-left="-60" data-right="-20">↘<small>.</small></button>
         </div>
         <div class="key-hint"><kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd></div>
         <button id="reset-lights-button" class="quiet-button">Reset all lights</button>

@@ -559,6 +559,8 @@ Blockly.defineBlocksWithJsonArray([{
 
 const workspace = Blockly.inject("blockly-workspace", {
   toolbox: document.getElementById("toolbox"),
+  // Keep the block drawer open after dragging out a block.
+  autoClose: false,
   trashcan: true,
   move: {
     scrollbars: true,
@@ -760,7 +762,7 @@ async function refreshLibrary(selectedName = "") {
   for (const demo of data.demos || []) {
     const option = document.createElement("option");
     option.value = demo.name;
-    option.textContent = demo.name;
+    option.textContent = demo.saved ? demo.name + " (mine)" : demo.name;
     if (!demo.block_compatible && demo.block_error) option.title = demo.block_error;
     groups[demo.kind === "python" ? "python" : "blocks"].appendChild(option);
   }
@@ -809,27 +811,30 @@ async function saveLibraryDemo() {
   if (!name || !name.trim()) return;
   try {
     const cleanName = name.trim();
-    await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
+    const result = await jsonRequest("/api/library/" + encodeURIComponent(cleanName), {
       method: "POST",
       body: JSON.stringify(mode === "python" && editor ? {
         python: editor.getValue()
       } : workspaceData())
     });
-    await refreshLibrary(cleanName);
-    setMessage("Saved demo: " + cleanName);
+    await refreshLibrary(result.name);
+    setMessage("Saved demo: " + result.name);
   } catch (error) {
     setMessage("Could not save demo: " + error.message, true);
   }
 }
 
 function downloadProgram() {
+  const name = window.prompt("File name:", "trilobot_trait");
+  if (name === null) return;
+  const fileName = (name.trim().replace(/\.json$/i, "").replace(/[\\/:*?"<>|]/g, "_")) || "trilobot_trait";
   const data = JSON.stringify(workspaceData(), null, 2);
   const blob = new Blob([data], {
     type: "application/json"
   });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "trilobot_trait.json";
+  link.download = fileName + ".json";
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -908,7 +913,17 @@ function setVideoSettings(video) {
   $("video-quality").value = String(video.jpeg_quality);
 }
 
-async function connectRobot() {
+let wasConnected = false;
+let busyPromptShown = "";
+const cameraImage = document.querySelector("#camera-card .stage img");
+
+function reloadCameraFeed() {
+  if (!cameraImage) return;
+  const base = cameraImage.src.split("?")[0];
+  cameraImage.src = base + "?t=" + Date.now();
+}
+
+async function connectRobot(force = false) {
   const address = robotSelect.value === MANUAL_ROBOT_VALUE ?
     urlInput.value.trim() :
     robotSelect.value;
@@ -921,9 +936,11 @@ async function connectRobot() {
       method: "POST",
       body: JSON.stringify({
         url: address,
-        video: videoSettings()
+        video: videoSettings(),
+        force: force === true
       })
     });
+    busyPromptShown = "";
     setVideoSettings(data.video);
     setMessage("Connecting…");
   } catch (error) {
@@ -1137,7 +1154,21 @@ async function pollStatus() {
     lamp.className = "quality-lamp " + (connection.health || "red");
     lamp.title = connection.health_text || "Offline";
     $("quality-text").textContent = connection.health_text || "Offline";
-    $("connection-status").textContent = data.connected ? "Connected" : "Disconnected";
+    $("connection-status").textContent = data.connected ?
+      "Connected" + (data.session_name ? " · " + data.session_name : "") :
+      "Disconnected";
+    if (data.connected && !wasConnected) reloadCameraFeed();
+    wasConnected = !!data.connected;
+    if (data.busy_session && busyPromptShown !== data.url) {
+      busyPromptShown = data.url;
+      if (window.confirm("This robot is already in use by session " + data.busy_session +
+          ". Kick everyone off and connect?")) {
+        connectRobot(true);
+      }
+    } else if (data.kicked && busyPromptShown !== "kicked:" + data.url) {
+      busyPromptShown = "kicked:" + data.url;
+      setMessage("Another user took over this robot. Press Connect to take it back.", true);
+    }
     $("connection-status").className = "status-pill " + (data.connected ? "connected" : "");
     $("video-rate").textContent = (connection.video_hz || 0) + " fps";
     $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
@@ -1559,6 +1590,13 @@ const helpSteps = [{
   targetLabel: "Python tab",
   targetHint: "See the same program as readable Python.",
   body: "The Python tab shows the same robot API as code. You can type Python, use <code>cv2</code> and <code>numpy</code>, and run it there."
+}, {
+  emoji: "📚",
+  title: "Try a demo or the example task",
+  target: ".library-footer",
+  targetLabel: "Demo library",
+  targetHint: "Pick a demo here, then press Load demo.",
+  body: "Start with <strong>Example task - Stop at the wall</strong>, or try any starter demo. Demos you save yourself are marked <em>(mine)</em>. Saving with a name that already exists adds (1), (2)… instead of overwriting."
 }, {
   emoji: "🖥️",
   title: "Read the feedback",

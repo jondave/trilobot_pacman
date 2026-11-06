@@ -28,6 +28,9 @@ class RobotClient:
         self._send_lock = asyncio.Lock()
         self.connected = False
         self.error = None
+        self.session_name = ""
+        self.busy_session = None
+        self.kicked = False
 
     async def __aenter__(self):
         self.websocket = await connect(
@@ -68,6 +71,12 @@ class RobotClient:
                         **self._telemetry,
                         "distance_cm": payload.get("distance_cm", "--"),
                     }
+                elif message_type == "hello":
+                    self.session_name = str(payload.get("session") or "")
+                elif message_type == "busy":
+                    self.busy_session = str(payload.get("session") or "another user")
+                elif message_type == "kicked":
+                    self.kicked = True
                 elif message_type == "error":
                     LOG.warning("Robot error: %s", payload.get("message"))
                 else:
