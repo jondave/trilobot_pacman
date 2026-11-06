@@ -5,7 +5,9 @@ Run this file on the Raspberry Pi. It receives JSON commands and sends
 binary JPEG camera frames plus JSON telemetry to the connected control PC.
 
 Run with --fake on a laptop to serve synthetic camera frames and telemetry
-without the Trilobot or Picamera2 libraries (used by the tests).
+without the Trilobot or Picamera2 libraries (used by the tests). The fake
+frames show a simulated robot that drives with the motor commands and takes
+the colour of its underlights.
 """
 
 import argparse
@@ -76,20 +78,154 @@ jpeg_quality = DEFAULT_JPEG_QUALITY
 last_drive_command = time.monotonic()
 
 
-class FakeTrilobot:
-    """Stand-in for Trilobot: logs motor/LED commands, fakes the sensors."""
+class FakeRobotSim:
+    """A pretend robot on the fake camera's floor, shared by the fakes.
 
-    def __init__(self):
-        self._started = time.monotonic()
+    Position is frame-normalised (x and y from 0 to 1, y downwards) and
+    heading is in radians, 0 facing right and increasing anticlockwise on
+    screen. Differential drive: the mean wheel speed moves the robot along
+    its heading and the difference turns it. Thread-safe: commands arrive
+    on the asyncio side while frames are drawn in a worker thread.
+    """
+
+    TOP_SPEED = 0.35  # Frame widths per second at full speed.
+    TURN_RATE = math.pi  # Radians per second spinning on the spot.
+    RADIUS = 0.06  # Fraction of the frame height.
+    WIDTH_CM = 200.0  # The frame width, as far as the distance sensor knows.
+    MAX_DISTANCE_CM = 400.0
+    NUM_UNDERLIGHTS = 6
+    OFF_COLOUR = (150, 150, 150)
+    MAX_STEP = 0.02  # Seconds per integration step.
+
+    def __init__(self, aspect=4 / 3, clock=time.monotonic):
+        self._lock = Lock()
+        self._clock = clock
+        self._updated = clock()
+        self.aspect = aspect  # Frame width / height.
+        self.x = 0.5
+        self.y = 0.75
+        self.heading = math.pi / 2  # Facing up the frame.
+        self.left = 0.0
+        self.right = 0.0
+        self.lights = [(0, 0, 0)] * self.NUM_UNDERLIGHTS
+
+    def _advance(self):
+        """Integrate motion up to now (call with the lock held)."""
+        now = self._clock()
+        elapsed = max(0.0, now - self._updated)
+        self._updated = now
+        if self.left == 0.0 and self.right == 0.0:
+            return
+        speed = (self.left + self.right) / 2 * self.TOP_SPEED
+        turn = (self.right - self.left) / 2 * self.TURN_RATE
+        margin_x = self.RADIUS / self.aspect
+        margin_y = self.RADIUS
+        while elapsed > 0:
+            step = min(elapsed, self.MAX_STEP)
+            elapsed -= step
+            self.heading = (self.heading + turn * step) % (2 * math.pi)
+            # Speed is in frame widths, so y (in heights) moves aspect times as far.
+            x = self.x + speed * step * math.cos(self.heading)
+            y = self.y - speed * step * math.sin(self.heading) * self.aspect
+            self.x = min(max(x, margin_x), 1.0 - margin_x)
+            self.y = min(max(y, margin_y), 1.0 - margin_y)
+
+    def set_aspect(self, aspect):
+        with self._lock:
+            self._advance()
+            self.aspect = aspect
+            margin_x = self.RADIUS / aspect
+            self.x = min(max(self.x, margin_x), 1.0 - margin_x)
+
+    def set_speeds(self, left, right):
+        with self._lock:
+            self._advance()
+            self.left = float(left)
+            self.right = float(right)
+
+    def set_light(self, index, rgb):
+        with self._lock:
+            self.lights[index] = tuple(int(c) for c in rgb)
+
+    def fill_lights(self, rgb):
+        with self._lock:
+            self.lights = [tuple(int(c) for c in rgb)] * self.NUM_UNDERLIGHTS
+
+    def colour(self):
+        """RGB body colour: the mean of the lit underlights, else grey."""
+        with self._lock:
+            return self._colour()
+
+    def _colour(self):
+        lit = [light for light in self.lights if any(light)]
+        if not lit:
+            return self.OFF_COLOUR
+        return tuple(round(sum(light[i] for light in lit) / len(lit)) for i in range(3))
+
+    def distance_cm(self):
+        """Distance from the robot's front to the frame edge it is facing."""
+        with self._lock:
+            self._advance()
+            # Work in frame-width units so both axes share a scale.
+            x, y = self.x, self.y / self.aspect
+            dx, dy = math.cos(self.heading), -math.sin(self.heading)
+            bottom = 1.0 / self.aspect
+            hits = []
+            if dx > 1e-9:
+                hits.append((1.0 - x) / dx)
+            elif dx < -1e-9:
+                hits.append(-x / dx)
+            if dy > 1e-9:
+                hits.append((bottom - y) / dy)
+            elif dy < -1e-9:
+                hits.append(-y / dy)
+            ray = min(hits) - self.RADIUS / self.aspect
+        return min(self.MAX_DISTANCE_CM, max(0.0, ray * self.WIDTH_CM))
+
+    def snapshot(self):
+        with self._lock:
+            self._advance()
+            return {
+                "x": round(self.x, 4),
+                "y": round(self.y, 4),
+                "heading_deg": round(math.degrees(self.heading), 1),
+                "left": self.left,
+                "right": self.right,
+                "colour": list(self._colour()),
+            }
+
+
+class FakeTrilobot:
+    """Stand-in for Trilobot: logs motor/LED commands and drives a FakeRobotSim."""
+
+    def __init__(self, sim=None):
+        self.sim = sim if sim is not None else FakeRobotSim()
 
     def stop(self):
-        pass
+        self.sim.set_speeds(0.0, 0.0)
 
     def set_motor_speeds(self, left, right):
         logging.info("[fake] motors left=%.2f right=%.2f", left, right)
+        self.sim.set_speeds(left, right)
 
-    def fill_underlighting(self, rgb):
-        logging.info("[fake] underlights %s", list(rgb))
+    def set_left_speed(self, speed):
+        self.sim.set_speeds(speed, self.sim.right)
+
+    def set_right_speed(self, speed):
+        self.sim.set_speeds(self.sim.left, speed)
+
+    def fill_underlighting(self, rgb, g=None, b=None, show=True):
+        rgb = list(rgb) if g is None else [rgb, g, b]
+        logging.info("[fake] underlights %s", rgb)
+        self.sim.fill_lights(rgb)
+
+    def set_underlight(self, light, rgb, g=None, b=None, show=True):
+        rgb = list(rgb) if g is None else [rgb, g, b]
+        logging.info("[fake] underlight %s %s", light, rgb)
+        self.sim.set_light(light, rgb)
+
+    def clear_underlighting(self, show=True):
+        self.sim.fill_lights((0, 0, 0))
 
     def set_button_led(self, button, value):
         logging.info("[fake] button LED %s=%.2f", button, value)
@@ -98,22 +234,25 @@ class FakeTrilobot:
         return False
 
     def read_distance(self, timeout=25, samples=3):
-        # Slowly drifts between 20 and 80 cm.
-        return 50.0 + 30.0 * math.sin((time.monotonic() - self._started) / 5.0)
+        # How far the robot's front is from the frame edge it faces.
+        return self.sim.distance_cm()
 
 
 class FakeCamera:
     """Stand-in for Picamera2 that draws synthetic JPEG frames."""
 
-    def __init__(self):
+    def __init__(self, sim=None):
         self.size = DEFAULT_VIDEO_SIZE
         self._frame = 0
+        self.sim = sim if sim is not None else FakeRobotSim()
+        self.sim.set_aspect(self.size[0] / self.size[1])
 
     def create_preview_configuration(self, main):
         return main
 
     def configure(self, config):
         self.size = tuple(config["size"])
+        self.sim.set_aspect(self.size[0] / self.size[1])
 
     def start(self):
         pass
@@ -127,6 +266,30 @@ class FakeCamera:
     def set_controls(self, controls):
         pass
 
+    def _robot_shape(self, width, height):
+        """Pixel geometry and RGB colours for the simulated robot."""
+        state = self.sim.snapshot()
+        body = tuple(state["colour"])
+        centre = (int(round(state["x"] * width)), int(round(state["y"] * height)))
+        radius = max(6, int(round(FakeRobotSim.RADIUS * height)))
+        heading = math.radians(state["heading_deg"])
+        dx, dy = math.cos(heading), -math.sin(heading)
+        # The heading line starts away from the centre, so the centre pixel
+        # always shows the body colour.
+        line = (
+            (int(centre[0] + dx * radius * 0.35), int(centre[1] + dy * radius * 0.35)),
+            (int(centre[0] + dx * radius * 1.5), int(centre[1] + dy * radius * 1.5)),
+        )
+        return {
+            "centre": centre,
+            "radius": radius,
+            "body": body,
+            "outline": tuple(c // 2 for c in body),
+            "line": line,
+            "thickness": max(2, radius // 6),
+            "label": (centre[0] - radius, centre[1] + radius + max(12, radius // 2)),
+        }
+
     def capture_jpeg(self, quality):
         self._frame += 1
         width, height = self.size
@@ -137,16 +300,39 @@ class FakeCamera:
         marker_x = int((0.5 + 0.4 * math.sin(phase * 2)) * width)
         marker_y = height // 2
         radius = max(8, height // 12)
+        robot = self._robot_shape(width, height)
         try:
             import cv2
             import numpy as np
         except ImportError:
             cv2 = None
         if cv2 is not None:
+
+            def bgr(rgb):
+                return tuple(int(c) for c in rgb[::-1])  # OpenCV is BGR.
+
             image = np.empty((height, width, 3), dtype=np.uint8)
-            image[:] = background[::-1]  # OpenCV is BGR.
+            image[:] = bgr(background)
             cv2.circle(image, (marker_x, marker_y), radius, (0, 220, 255), -1)
             scale = max(0.6, height / 400)
+            cv2.circle(image, robot["centre"], robot["radius"], bgr(robot["body"]), -1)
+            cv2.circle(
+                image,
+                robot["centre"],
+                robot["radius"],
+                bgr(robot["outline"]),
+                robot["thickness"],
+            )
+            cv2.line(image, *robot["line"], bgr(robot["outline"]), robot["thickness"])
+            cv2.putText(
+                image,
+                "robot",
+                robot["label"],
+                cv2.FONT_HERSHEY_SIMPLEX,
+                scale * 0.6,
+                (255, 255, 255),
+                max(1, int(scale)),
+            )
             for row, text in enumerate(lines):
                 position = (20, int((row + 1) * 40 * scale))
                 cv2.putText(
@@ -177,10 +363,26 @@ class FakeCamera:
             ),
             fill=(255, 220, 0),
         )
+        (cx, cy), r = robot["centre"], robot["radius"]
+        draw.ellipse(
+            (cx - r, cy - r, cx + r, cy + r),
+            fill=robot["body"],
+            outline=robot["outline"],
+            width=robot["thickness"],
+        )
+        draw.line(robot["line"], fill=robot["outline"], width=robot["thickness"])
         try:
             font = ImageFont.load_default(size=max(12, height // 20))
+            small = ImageFont.load_default(size=max(10, height // 32))
         except TypeError:  # Pillow < 10.1
-            font = ImageFont.load_default()
+            font = small = ImageFont.load_default()
+        label_x, label_y = robot["label"]
+        draw.text(
+            (label_x, label_y - max(10, height // 32)),
+            "robot",
+            fill=(255, 255, 255),
+            font=small,
+        )
         draw.multiline_text((20, 20), "\n".join(lines), fill=(255, 255, 255), font=font)
         buffer = BytesIO()
         image.save(buffer, format="JPEG", quality=quality)
@@ -191,8 +393,9 @@ def setup_hardware(fake=False):
     """Create the robot and camera (real or fake) and start the camera."""
     global tbot, camera
     if fake:
-        tbot = FakeTrilobot()
-        camera = FakeCamera()
+        sim = FakeRobotSim()
+        tbot = FakeTrilobot(sim)
+        camera = FakeCamera(sim)
         BUTTONS.update({"A": "A", "B": "B", "X": "X", "Y": "Y"})
     else:
         from picamera2 import Picamera2
@@ -245,11 +448,14 @@ def read_telemetry():
             name: bool(tbot.read_button(button)) for name, button in BUTTONS.items()
         }
         distance = tbot.read_distance(timeout=25, samples=3)
-    return {
+    telemetry = {
         "type": "telemetry",
         "distance_cm": round(float(distance), 1),
         "buttons": buttons,
     }
+    if isinstance(tbot, FakeTrilobot):
+        telemetry["sim"] = tbot.sim.snapshot()  # Fake mode only, for debugging.
+    return telemetry
 
 
 def colour(value):

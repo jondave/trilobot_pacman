@@ -12,6 +12,17 @@ listen address).
 and session name), a slowly changing fake distance and buttons that are never
 pressed, and it logs motor and LED commands instead of running them. See [docs/DEVELOPING.md](../docs/DEVELOPING.md) for running it with the app and tests.
 
+The frames also show a simulated robot: a circle labelled `robot` with a line
+pointing the way it faces. It starts near the bottom middle facing up and
+drives with the motor commands (full speed is 0.35 of the frame width per
+second, spinning on the spot is half a turn per second), stays inside the
+frame, and stops with the 0.6 s motor watchdog. It is grey (150, 150, 150)
+when the underlights are off, otherwise the average colour of the lit
+underlights. The fake distance sensor reports how far its front is from the
+frame edge it is facing, with the frame 200 cm wide (at most 400 cm), and fake
+telemetry has an extra `sim` field (position, heading, wheel speeds and
+colour) for debugging.
+
 ## Sessions
 
 Only one control client drives the robot at a time.
