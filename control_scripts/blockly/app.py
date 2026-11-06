@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -25,7 +26,7 @@ from blocks_python import (  # noqa: E402
 )
 from program_runner import MAX_PYTHON_CHARS, PageWatch, ProgramRunner  # noqa: E402
 from robot_config import block_definitions, browser_config  # noqa: E402
-from robot_directory import RobotDirectoryError, fetch_robot_directory  # noqa: E402
+from robot_directory import RobotDirectoryCache  # noqa: E402
 from robot_session import RobotSession, _clamp, _number  # noqa: E402
 
 LOG = logging.getLogger("trilobot_blockly")
@@ -42,6 +43,10 @@ session = RobotSession()
 runner = ProgramRunner(session)
 # Stops the program and lets go of the robot when the app tab goes away.
 page_watch = PageWatch(session, runner)
+robot_directory_cache = RobotDirectoryCache()
+# Open /api/video.mjpg responses; logged so a stream left open is easy to spot.
+_open_video_streams = 0
+_video_streams_lock = threading.Lock()
 
 
 @app.get("/")
@@ -53,20 +58,14 @@ def index():
 
 @app.get("/api/robots")
 def robot_directory():
-    """Proxy the robot directory so the browser does not depend on CORS."""
-    try:
-        return jsonify({"robots": fetch_robot_directory()})
-    except RobotDirectoryError as error:
-        LOG.warning("Could not load robot directory: %s", error)
-        return (
-            jsonify(
-                {
-                    "robots": [],
-                    "error": "Robot list unavailable; enter an address manually.",
-                }
-            ),
-            502,
-        )
+    """Proxy the robot directory so the browser does not depend on CORS.
+
+    Served from a short in-memory cache (see RobotDirectoryCache), so a slow
+    or unreachable directory never holds up the page.
+    """
+    # Always 200: an unavailable directory is reported in "error" (with
+    # "stale": true), so the browser logs no failed request for it.
+    return jsonify(robot_directory_cache.get())
 
 
 @app.post("/api/connect")
@@ -245,26 +244,47 @@ def video_config():
 @app.get("/api/video.mjpg")
 def video():
     def stream():
+        global _open_video_streams
         sequence = -1
-        while True:
-            jpeg, sequence = session.wait_jpeg(sequence, timeout=1.0)
-            if jpeg:
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n"
-                    b"Cache-Control: no-cache\r\n"
-                    b"Content-Length: "
-                    + str(len(jpeg)).encode()
-                    + b"\r\n\r\n"
-                    + jpeg
-                    + b"\r\n"
-                )
+        with _video_streams_lock:
+            _open_video_streams += 1
+            count = _open_video_streams
+        LOG.info("Camera stream opened (%d open)", count)
+        try:
+            while True:
+                # wait_jpeg returns the latest frame again after the timeout,
+                # so a closed tab is noticed within about a second.
+                jpeg, sequence = session.wait_jpeg(sequence, timeout=1.0)
+                if jpeg:
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n"
+                        b"Cache-Control: no-cache\r\n"
+                        b"Content-Length: "
+                        + str(len(jpeg)).encode()
+                        + b"\r\n\r\n"
+                        + jpeg
+                        + b"\r\n"
+                    )
+        finally:
+            with _video_streams_lock:
+                _open_video_streams -= 1
+                count = _open_video_streams
+            LOG.info("Camera stream closed (%d open)", count)
 
     return Response(
         stream(),
         mimetype="multipart/x-mixed-replace; boundary=frame",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@app.get("/api/video.jpg")
+def video_snapshot():
+    """The latest camera picture as one JPEG: the page shows it, greyed out,
+    while the live stream is off, without holding a connection open."""
+    jpeg, _ = session.wait_jpeg(None, timeout=0)
+    return Response(jpeg, mimetype="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/teleop")

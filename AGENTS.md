@@ -58,6 +58,8 @@ Optional, uv instead of pip (never required): `uv sync`, `uv run pytest -q`, `uv
 - Frontend: plain ES modules, no build step, no framework. Blockly 12.5.1 and Monaco are vendored at build time (`static/vendor` is gitignored) with a CDN fallback whose version must match `fetch_vendor.sh` (`test_blockly_version_matches_cdn_fallback`).
 - Students are identified only by robot-given session names (word-word, from `session_words.json`). Never collect student names.
 - Robots are reached across a VLAN: no mDNS or `.local` discovery. Use the findmyrobot directory or IP addresses.
+- Manual IP entry must ALWAYS be available: the "Enter address manually…" option and field work before, during and after the directory loads, and when it fails. Never make connecting wait on findmyrobot (`/api/robots` is cached in `robot_directory.py`).
+- The camera MJPEG stream only runs while connected and the tab is visible (`static/js/video.js`); each open stream holds one of the browser's 6 connections per host.
 - Security: the app executes student code and has no auth. Keep it bound to localhost in docs and Docker examples (`-p 127.0.0.1:8750:8750`).
 - Stop must always stay enabled in the UI (`#stop-button`).
 

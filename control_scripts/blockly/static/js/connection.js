@@ -112,7 +112,6 @@ const bannerIcon = banner.querySelector(".conn-icon");
 const bannerMessage = banner.querySelector(".conn-message");
 const bannerActions = banner.querySelector(".conn-actions");
 let bannerState = null;
-let previousState = null;
 
 function focusRobotChooser() {
   robotSelect.focus();
@@ -307,10 +306,9 @@ export function renderConnection(conn) {
   renderLamp(connState, conn);
   renderBanner(connState, conn);
   syncAlerts(connState, conn);
-  renderVideo(connState, conn, previousState);
+  renderVideo(connState, conn);
   const title = (ALERT_STATES.includes(connState) ? "⚠ " : "") + BASE_TITLE;
   if (document.title !== title) document.title = title;
-  previousState = connState;
 }
 
 export function initConnection() {

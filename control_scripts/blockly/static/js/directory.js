@@ -86,25 +86,27 @@ export function updateRobotPingStatuses() {
   }
 }
 
-function populateRobotChoices(robots) {
+function addOption(value, text) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = text;
+  robotSelect.appendChild(option);
+  return option;
+}
+
+// Rebuilds the list. "Enter address manually…" is always the last option, so
+// connecting by address never depends on the directory answering.
+function populateRobotChoices(robots, placeholderText = "") {
   const previous = robotSelect.value;
   state.robotChoices = robots.filter((robot) => robot && robot.url && robot.ip && robot.name);
   robotSelect.replaceChildren();
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = state.robotChoices.length ? "Choose a robot…" : "No robots found";
-  robotSelect.appendChild(placeholder);
+  addOption("", placeholderText || (state.robotChoices.length ? "Choose a robot…" : "No robots found"));
   for (const robot of state.robotChoices) {
-    const option = document.createElement("option");
-    option.value = robot.url;
-    option.textContent = robot.name + " (" + robot.ip + ")";
-    option.title = robot.url;
-    robotSelect.appendChild(option);
+    addOption(robot.url, robot.name + " (" + robot.ip + ")").title = robot.url;
   }
-  const manualOption = document.createElement("option");
-  manualOption.value = MANUAL_ROBOT_VALUE;
-  manualOption.textContent = "Enter address manually…";
-  robotSelect.appendChild(manualOption);
+  addOption(MANUAL_ROBOT_VALUE, "Enter address manually…");
+  // Picking an option updates preferred.choice, so a pick made while the
+  // list was loading is kept too.
   const wanted = preferred.choice || previous;
   if (wanted && [...robotSelect.options].some((option) => option.value === wanted)) {
     robotSelect.value = wanted;
@@ -117,13 +119,26 @@ function populateRobotChoices(robots) {
   updateRobotPingStatuses();
 }
 
+let robotRefreshes = 0;
+
 export async function refreshRobots() {
+  // Only the newest refresh may rebuild the list.
+  const refresh = ++robotRefreshes;
+  const refreshButton = $("refresh-robots");
+  refreshButton.disabled = true;
   try {
     const data = await jsonRequest("/api/robots");
+    if (refresh !== robotRefreshes) return;
     const robots = Array.isArray(data.robots) ? data.robots : [];
-    populateRobotChoices(robots);
+    populateRobotChoices(robots, !robots.length && data.error ? "Robot list unavailable" : "");
+    refreshButton.title = data.error || "Refresh the robot list";
   } catch (error) {
-    populateRobotChoices([]);
+    if (refresh !== robotRefreshes) return;
+    // Keep what was already listed; the manual option is always there.
+    populateRobotChoices(state.robotChoices, state.robotChoices.length ? "" : "Robot list unavailable");
+    refreshButton.title = error.message || "Robot list unavailable";
+  } finally {
+    if (refresh === robotRefreshes) refreshButton.disabled = false;
   }
 }
 
@@ -140,6 +155,9 @@ export function initDirectory() {
   loadPreferred();
   if (preferred.manual) urlInput.value = preferred.manual;
   else urlInput.value = DEFAULT_MANUAL_ADDRESS;
+  // A remembered manual choice applies at once, without waiting for the directory.
+  if (preferred.choice === MANUAL_ROBOT_VALUE) robotSelect.value = MANUAL_ROBOT_VALUE;
+  updateManualAddressVisibility();
   urlInput.addEventListener("input", () => {
     preferred.manual = urlInput.value;
     savePreferred();

@@ -16,6 +16,7 @@
       <label for="robot-select">Robot</label>
       <select id="robot-select" aria-label="Select a robot">
         <option value="">Loading robots…</option>
+        <option value="__manual__">Enter address manually…</option>
       </select>
       <button id="refresh-robots" class="quiet-button" title="Refresh the robot list">Refresh</button>
       <div id="manual-robot-address" hidden>
@@ -92,7 +93,7 @@
           </div>
           <span id="camera-view-label" class="vision-status">OpenCV: no picture checked</span>
         </div>
-        <div class="stage"><img src="{{ url_for('video') }}" alt="Live robot camera"><div id="video-overlay" class="video-overlay" role="status" hidden></div></div>
+        <div class="stage"><img alt="Live robot camera"><div id="video-overlay" class="video-overlay" role="status" hidden></div></div>
         <div class="camera-settings">
           <label>Size
             <select id="video-size">

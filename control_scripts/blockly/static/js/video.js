@@ -22,11 +22,32 @@ export function setVideoSettings(video) {
 }
 
 const cameraImage = document.querySelector("#camera-card .stage img");
+const STREAM_URL = "/api/video.mjpg";
+const SNAPSHOT_URL = "/api/video.jpg";
 
-function reloadCameraFeed() {
+// The live MJPEG stream holds one of the browser's few connections to this
+// server for as long as it runs, so it only runs while the robot is connected
+// and this tab is visible. Otherwise the picture is either the last frame as a
+// single JPEG (greyed out by the stale overlay) or nothing at all.
+// cameraMode is what the <img> currently shows: "stream", "snapshot" or "none".
+let cameraMode = "none";
+let cameraLive = false;
+let cameraHasPicture = false;
+
+function wantedCameraMode() {
+  if (document.visibilityState !== "visible") return "none";
+  if (cameraLive) return "stream";
+  return cameraHasPicture ? "snapshot" : "none";
+}
+
+// Changes the <img> only on a transition, so polling never restarts the stream.
+function syncCameraFeed() {
   if (!cameraImage) return;
-  const base = cameraImage.src.split("?")[0];
-  cameraImage.src = base + "?t=" + Date.now();
+  const mode = wantedCameraMode();
+  if (mode === cameraMode) return;
+  cameraMode = mode;
+  if (mode === "none") cameraImage.removeAttribute("src");
+  else cameraImage.src = (mode === "stream" ? STREAM_URL : SNAPSHOT_URL) + "?t=" + Date.now();
 }
 
 async function applyVideoSettings() {
@@ -42,8 +63,7 @@ async function applyVideoSettings() {
   }
 }
 
-// previousState is the connection state from the previous render.
-export function renderVideo(connState, conn, previousState) {
+export function renderVideo(connState, conn) {
   const live = connState === "connected" || connState === "weak";
   const age = conn.last_frame_age;
   const frozen = live && typeof age === "number" && age > 2;
@@ -66,11 +86,18 @@ export function renderVideo(connState, conn, previousState) {
   stage.classList.toggle("is-stale", stale);
   // No real picture yet: hide the placeholder so its text doesn't clash with the overlay.
   stage.classList.toggle("no-picture", stale && typeof age !== "number");
-  if ((connState === "connected") && previousState !== "connected" && previousState !== "weak") {
-    reloadCameraFeed();
-  }
+  cameraLive = live;
+  cameraHasPicture = typeof age === "number";
+  syncCameraFeed();
 }
 
 export function initVideo() {
   $("apply-video").addEventListener("click", applyVideoSettings);
+  document.addEventListener("visibilitychange", syncCameraFeed);
+  if (cameraImage) {
+    cameraImage.addEventListener("error", () => {
+      // A snapshot that failed to load: show nothing rather than a broken image.
+      if (cameraMode === "snapshot") cameraImage.removeAttribute("src");
+    });
+  }
 }
