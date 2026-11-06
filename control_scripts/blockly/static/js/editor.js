@@ -248,7 +248,8 @@ export async function checkPython() {
   }]);
   setSync(
     result.syntax ? "error" : "warn",
-    (result.syntax ? "" : "Too advanced for blocks — ") + "line " + line + ": " + result.message
+    result.syntax ? "Problem on line " + line + ": " + result.message :
+      "Too advanced for blocks — line " + line + ": " + result.message
   );
 }
 

@@ -64,8 +64,8 @@ export function updateTeleopState() {
   const enabled = teleopEnabled.checked;
   const card = $("teleop-card");
   card.classList.toggle("teleop-enabled", enabled);
-  $("teleop-state").textContent = enabled ? "ENABLED" : "DISABLED";
-  $("teleop-state").className = "teleop-state " + (enabled ? "enabled" : "disabled");
+  // The words change too, so the state never depends on colour alone.
+  $("teleop-switch-state").textContent = enabled ? "On" : "Off";
 }
 
 function keyForEvent(event) {

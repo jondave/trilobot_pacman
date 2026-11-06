@@ -328,3 +328,17 @@ def test_tracer_overhead_is_acceptable():
         f"\ntracer slowdown: {factor:.2f}x ({plain * 1e3:.1f} ms -> {traced * 1e3:.1f} ms)"
     )
     assert factor < 8, f"tracer slowdown {factor:.1f}x"
+
+
+def test_print_output_is_timestamped_for_the_terminal():
+    """output_lines carry times so the page can interleave them with events."""
+    runner = ProgramRunner(RobotSession())
+    before = time.time()
+    runner.start_python("print('one')\nwait(0.2)\nprint('two\\nthree')\n")
+    _, status = _observe(runner)
+    assert status["status"] == "complete", status
+    lines = status["output_lines"]
+    assert [line["text"] for line in lines] == ["one", "two", "three"]
+    times = [line["t"] for line in lines]
+    assert before <= times[0] < times[1] == times[2] <= time.time()
+    assert status["output"] == "one\ntwo\nthree"

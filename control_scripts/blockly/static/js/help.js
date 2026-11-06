@@ -13,7 +13,7 @@ const helpSteps = [{
   target: ".connection-controls",
   targetLabel: "Connection bar",
   targetHint: "Choose a robot, then press Connect.",
-  body: "Select a robot by name and IP address. If it is not listed, choose <strong>Enter address manually…</strong> and edit the pre-filled address."
+  body: "Pick your robot from the list. If it is not there, choose <strong>Enter address manually…</strong> and type the robot address. The dot next to the button shows if you are connected; the same button then says <strong>Disconnect</strong>."
 }, {
   icon: "fas fa-puzzle-piece icon-purple",
   title: "Choose a block",
@@ -26,22 +26,22 @@ const helpSteps = [{
   title: "Build the program",
   target: "#blockly-workspace",
   targetLabel: "Program workspace",
-  targetHint: "Snap blocks together from top to bottom.",
-  body: "Set the number sockets to values that suit your robot. Keep actions in one connected stack so they run in order."
+  targetHint: "Join your blocks into one stack.",
+  body: "Set the numbers to values that suit your robot. Keep your blocks in one stack so they run in order, top to bottom. While it runs, the block that is working glows."
 }, {
   icon: "fas fa-camera icon-pink",
   title: "Watch the camera",
   target: "#camera-card",
   targetLabel: "Camera panel",
-  targetHint: "See the live image and OpenCV preview here.",
-  body: "The camera panel shows the robot's live view. OpenCV blocks can take pictures, change colour spaces, make masks, and display their result here."
+  targetHint: "See what the robot sees.",
+  body: "The camera panel shows the robot's live picture and the distance sensor. OpenCV blocks can show their result here too. Open <strong>Details</strong> for the camera settings."
 }, {
   icon: "fas fa-play-circle icon-success",
   title: "Run your program",
-  target: "#run-button",
-  targetLabel: "Run controls",
+  target: ".action-buttons",
+  targetLabel: "Run and Stop",
   targetHint: "Start with Run and stop safely with Stop.",
-  body: "Press <strong>Run</strong> when your stack is ready. Use <strong>Stop</strong> if the robot needs to halt immediately."
+  body: "Press <strong>Run</strong> when your stack is ready. Press <strong>Stop</strong> to stop the robot straight away. The words next to Stop say what your program is doing."
 }, {
   icon: "fab fa-python icon-blue",
   title: "Try Python",
@@ -62,14 +62,14 @@ const helpSteps = [{
   target: "#terminal-tab",
   targetLabel: "Terminal",
   targetHint: "Open this to see print output and status messages.",
-  body: "Use the terminal to understand what your program is doing. It shows <code>print()</code> output, errors, and current robot activity."
+  body: "The terminal shows your <code>print()</code> output and connection news, in time order."
 }, {
   icon: "fas fa-gamepad icon-purple",
-  title: "Move safely with teleop",
+  title: "Teleoperation",
   target: "#teleop-card",
-  targetLabel: "Teleop controls",
-  targetHint: "Enable only when you need to reposition the robot.",
-  body: "Turn teleop on before using the direction controls or keyboard shortcuts. Release the key to stop sending movement commands."
+  targetLabel: "Teleoperation",
+  targetHint: "Turn on Teleop only when you need to move the robot.",
+  body: "Switch <strong>Teleop</strong> on, then hold an arrow button or a key. Let go and the robot stops."
 }, ];
 let helpIndex = 0;
 

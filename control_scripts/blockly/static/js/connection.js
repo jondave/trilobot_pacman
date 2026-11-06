@@ -1,11 +1,12 @@
-// Connection: connect and disconnect, remembered sessions, and the header
-// lamp, banner and controls that show the connection state.
+// Connection: connect and disconnect, remembered sessions, and the one place
+// the connection state is shown (the header chip), plus a banner only when the
+// student needs to act.
 import { alertState, closeAlert, isAlertOpen, showAlert } from "./alert-modal.js";
 import { jsonRequest } from "./api.js";
 import { robotSelect, selectedAddress } from "./directory.js";
 import { state } from "./state.js";
 import { stopTeleop, teleopButtons, teleopEnabled, updateTeleopState } from "./teleop.js";
-import { $, clock, setButtonLabel, setMessage } from "./ui.js";
+import { $, clock, problemText, setButtonLabel, setMessage } from "./ui.js";
 import { renderVideo, setVideoSettings, videoSettings } from "./video.js";
 
 // Remembered robot-given identities, kept so a refresh or dropped connection resumes
@@ -39,14 +40,12 @@ function rememberSession(conn) {
 // Banner icons (Font Awesome 5 classes), coloured from the palette.
 const ICONS = {
   error: "fas fa-times-circle icon-danger",
-  connected: "fas fa-check-circle icon-success",
   weak: "fas fa-exclamation-triangle icon-warning",
   reconnecting: "fas fa-sync-alt fa-spin icon-warning",
   takenOver: "fas fa-hand-paper icon-danger",
   busy: "fas fa-info-circle icon-accent",
   offline: "fas fa-unlink icon-danger",
-  appDown: "fas fa-power-off icon-danger",
-  connecting: "fas fa-spinner fa-pulse icon-accent"
+  appDown: "fas fa-power-off icon-danger"
 };
 
 // A rejected Connect (such as a bad address) has no robot state to show, so
@@ -60,12 +59,14 @@ async function connectRobot(force = false, urlOverride = "") {
   connectAttempted = true;
   const address = urlOverride || selectedAddress();
   if (!address) {
-    setMessage("Choose a robot or enter a manual WebSocket address", true);
+    setMessage("Choose a robot or type its address", true);
     return;
   }
+  // The name must belong to THIS address: the directory's name, or the one
+  // remembered for it. A new address has no name, so the address is shown.
   const stored = loadSessions()[address] || {};
   const choice = state.robotChoices.find((robot) => robot.url === address);
-  const robotName = (choice && choice.name) || stored.robot || (state.lastConnection && state.lastConnection.robot);
+  const robotName = (choice && choice.name) || stored.robot || "";
   const body = {
     url: address,
     video: videoSettings(),
@@ -79,10 +80,9 @@ async function connectRobot(force = false, urlOverride = "") {
       body: JSON.stringify(body)
     });
     setVideoSettings(data.video);
-    setMessage("Connecting…");
   } catch (error) {
+    // Shown in the banner (it is a connection problem), not as an app message.
     connectError = error.message;
-    setMessage(error.message, true);
   }
 }
 
@@ -101,23 +101,25 @@ async function disconnectRobot() {
     await jsonRequest("/api/disconnect", {
       method: "POST"
     });
-    setMessage("Disconnected");
   } catch (error) {
     setMessage(error.message, true);
   }
 }
 
 const STATE_LABELS = {
-  idle: "Disconnected",
+  idle: "Not connected",
   connecting: "Connecting…",
   connected: "Connected",
   weak: "Slow connection",
   reconnecting: "Reconnecting…",
   taken_over: "Taken over",
   busy: "Robot busy",
-  robot_offline: "Robot offline",
+  robot_offline: "Can't reach robot",
   app_down: "App not running"
 };
+// While these, the toggle stops the link (and any retries) instead of connecting.
+const CANCEL_STATES = ["connecting", "reconnecting"];
+const LIVE_STATES = ["connected", "weak"];
 const ALERT_STATES = ["reconnecting", "taken_over", "busy", "robot_offline", "app_down"];
 const BASE_TITLE = document.title;
 const banner = $("conn-banner");
@@ -201,7 +203,9 @@ function syncAlerts(connState, conn) {
     state: "taken_over",
     fallbackFocus: $("connect-button"),
     title: holder + " took over " + robot,
-    body: (at ? "at " + at + "." : "Just now.") + (conn.program_stopped ? " Your program was stopped." : ""),
+    body: conn.program_stopped ?
+      (at ? "Your program was stopped at " + at + "." : "Your program was stopped.") :
+      (at ? "This happened at " + at + "." : "This just happened."),
     buttons: [
       Object.assign({isDefault: true}, choose),
       {label: "Take it back", variant: "stop", run: () => confirmTakeover(takeoverTarget(conn))}
@@ -209,24 +213,22 @@ function syncAlerts(connState, conn) {
   });
 }
 
+// A banner only when the student needs to act; the chip already says the state.
 function bannerContent(connState, conn) {
   if (connState !== "idle") connectError = "";
-  if (connectError) return {kind: "danger", icon: ICONS.error, text: connectError};
-  const robot = conn.robot || "the robot";
+  if (connectError) return {kind: "danger", icon: ICONS.error, text: problemText(connectError)};
+  const robot = conn.robot || robotAddressName(conn.url) || "the robot";
   const holder = conn.holder || "Another user";
   const since = clock(conn.since);
   const at = since ? " at " + since : "";
-  const retry = {label: "Retry now", run: () => connectRobot(false, conn.url || "")};
+  const retry = {label: "Try again now", run: () => connectRobot(false, conn.url || "")};
   const choose = {label: "Choose another robot", run: focusRobotChooser};
   switch (connState) {
-    case "connected":
-      return {kind: "info", icon: ICONS.connected, text: conn.session ?
-        "You are " + conn.session + " on " + robot : conn.message || "Connected to " + robot};
     case "weak":
       return {kind: "warning", icon: ICONS.weak, text: "Slow connection to the robot. The video and controls may lag."};
     case "reconnecting":
-      return {kind: "warning", icon: ICONS.reconnecting, text: "Lost connection to " + robot + ". Reconnecting" +
-        (conn.session ? " as " + conn.session : "") + "… (attempt " + (conn.attempt || 1) + ")",
+      return {kind: "warning", icon: ICONS.reconnecting, text: "Lost connection to " + robot + ". Trying again" +
+        (conn.session ? " as " + conn.session : "") + "…",
         actions: [retry]};
     case "taken_over":
       return {kind: "danger", icon: ICONS.takenOver, text: holder + " took over " + robot + at + "." +
@@ -238,16 +240,20 @@ function bannerContent(connState, conn) {
         actions: [choose, {label: "Take over", run: () => confirmTakeover(takeoverTarget(conn))}]};
     case "robot_offline":
       return {kind: "danger", icon: ICONS.offline, text: "Can't reach " + robot +
-        ". Check it's switched on, or ask your teacher.",
-        actions: [{label: "Retry", run: () => connectRobot(false, conn.url || "")}]};
+        ". Check it's switched on, or ask your teacher. Still trying…",
+        actions: [retry, {label: "Stop trying", run: disconnectRobot}]};
     case "app_down":
       return {kind: "danger", icon: ICONS.appDown, text: "The Trilobot app on your computer isn't running. " +
         "Restart it (see the Get Started guide)."};
-    case "connecting":
-      return {kind: "muted", icon: ICONS.connecting, text: conn.message || "Connecting to " + robot + "…"};
     default:
       return null;
   }
+}
+
+// "ws://10.0.0.5:8765" -> "10.0.0.5", for a robot with no name yet.
+function robotAddressName(url) {
+  const match = /^[a-z]+:\/\/([^/:?#]+)/i.exec(String(url || ""));
+  return match ? match[1] : "";
 }
 
 function renderBanner(connState, conn) {
@@ -278,7 +284,7 @@ function renderBanner(connState, conn) {
 }
 
 function renderControls(connState) {
-  const canDrive = connState === "connected" || connState === "weak";
+  const canDrive = LIVE_STATES.includes(connState);
   $("run-button").disabled = !canDrive;
   // Stop is the safety button: always available, harmless when idle.
   $("stop-button").disabled = false;
@@ -290,25 +296,46 @@ function renderControls(connState) {
     updateTeleopState();
     stopTeleop(true);
   }
-  const connectButton = $("connect-button");
-  setButtonLabel(connectButton, canDrive ? "Connected" :
-    connState === "connecting" ? "Connecting…" :
-    connState === "reconnecting" ? "Reconnecting…" : "Connect");
-  connectButton.disabled = canDrive || connState === "connecting" || connState === "reconnecting";
-  $("disconnect-button").disabled = !["connected", "weak", "connecting", "reconnecting"].includes(connState);
+  // One toggle: Connect / Cancel (while trying) / Disconnect (while connected).
+  // robot_offline keeps retrying on the server; its banner has "Stop trying".
+  const action = canDrive ? "disconnect" : CANCEL_STATES.includes(connState) ? "cancel" : "connect";
+  const button = $("connect-button");
+  if (button.dataset.action === action) return;
+  button.dataset.action = action;
+  setButtonLabel(button, {connect: "Connect", cancel: "Cancel", disconnect: "Disconnect"}[action]);
+  button.querySelector("i").className = "fas " +
+    {connect: "fa-plug", cancel: "fa-times icon-muted", disconnect: "fa-unlink icon-orange"}[action];
+  button.classList.toggle("primary", action === "connect");
+  button.disabled = false;
 }
 
-// The header shows one indicator: the lamp dot plus a single label.
+// The chip: the lamp plus one word or phrase. Who you are, and on which
+// robot, is in its tooltip (and on a second line when the header has room).
 function renderLamp(connState, conn) {
   const lamp = $("quality-lamp");
-  const live = connState === "connected" || connState === "weak";
+  const live = LIVE_STATES.includes(connState);
   const colour = connState === "connected" ? (conn.health || "green") :
-    connState === "weak" || connState === "reconnecting" || connState === "connecting" ? "orange" : "red";
-  const label = STATE_LABELS[connState] || conn.message || connState;
-  lamp.className = "quality-lamp " + colour;
+    connState === "weak" || connState === "reconnecting" || connState === "connecting" ? "orange" :
+    connState === "idle" ? "idle" : "red";
+  const label = STATE_LABELS[connState] || connState;
+  const lampClass = "quality-lamp " + colour;
+  if (lamp.className !== lampClass) lamp.className = lampClass;
   const text = $("quality-text");
-  text.textContent = live && conn.session ? label + " · " + conn.session : label;
-  text.title = lamp.title = conn.health_text && connState === "connected" ? label + " · " + conn.health_text : label;
+  if (text.textContent !== label) text.textContent = label;
+  const robot = conn.robot || robotAddressName(conn.url);
+  const who = conn.session ? "You are " + conn.session + (robot ? " on " + robot : "") :
+    robot && connState !== "idle" ? label + ": " + robot : label;
+  const chip = $("connection-chip");
+  if (chip.title !== who) chip.title = who;
+  const session = $("chip-session");
+  const sessionText = live && conn.session ? "You are " + conn.session : "";
+  session.hidden = !sessionText;
+  if (session.textContent !== sessionText) session.textContent = sessionText;
+}
+
+function toggleConnection() {
+  if ($("connect-button").dataset.action === "connect") connectRobot();
+  else disconnectRobot();
 }
 
 export function renderConnection(conn) {
@@ -327,6 +354,5 @@ export function renderConnection(conn) {
 }
 
 export function initConnection() {
-  $("connect-button").addEventListener("click", connectRobot);
-  $("disconnect-button").addEventListener("click", disconnectRobot);
+  $("connect-button").addEventListener("click", toggleConnection);
 }

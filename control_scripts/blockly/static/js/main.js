@@ -15,7 +15,7 @@ import { ingestEvents, initProgram, initRunControls, updateProgram } from "./pro
 import { state } from "./state.js";
 import { initTeleop } from "./teleop.js";
 import { $, setMessage } from "./ui.js";
-import { initVideo } from "./video.js";
+import { initVideo, renderStats } from "./video.js";
 
 let statusRequestInFlight = false;
 let statusFailures = 0;
@@ -57,25 +57,25 @@ async function pollStatus() {
       ...connection,
       state: connection.state || (data.connected ? "connected" : "idle")
     });
-    $("video-rate").textContent = (connection.video_hz || 0) + " fps";
-    $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
-    $("command-latency").textContent = connection.last_command_ms == null ?
-      "cmd —" :
-      "cmd " + connection.last_command_ms + " ms";
-    $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined ?
-      "dist " + data.telemetry.distance_cm + " cm" :
-      "dist —";
+    renderStats(state.lastConnection.state, connection, data.telemetry);
     updateProgram(program);
   } catch (_) {
     statusFailures += 1;
     if (statusFailures >= 2) {
       state.programRunning = false;
       renderConnection({state: "app_down"});
+      renderStats("app_down", {}, null);
     }
   } finally {
     statusRequestInFlight = false;
   }
 }
+
+// Ctrl+S / Cmd+S (with or without Shift) does nothing here: it would only
+// open the browser's "Save page" dialog. Capture runs before Monaco and Blockly.
+window.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") event.preventDefault();
+}, {capture: true});
 
 initBlocks();
 initProgram();

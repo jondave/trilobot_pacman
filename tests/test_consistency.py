@@ -381,3 +381,12 @@ def test_pyproject_runtime_and_dev_pins_are_all_in_pip_files():
     pip_runtime |= _parse_pins(root / "control_scripts" / "blockly" / "requirements.txt")
     assert pip_runtime == runtime
     assert _parse_pins(root / "requirements-dev.txt") == dev
+
+
+def test_every_element_the_page_scripts_use_exists():
+    """$("id") in the browser modules must match an id in index.html."""
+    used = set(re.findall(r'\$\("([A-Za-z0-9_-]+)"\)', APP_JS))
+    by_id = r'getElementById\("([A-Za-z0-9_-]+)"\)'
+    used |= set(re.findall(by_id, APP_JS))
+    ids = set(re.findall(r'\bid="([A-Za-z0-9_-]+)"', TEMPLATE))
+    assert used and not used - ids, sorted(used - ids)

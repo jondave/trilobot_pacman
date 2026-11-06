@@ -325,3 +325,23 @@ def test_last_frame_age_keeps_growing_after_disconnect(robot, session):
     first = session.status()["connection"]["last_frame_age"]
     time.sleep(0.5)
     assert session.status()["connection"]["last_frame_age"] >= first + 0.4
+
+
+def test_disconnect_stops_offline_retries(session):
+    """Students can stop the retries: Disconnect/Cancel from robot_offline."""
+    session.connect(f"ws://127.0.0.1:{free_port()}")  # nothing listening
+    wait_for(lambda: state(session) == "robot_offline")
+    session.disconnect()
+    assert state(session) == "idle"
+    time.sleep(0.5)
+    assert state(session) == "idle"
+    assert session.status()["connection"]["attempt"] == 0
+
+
+def test_reconnecting_message_has_no_attempt_count(session):
+    session.attempt = 3
+    message = session._connection_message(
+        "reconnecting", "connection_lost", time.time()
+    )
+    assert "attempt" not in message
+    assert message.startswith("Lost connection to the robot. Reconnecting")

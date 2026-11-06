@@ -1,4 +1,4 @@
-// Robot directory: the robot chooser, with a ping lamp for the chosen robot.
+// Robot directory: the robot chooser and the typed robot address.
 import { APP_CONFIG } from "./config.js";
 import { jsonRequest } from "./api.js";
 import { state } from "./state.js";
@@ -7,7 +7,6 @@ import { $ } from "./ui.js";
 const urlInput = $("robot-url");
 export const robotSelect = $("robot-select");
 const manualRobotAddress = $("manual-robot-address");
-const robotPing = $("robot-ping");
 const MANUAL_ROBOT_VALUE = "__manual__";
 const STORAGE_KEY = "trilobotBlocklyRobotChoice";
 const DEFAULT_PORT = "8765";
@@ -50,17 +49,14 @@ const PING_ORANGE_SECONDS = APP_CONFIG.robot_ping.orange_seconds;
 const PING_STATUS = {
   green: {
     dot: "🟢",
-    iconClass: "icon-success",
     label: "Seen within " + PING_GREEN_SECONDS / 60 + " minutes"
   },
   orange: {
     dot: "🟠",
-    iconClass: "icon-warning",
     label: "Not seen for more than " + PING_GREEN_SECONDS / 60 + " minutes"
   },
   red: {
     dot: "🔴",
-    iconClass: "icon-danger",
     label: "Not seen for more than " + PING_ORANGE_SECONDS / 60 + " minutes"
   }
 };
@@ -94,8 +90,7 @@ function updateManualAddressVisibility(focus = false) {
 }
 
 // An <option> can't hold a Font Awesome icon, so each robot's option keeps a
-// traffic-light emoji dot (the only emoji in the UI); the coloured FA lamp
-// beside the chooser shows the selected robot's ping status as well.
+// traffic-light emoji dot (the only emoji in the UI).
 export function updateRobotPingStatuses() {
   for (const option of robotSelect.options) {
     const robot = state.robotChoices.find((item) => item.url === option.value);
@@ -104,13 +99,6 @@ export function updateRobotPingStatuses() {
     option.textContent = ping.dot + " " + robot.name + " (" + robot.ip + "), " + seenText(robot.last_ping);
     option.title = ping.label + (robot.last_ping ? ": " + robot.last_ping : "");
   }
-  const selected = state.robotChoices.find((item) => item.url === robotSelect.value);
-  robotPing.hidden = !selected;
-  if (!selected) return;
-  const ping = PING_STATUS[robotPingState(selected.last_ping)];
-  robotPing.className = "robot-ping " + ping.iconClass;
-  robotPing.title = ping.label;
-  robotPing.querySelector(".visually-hidden").textContent = selected.name + ": " + ping.label;
 }
 
 function addOption(value, text) {
@@ -192,7 +180,9 @@ export function initDirectory() {
   urlInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
-      $("connect-button").click();
+      // Enter connects; it never disconnects or cancels a connection.
+      const button = $("connect-button");
+      if (button.dataset.action === "connect") button.click();
     }
   });
   $("refresh-robots").addEventListener("click", refreshRobots);

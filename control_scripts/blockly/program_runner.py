@@ -378,7 +378,10 @@ class ProgramRunner:
     def status(self):
         with self.lock:
             result = dict(self._status)
-            result["output"] = "\n".join(self.output)
+            result["output"] = "\n".join(text for _, text in self.output)
+            # Timestamped too, so the page can interleave print() output with
+            # connection events in time order.
+            result["output_lines"] = [{"t": t, "text": text} for t, text in self.output]
             result["camera_view"] = self.camera_view or "Live camera"
             thread = self.thread
             mode = self._mode
@@ -639,8 +642,9 @@ class ProgramRunner:
             text = (" " if sep is None else str(sep)).join(
                 str(value) for value in values
             )
+            now = time.time()
             with self.lock:
-                self.output.extend(text.split("\n"))
+                self.output.extend((now, line) for line in text.split("\n"))
 
         def student_input(*_args):
             raise RuntimeError("input() is not available here")

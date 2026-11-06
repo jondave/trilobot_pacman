@@ -1,50 +1,104 @@
-// Running programs, and the terminal of program output and connection events.
+// Running programs, the program status beside Run/Stop, and the terminal of
+// program output and connection events.
 import { jsonRequest } from "./api.js";
 import { workspaceData } from "./blocks.js";
+import { renderRunningStep } from "./running.js";
 import { state } from "./state.js";
-import { $, clock, setMessage } from "./ui.js";
+import { $, clock, problemText, setMessage } from "./ui.js";
 
-// Terminal = program output followed by connection events (bounded).
-let programOutputText = "";
+// Terminal = print() output and connection events, interleaved by time.
+let outputLines = [];
 let renderedTerminalKey = "";
 const eventLog = [];
 let lastEventId = 0;
 const MAX_EVENT_LINES = 100;
+// Clear hides output printed before it; the server still has those lines.
+let clearedAt = 0;
+
+// One short phrase: Ready / Running: <step> / Finished / Stopped: <reason> /
+// Problem on line N: <error>.
+function programStatusText(program) {
+  const status = program.status || "idle";
+  const step = program.current_step || {};
+  if (status === "running") {
+    const label = step.label || program.current;
+    return {text: label ? "Running: " + label : "Running…", error: false};
+  }
+  if (status === "complete") return {text: "Finished", error: false};
+  if (status === "stopped") {
+    const reason = String(program.error || "").replace(/^Your program was stopped\s*(because\s*)?/i, "")
+      .replace(/\.$/, "");
+    return {text: reason ? "Stopped: " + reason : "Stopped", error: false};
+  }
+  if (status === "error") {
+    // A Blocks run's line number is in the hidden generated Python: leave it out.
+    const raw = step.mode === "blocks" ? String(program.error || "").replace(/^line \d+:\s*/i, "") :
+      program.error;
+    const text = problemText(raw);
+    return {text: text.startsWith("Problem") ? text : "Problem: " + text, error: true};
+  }
+  return {text: "Ready", error: false};
+}
+
+function renderProgramStatus(program) {
+  const element = $("program-status");
+  const {text, error} = programStatusText(program);
+  if (element.textContent !== text) {
+    element.textContent = text;
+    element.title = text;
+  }
+  element.classList.toggle("error-text", error);
+  element.classList.toggle("is-running", program.status === "running");
+}
+
+// The OpenCV label shows only while a running program has used a vision block.
+function renderVisionLabel(program) {
+  const label = $("vision-label");
+  const view = program.camera_view;
+  const active = program.status === "running" && view && view !== "Live camera";
+  label.hidden = !active;
+  if (!active) return;
+  const vision = program.vision || {};
+  const text = view + (vision.area ? " (" + vision.area + "px²)" : "");
+  if (label.textContent !== text) label.textContent = label.title = text;
+}
 
 export function updateProgram(program) {
-  const status = program.status || "idle";
-  const label = status[0].toUpperCase() + status.slice(1);
-  const current = program.current ? ": " + program.current : "";
-  setMessage(label + current + (program.error ? " — " + program.error : ""), Boolean(program
-    .error));
-
-  const vision = program.vision || {};
-  if (vision.status) {
-    const area = vision.area ? " (" + vision.area + "px²)" : "";
-    $("camera-view-label").textContent = (program.camera_view || vision.status) + area;
-  }
-
-  programOutputText = program.output || "";
+  renderProgramStatus(program);
+  renderVisionLabel(program);
+  renderRunningStep(program);
+  outputLines = Array.isArray(program.output_lines) ? program.output_lines :
+    String(program.output || "").split("\n").filter(Boolean).map((text) => ({t: 0, text}));
   renderTerminal();
 }
 
 function renderTerminal() {
-  const key = programOutputText.length + "|" + programOutputText.slice(-64) + "|" +
+  const shown = outputLines.filter((line) => !(line.t && line.t <= clearedAt));
+  const last = shown[shown.length - 1];
+  const key = shown.length + "|" + (last ? last.t + last.text : "") + "|" +
     (eventLog.length ? eventLog[eventLog.length - 1].id : 0) + "|" + eventLog.length;
   if (key === renderedTerminalKey) return;
   renderedTerminalKey = key;
+  // Merge two lists that are each already in time order.
+  const items = [];
+  let i = 0;
+  let j = 0;
+  while (i < shown.length || j < eventLog.length) {
+    const takeOutput = j >= eventLog.length ||
+      (i < shown.length && Number(shown[i].t || 0) <= Number(eventLog[j].t || 0));
+    items.push(takeOutput ? {output: shown[i++]} : {event: eventLog[j++]});
+  }
   const output = $("terminal-output");
-  output.replaceChildren(document.createTextNode(programOutputText));
-  if (eventLog.length) {
-    if (programOutputText && !programOutputText.endsWith("\n")) {
-      output.appendChild(document.createTextNode("\n"));
+  output.replaceChildren();
+  for (const item of items) {
+    if (item.output) {
+      output.appendChild(document.createTextNode(item.output.text + "\n"));
+      continue;
     }
-    for (const item of eventLog) {
-      const line = document.createElement("span");
-      line.className = "term-event level-" + item.level;
-      line.textContent = "[" + clock(item.t, true) + "] " + item.text + "\n";
-      output.appendChild(line);
-    }
+    const line = document.createElement("span");
+    line.className = "term-event level-" + item.event.level;
+    line.textContent = "[" + clock(item.event.t, true) + "] " + item.event.text + "\n";
+    output.appendChild(line);
   }
   output.scrollTop = output.scrollHeight;
 }
@@ -89,7 +143,7 @@ function startProgram() {
   }
   const topBlocks = state.workspace.getTopBlocks(true);
   if (topBlocks.length > 1) {
-    setMessage("Join the " + topBlocks.length + " separate stacks before Run", true);
+    setMessage("Join your " + topBlocks.length + " stacks into one stack before Run", true);
     return;
   }
   if (!topBlocks.length) {
@@ -116,7 +170,8 @@ export function initProgram() {
   $("terminal-tab").addEventListener("click", () => toggleTerminal());
   $("terminal-clear").addEventListener("click", () => {
     eventLog.length = 0;
-    programOutputText = "";
+    const last = outputLines[outputLines.length - 1];
+    clearedAt = Math.max(Date.now() / 1000, last && last.t ? last.t : 0);
     renderedTerminalKey = "";
     $("terminal-output").textContent = "";
   });

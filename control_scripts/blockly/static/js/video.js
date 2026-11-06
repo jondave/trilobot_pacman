@@ -69,29 +69,59 @@ export function renderVideo(connState, conn) {
   const frozen = live && typeof age === "number" && age > 2;
   const stale = !live || frozen;
   const overlay = $("video-overlay");
+  // Three plain phrases: no link, a link on its way, or an old picture.
+  const hasPicture = typeof age === "number";
   let text = "";
-  if (frozen) {
-    text = "No new picture for " + Math.round(age) + "s";
+  if (frozen || (!live && hasPicture && (connState === "reconnecting" || connState === "connecting"))) {
+    text = "Picture paused";
   } else if (!live) {
-    if (connState === "reconnecting" || connState === "connecting") text = "Reconnecting…";
-    else if (connState === "idle" || connState === "app_down") text = "Not connected";
-    else text = "Disconnected";
-    if (typeof age === "number" && text !== "Not connected") {
-      text += " · last picture " + (age < 2 ? "just now" : Math.round(age) + "s ago");
-    }
+    text = connState === "connecting" || connState === "reconnecting" ? "Connecting…" : "Not connected";
   }
   overlay.hidden = !stale;
-  overlay.textContent = text;
+  if (overlay.textContent !== text) overlay.textContent = text;
   const stage = document.querySelector("#camera-card .stage");
   stage.classList.toggle("is-stale", stale);
   // No real picture yet: hide the placeholder so its text doesn't clash with the overlay.
-  stage.classList.toggle("no-picture", stale && typeof age !== "number");
+  stage.classList.toggle("no-picture", stale && !hasPicture);
   cameraLive = live;
-  cameraHasPicture = typeof age === "number";
+  cameraHasPicture = hasPicture;
   syncCameraFeed();
 }
 
+// The numbers and camera settings sit behind "Details", closed by default;
+// the student's choice is remembered.
+const DETAILS_KEY = "trilobotCameraDetailsOpen";
+
+function initDetails() {
+  const details = $("camera-details");
+  try {
+    details.open = localStorage.getItem(DETAILS_KEY) === "1";
+  } catch (_) {}
+  details.addEventListener("toggle", () => {
+    try {
+      localStorage.setItem(DETAILS_KEY, details.open ? "1" : "0");
+    } catch (_) {}
+  });
+}
+
+// Distance for students, the rest inside Details; all "—" when not connected
+// so old numbers never look live.
+export function renderStats(connState, connection, telemetry) {
+  const live = connState === "connected" || connState === "weak";
+  const set = (id, text) => {
+    const element = $(id);
+    if (element.textContent !== text) element.textContent = text;
+  };
+  const distance = live && telemetry && typeof telemetry.distance_cm === "number" &&
+    Number.isFinite(telemetry.distance_cm) ? Math.round(telemetry.distance_cm) + " cm" : "—";
+  set("telemetry", distance);
+  set("video-rate", (live ? connection.video_hz || 0 : "—") + " fps");
+  set("telemetry-rate", (live ? connection.telemetry_hz || 0 : "—") + " msgs/s");
+  set("command-latency", "cmd " + (live && connection.last_command_ms != null ? connection.last_command_ms + " ms" : "—"));
+}
+
 export function initVideo() {
+  initDetails();
   $("apply-video").addEventListener("click", applyVideoSettings);
   document.addEventListener("visibilitychange", syncCameraFeed);
   if (cameraImage) {

@@ -303,8 +303,7 @@ class RobotSession:
         if state == "reconnecting":
             return (
                 f"Lost connection to {robot}. Reconnecting"
-                f"{' as ' + self.session_name if self.session_name else ''}"
-                f"… (attempt {self.attempt})"
+                f"{' as ' + self.session_name if self.session_name else ''}…"
             )
         if state == "taken_over":
             who = self.holder or "Someone else"

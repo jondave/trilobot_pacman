@@ -42,6 +42,9 @@
   --idle: #b7c0cf;
   --purple-soft: #e7d8f8;
   --highlight: #ffc94d;
+  /* The block or line that is running right now. */
+  --running: var(--highlight);
+  --running-soft: color-mix(in srgb, var(--running) 32%, transparent);
   --stage-bg: #111824;
   --terminal-bg: var(--ink);
   --terminal-bar: #1e3153;
@@ -251,11 +254,42 @@ button.icon-button {
   color: var(--accent);
 }
 
+button.icon-only {
+  padding: var(--sp-2);
+}
+
+button.icon-only > .fas {
+  margin-right: 0;
+}
+
+/* The one connection status chip: lamp + one phrase (+ "You are …" if room). */
 .connection-indicator {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-alt);
   white-space: nowrap;
+  cursor: default;
+}
+
+.chip-lines {
+  display: grid;
+  line-height: 1.2;
+}
+
+.chip-session {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+@media (max-width: 1279px) {
+  .chip-session {
+    display: none !important;
+  }
 }
 
 .quality-lamp {
@@ -283,8 +317,8 @@ button.icon-button {
 
 .quality-text {
   min-width: 45px;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
+  color: var(--text);
+  font-size: var(--fs-md);
   font-weight: 750;
 }
 
@@ -312,6 +346,9 @@ button.icon-button {
 
 .workspace-card {
   display: grid;
+  /* An explicit column: long nowrap text (the program status) must
+     ellipsize instead of widening the card. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto auto auto;
 }
 
@@ -338,9 +375,51 @@ button.icon-button {
 }
 
 .action-buttons {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--sp-2);
+}
+
+/* What the program is doing, next to Run/Stop. A fixed-size slot: its
+   text changes every poll, so it must never move the buttons or change the
+   header height. Long text ends in "…"; the full text is in its title. */
+.program-status {
+  flex: 0 0 auto;
+  width: clamp(120px, 24vw, 340px);
+  min-width: 0;
+  height: 1.35em;
+  line-height: 1.35;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.program-status.is-running {
+  color: var(--success-strong);
+}
+
+/* Blockly 12 highlightBlock(): a clear glow round the running block. */
+.blocklySvg .blocklyHighlighted > .blocklyPath {
+  stroke: var(--running);
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 6px var(--running));
+}
+
+/* Monaco: the running Python line and its gutter marker. */
+.monaco-editor .running-line {
+  background: var(--running-soft);
+}
+
+.monaco-editor .running-gutter {
+  width: 5px !important;
+  margin-left: 3px;
+  border-radius: var(--r-sm);
+  background: var(--running);
 }
 
 .blockly-workspace {
@@ -425,7 +504,8 @@ button.icon-button {
   font-size: var(--fs-md);
 }
 
-#program-status {
+/* App messages ("Saved demo", "Could not load file"): short-lived. */
+.app-message {
   min-width: 0;
   margin-left: auto;
   overflow: hidden;
@@ -496,16 +576,41 @@ button.icon-button {
   white-space: nowrap;
 }
 
+.distance-readout {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 750;
+}
+
+.camera-details {
+  min-width: 0;
+  max-width: 100%;
+  border-top: 1px solid var(--border);
+}
+
+.camera-details > summary {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.camera-details > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
 .camera-settings {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-  padding: var(--sp-2) var(--sp-3) var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: var(--sp-2);
-  border-top: 1px solid var(--border);
 }
 
 .camera-settings label {
@@ -527,11 +632,9 @@ button.icon-button {
 }
 
 .metrics {
-  min-height: 34px;
-  height: 34px;
-  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-1);
   display: grid;
-  grid-template-columns: minmax(0, 72px) minmax(0, 88px) minmax(0, 84px) minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, max-content));
   align-items: center;
   gap: 0 var(--sp-2);
   overflow: hidden;
@@ -556,62 +659,95 @@ button.icon-button {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 14%, transparent), var(--shadow);
 }
 
-.teleop-control {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.teleop-state {
-  padding: var(--sp-1) var(--sp-2);
-  border-radius: var(--r-md);
-  font-size: var(--fs-xs);
-  font-weight: 900;
-  letter-spacing: .04em;
-}
-
-.teleop-state.disabled {
-  background: var(--danger-soft);
-  color: var(--danger-strong);
-}
-
-.teleop-state.enabled {
-  background: var(--success-soft);
-  color: var(--success-strong);
-}
-
-.switch-label {
-  display: flex;
+/* "Teleop" switch: a real checkbox, drawn as a track and thumb, with
+   On/Off in words beside it. */
+.toggle-switch {
+  display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 750;
+  cursor: pointer;
 }
 
-.switch-label input {
-  accent-color: var(--accent);
+.toggle-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
+.toggle-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--idle);
+  transition: background-color .15s;
+}
+
+.toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-round);
+  background: var(--on-solid);
+  box-shadow: var(--shadow-xs);
+  transition: transform .15s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(16px);
+}
+
+.toggle-switch input:focus-visible + .toggle-track {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.toggle-switch input:disabled + .toggle-track,
+.toggle-switch input:disabled ~ .toggle-text {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.toggle-text strong {
+  display: inline-block;
+  min-width: 2.2em;
+  color: var(--text);
+}
+
+.toggle-switch input:checked ~ .toggle-text strong {
+  color: var(--success-strong);
+}
+
+/* Equal square buttons, each icon centred both ways; the grid is centred. */
 .teleop-grid {
-  width: min(180px, 100%);
+  width: min(156px, 100%);
   margin: 1px auto var(--sp-2);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: center;
   gap: var(--sp-2);
 }
 
 .teleop-grid button {
-  height: 45px;
-  padding: var(--sp-1);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
   background: var(--surface-sunk);
   color: var(--accent-strong);
-  font-size: var(--fs-xl);
-  line-height: 17px;
+  line-height: 1;
 }
 
 .teleop-grid button.active,
@@ -620,8 +756,8 @@ button.icon-button {
   color: var(--accent);
 }
 
-.teleop-grid button i {
-  margin-bottom: 3px;
+.teleop-grid button > i {
+  margin: 0;
   color: var(--accent);
   font-size: var(--fs-lg);
 }
@@ -630,15 +766,8 @@ button.icon-button {
   color: var(--danger);
 }
 
-.teleop-grid button small {
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 850;
-  line-height: 9px;
-}
-
 .key-hint {
+  margin-bottom: var(--sp-1);
   text-align: center;
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -746,9 +875,18 @@ kbd {
     padding: var(--sp-2) var(--sp-3);
   }
 
-  #program-status {
+  .app-message {
     flex-basis: 100%;
     margin-left: 0;
+  }
+
+  /* Phones: the status gets its own full-width line under the buttons. */
+  .action-buttons {
+    flex: 1 1 100%;
+  }
+
+  .program-status {
+    width: 100%;
   }
 }
 
@@ -1284,17 +1422,6 @@ button.block-drawer-close > .fas {
 /* Diagonal teleop arrows: fa-arrow-up/down turned by 45 degrees. */
 .icon-rotate-45 { transform: rotate(45deg); }
 .icon-rotate-315 { transform: rotate(-45deg); }
-
-/* Ping status of the chosen robot, beside the chooser (an <option> can't hold an icon). */
-.robot-ping {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-md);
-}
-
-.robot-ping[hidden] {
-  display: none;
-}
 
 .visually-hidden {
   position: absolute;
