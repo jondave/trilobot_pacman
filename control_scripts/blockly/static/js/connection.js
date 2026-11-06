@@ -5,7 +5,7 @@ import { jsonRequest } from "./api.js";
 import { robotSelect, selectedAddress } from "./directory.js";
 import { state } from "./state.js";
 import { stopTeleop, teleopButtons, teleopEnabled, updateTeleopState } from "./teleop.js";
-import { $, clock, setMessage } from "./ui.js";
+import { $, clock, setButtonLabel, setMessage } from "./ui.js";
 import { renderVideo, setVideoSettings, videoSettings } from "./video.js";
 
 // Remembered robot-given identities, kept so a refresh or dropped connection resumes
@@ -35,6 +35,19 @@ function rememberSession(conn) {
     localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
   } catch (_) {}
 }
+
+// Banner icons (Font Awesome 5 classes), coloured from the palette.
+const ICONS = {
+  error: "fas fa-times-circle icon-danger",
+  connected: "fas fa-check-circle icon-success",
+  weak: "fas fa-exclamation-triangle icon-warning",
+  reconnecting: "fas fa-sync-alt fa-spin icon-warning",
+  takenOver: "fas fa-hand-paper icon-danger",
+  busy: "fas fa-info-circle icon-accent",
+  offline: "fas fa-unlink icon-danger",
+  appDown: "fas fa-power-off icon-danger",
+  connecting: "fas fa-spinner fa-pulse icon-accent"
+};
 
 // A rejected Connect (such as a bad address) has no robot state to show, so
 // its message is kept here and shown in the banner until the next attempt.
@@ -198,7 +211,7 @@ function syncAlerts(connState, conn) {
 
 function bannerContent(connState, conn) {
   if (connState !== "idle") connectError = "";
-  if (connectError) return {kind: "danger", icon: "⛔", text: connectError};
+  if (connectError) return {kind: "danger", icon: ICONS.error, text: connectError};
   const robot = conn.robot || "the robot";
   const holder = conn.holder || "Another user";
   const since = clock(conn.since);
@@ -207,31 +220,31 @@ function bannerContent(connState, conn) {
   const choose = {label: "Choose another robot", run: focusRobotChooser};
   switch (connState) {
     case "connected":
-      return {kind: "info", icon: "✔", text: conn.session ?
+      return {kind: "info", icon: ICONS.connected, text: conn.session ?
         "You are " + conn.session + " on " + robot : conn.message || "Connected to " + robot};
     case "weak":
-      return {kind: "warning", icon: "⚠", text: "Slow connection to the robot. The video and controls may lag."};
+      return {kind: "warning", icon: ICONS.weak, text: "Slow connection to the robot. The video and controls may lag."};
     case "reconnecting":
-      return {kind: "warning", icon: "⟳", text: "Lost connection to " + robot + ". Reconnecting" +
+      return {kind: "warning", icon: ICONS.reconnecting, text: "Lost connection to " + robot + ". Reconnecting" +
         (conn.session ? " as " + conn.session : "") + "… (attempt " + (conn.attempt || 1) + ")",
         actions: [retry]};
     case "taken_over":
-      return {kind: "danger", icon: "⛔", text: holder + " took over " + robot + at + "." +
+      return {kind: "danger", icon: ICONS.takenOver, text: holder + " took over " + robot + at + "." +
         (conn.program_stopped ? " Your program was stopped." : ""),
         actions: [choose, {label: "Take it back", run: () => confirmTakeover(takeoverTarget(conn))}]};
     case "busy":
-      return {kind: "muted", icon: "ℹ", text: (conn.robot || "The robot") + " is being used by " + holder +
+      return {kind: "muted", icon: ICONS.busy, text: (conn.robot || "The robot") + " is being used by " + holder +
         (since ? " (since " + since + ")" : "") + ".",
         actions: [choose, {label: "Take over", run: () => confirmTakeover(takeoverTarget(conn))}]};
     case "robot_offline":
-      return {kind: "danger", icon: "⛔", text: "Can't reach " + robot +
+      return {kind: "danger", icon: ICONS.offline, text: "Can't reach " + robot +
         ". Check it's switched on, or ask your teacher.",
         actions: [{label: "Retry", run: () => connectRobot(false, conn.url || "")}]};
     case "app_down":
-      return {kind: "danger", icon: "⛔", text: "The Trilobot app on your computer isn't running. " +
+      return {kind: "danger", icon: ICONS.appDown, text: "The Trilobot app on your computer isn't running. " +
         "Restart it (see the Get Started guide)."};
     case "connecting":
-      return {kind: "muted", icon: "…", text: conn.message || "Connecting to " + robot + "…"};
+      return {kind: "muted", icon: ICONS.connecting, text: conn.message || "Connecting to " + robot + "…"};
     default:
       return null;
   }
@@ -249,7 +262,8 @@ function renderBanner(connState, conn) {
   banner.hidden = false;
   banner.className = "conn-banner is-" + content.kind;
   banner.setAttribute("aria-live", danger ? "assertive" : "polite");
-  bannerIcon.textContent = content.icon;
+  const iconClass = "conn-icon " + content.icon;
+  if (bannerIcon.className !== iconClass) bannerIcon.className = iconClass;
   bannerMessage.textContent = content.text;
   if (key === bannerState) return;
   bannerState = key;
@@ -277,9 +291,9 @@ function renderControls(connState) {
     stopTeleop(true);
   }
   const connectButton = $("connect-button");
-  connectButton.textContent = canDrive ? "Connected" :
+  setButtonLabel(connectButton, canDrive ? "Connected" :
     connState === "connecting" ? "Connecting…" :
-    connState === "reconnecting" ? "Reconnecting…" : "Connect";
+    connState === "reconnecting" ? "Reconnecting…" : "Connect");
   connectButton.disabled = canDrive || connState === "connecting" || connState === "reconnecting";
   $("disconnect-button").disabled = !["connected", "weak", "connecting", "reconnecting"].includes(connState);
 }
@@ -307,7 +321,8 @@ export function renderConnection(conn) {
   renderBanner(connState, conn);
   syncAlerts(connState, conn);
   renderVideo(connState, conn);
-  const title = (ALERT_STATES.includes(connState) ? "⚠ " : "") + BASE_TITLE;
+  // A tab title can't show an icon, so alert states lead with their label.
+  const title = (ALERT_STATES.includes(connState) ? (STATE_LABELS[connState] || "Disconnected") + " · " : "") + BASE_TITLE;
   if (document.title !== title) document.title = title;
 }
 

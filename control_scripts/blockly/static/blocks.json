@@ -165,11 +165,11 @@
         "name": "CONVERSION",
         "options": [
           [
-            "BGR → HSV",
+            "BGR to HSV",
             "BGR_TO_HSV"
           ],
           [
-            "HSV → BGR",
+            "HSV to BGR",
             "HSV_TO_BGR"
           ]
         ]

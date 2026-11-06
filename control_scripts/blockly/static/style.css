@@ -165,7 +165,7 @@ select {
 
 #robot-select {
   min-width: 170px;
-  max-width: 220px;
+  max-width: 300px;
 }
 
 #manual-robot-address {
@@ -586,6 +586,16 @@ button.icon-button {
 .teleop-grid button:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.teleop-grid button i {
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: var(--fs-lg);
+}
+
+.teleop-grid button .teleop-stop-icon {
+  color: var(--danger);
 }
 
 .teleop-grid button small {
@@ -1024,6 +1034,17 @@ kbd {
   border-top-color: var(--danger);
 }
 
+.alert-icon {
+  display: block;
+  margin-top: var(--sp-2);
+  color: var(--warning);
+  font-size: calc(var(--fs-xl) * 2);
+}
+
+.alert-modal.is-danger .alert-icon {
+  color: var(--danger);
+}
+
 .alert-modal h2 {
   margin: var(--sp-2) 0 var(--sp-3);
   font-size: calc(var(--fs-xl) * 1.4);
@@ -1050,19 +1071,10 @@ kbd {
   font-size: var(--fs-lg);
 }
 
-.ui-emoji {
+.qsg-icon {
   display: inline-block;
-  font-size: .82em;
-  opacity: .72;
-  filter: saturate(.8);
-  vertical-align: .04em;
-}
-
-.qsg-emoji {
-  display: inline-block;
-  font-size: .95em;
-  opacity: .78;
-  filter: saturate(.82);
+  width: 1.25em;
+  text-align: center;
 }
 
 input:focus-visible,
@@ -1174,4 +1186,61 @@ select:disabled {
 
 .conn-banner .conn-icon {
   flex: 0 0 auto;
+  font-size: var(--fs-lg);
+}
+
+/* ---- Font Awesome icons: colour comes from the palette tokens ---- */
+button > .fas,
+button > .far,
+button > .fab {
+  margin-right: .3em;
+}
+
+button > .btn-trailing-icon {
+  margin-right: 0;
+  margin-left: .3em;
+}
+
+button.block-drawer-close > .fas {
+  margin-right: 0;
+}
+
+.icon-success { color: var(--success); }
+.icon-warning { color: var(--warning); }
+.icon-danger { color: var(--danger); }
+.icon-accent { color: var(--accent); }
+.icon-muted { color: var(--text-muted); }
+.icon-blue { color: var(--blue); }
+.icon-green { color: var(--green); }
+.icon-orange { color: var(--orange); }
+.icon-purple { color: var(--purple); }
+.icon-pink { color: var(--pink); }
+.icon-teal { color: var(--teal); }
+.icon-slate { color: var(--slate); }
+
+/* Diagonal teleop arrows: fa-arrow-up/down turned by 45 degrees. */
+.icon-rotate-45 { transform: rotate(45deg); }
+.icon-rotate-315 { transform: rotate(-45deg); }
+
+/* Ping status of the chosen robot, beside the chooser (an <option> can't hold an icon). */
+.robot-ping {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-md);
+}
+
+.robot-ping[hidden] {
+  display: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }

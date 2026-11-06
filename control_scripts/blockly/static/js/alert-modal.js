@@ -5,7 +5,13 @@ import { $ } from "./ui.js";
 
 const modal = $("alert-modal");
 const panel = modal.querySelector(".alert-modal");
+const iconEl = $("alert-icon");
 const titleEl = $("alert-title");
+// Font Awesome 5 icon per tone; the colour comes from the tone's CSS.
+const TONE_ICONS = {
+  warning: "fa-exclamation-triangle",
+  danger: "fa-hand-paper"
+};
 const bodyEl = $("alert-body");
 const actionsEl = $("alert-actions");
 let current = null;
@@ -30,7 +36,7 @@ export function closeAlert(restoreFocus = true) {
   if (restoreFocus && target && target.isConnected && typeof target.focus === "function") target.focus();
 }
 
-// options: {tone: "danger"|"warning", state, fallbackFocus, title, body, buttons: [{label, variant, isDefault, run}]}.
+// options: {tone: "danger"|"warning", icon (optional fa-* name), state, fallbackFocus, title, body, buttons: [{label, variant, isDefault, run}]}.
 // Showing an alert replaces any open one.
 export function showAlert(options) {
   if (current) {
@@ -43,7 +49,9 @@ export function showAlert(options) {
     if (!opener || opener === document.body) opener = options.fallbackFocus || null;
   }
   current = {state: options.state || null};
-  panel.className = "alert-modal is-" + (options.tone || "warning");
+  const tone = options.tone || "warning";
+  panel.className = "alert-modal is-" + tone;
+  iconEl.className = "alert-icon fas " + (options.icon || TONE_ICONS[tone] || TONE_ICONS.warning);
   titleEl.textContent = options.title;
   bodyEl.textContent = options.body;
   actionsEl.replaceChildren();

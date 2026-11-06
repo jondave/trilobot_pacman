@@ -10,11 +10,14 @@ Plain `venv` and `pip` are the supported way. From the repo root:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt   # runtime + pytest, ruff, playwright
-bash scripts/fetch_vendor.sh                    # optional: Blockly/Monaco for offline use
+bash scripts/fetch_vendor.sh                    # optional: Blockly/Monaco/Font Awesome for offline use
 ```
 
 (Activate with `source .venv/bin/activate` if you prefer, then drop the
 `.venv/bin/` prefixes below.) Without `fetch_vendor.sh` the page falls back to CDNs.
+UI icons are Font Awesome Free 5 (`<i class="fas fa-…" aria-hidden="true">`, coloured
+with the `.icon-*` classes in `style.css`), not emoji; `test_ui_has_no_emoji` checks this.
+The one exception is the 🟢/🟠/🔴 ping dot in each robot `<option>` (an option can't hold an icon).
 
 Pins live in the requirements files: `control_scripts/requirements.txt` (client
 library), `control_scripts/blockly/requirements.txt` (adds Flask and black) and

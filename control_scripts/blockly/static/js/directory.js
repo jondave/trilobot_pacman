@@ -1,4 +1,4 @@
-// Robot directory: the robot chooser with its last-seen ping lamps.
+// Robot directory: the robot chooser, with a ping lamp for the chosen robot.
 import { APP_CONFIG } from "./config.js";
 import { jsonRequest } from "./api.js";
 import { state } from "./state.js";
@@ -7,6 +7,7 @@ import { $ } from "./ui.js";
 const urlInput = $("robot-url");
 export const robotSelect = $("robot-select");
 const manualRobotAddress = $("manual-robot-address");
+const robotPing = $("robot-ping");
 const MANUAL_ROBOT_VALUE = "__manual__";
 const STORAGE_KEY = "trilobotBlocklyRobotChoice";
 const DEFAULT_PORT = "8765";
@@ -48,15 +49,18 @@ const PING_GREEN_SECONDS = APP_CONFIG.robot_ping.green_seconds;
 const PING_ORANGE_SECONDS = APP_CONFIG.robot_ping.orange_seconds;
 const PING_STATUS = {
   green: {
-    icon: "🟢",
+    dot: "🟢",
+    iconClass: "icon-success",
     label: "Seen within " + PING_GREEN_SECONDS / 60 + " minutes"
   },
   orange: {
-    icon: "🟠",
+    dot: "🟠",
+    iconClass: "icon-warning",
     label: "Not seen for more than " + PING_GREEN_SECONDS / 60 + " minutes"
   },
   red: {
-    icon: "🔴",
+    dot: "🔴",
+    iconClass: "icon-danger",
     label: "Not seen for more than " + PING_ORANGE_SECONDS / 60 + " minutes"
   }
 };
@@ -70,20 +74,43 @@ function robotPingState(lastPing) {
   return "red";
 }
 
+// "seen 2 min ago" style wording for the option text.
+function seenText(lastPing) {
+  const timestamp = Date.parse(lastPing || "");
+  if (!Number.isFinite(timestamp)) return "not seen yet";
+  const minutes = Math.floor(Math.max(0, Date.now() - timestamp) / 60000);
+  if (minutes < 1) return "seen just now";
+  if (minutes < 60) return "seen " + minutes + " min ago";
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return "seen " + hours + " h ago";
+  const days = Math.floor(hours / 24);
+  return "seen " + days + (days === 1 ? " day ago" : " days ago");
+}
+
 function updateManualAddressVisibility(focus = false) {
   const manual = robotSelect.value === MANUAL_ROBOT_VALUE;
   manualRobotAddress.hidden = !manual;
   if (manual && focus) urlInput.focus();
 }
 
+// An <option> can't hold a Font Awesome icon, so each robot's option keeps a
+// traffic-light emoji dot (the only emoji in the UI); the coloured FA lamp
+// beside the chooser shows the selected robot's ping status as well.
 export function updateRobotPingStatuses() {
   for (const option of robotSelect.options) {
     const robot = state.robotChoices.find((item) => item.url === option.value);
     if (!robot) continue;
     const ping = PING_STATUS[robotPingState(robot.last_ping)];
-    option.textContent = ping.icon + " " + robot.name + " (" + robot.ip + ")";
+    option.textContent = ping.dot + " " + robot.name + " (" + robot.ip + "), " + seenText(robot.last_ping);
     option.title = ping.label + (robot.last_ping ? ": " + robot.last_ping : "");
   }
+  const selected = state.robotChoices.find((item) => item.url === robotSelect.value);
+  robotPing.hidden = !selected;
+  if (!selected) return;
+  const ping = PING_STATUS[robotPingState(selected.last_ping)];
+  robotPing.className = "robot-ping " + ping.iconClass;
+  robotPing.title = ping.label;
+  robotPing.querySelector(".visually-hidden").textContent = selected.name + ": " + ping.label;
 }
 
 function addOption(value, text) {

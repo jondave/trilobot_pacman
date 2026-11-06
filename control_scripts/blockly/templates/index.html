@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=15) }}">
+  <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=16) }}">
 </head>
 <body>
   <header class="topbar">
@@ -18,23 +19,24 @@
         <option value="">Loading robots…</option>
         <option value="__manual__">Enter address manually…</option>
       </select>
-      <button id="refresh-robots" class="quiet-button" title="Refresh the robot list">Refresh</button>
+      <span id="robot-ping" class="robot-ping" hidden><i class="fas fa-circle" aria-hidden="true"></i><span class="visually-hidden"></span></span>
+      <button id="refresh-robots" class="quiet-button" title="Refresh the robot list"><i class="fas fa-sync-alt icon-accent" aria-hidden="true"></i> Refresh</button>
       <div id="manual-robot-address" hidden>
         <label for="robot-url">Manual address</label>
         <input id="robot-url" value="ws://10.247.0.123:8765" spellcheck="false" autocomplete="off">
       </div>
-      <button id="connect-button" class="primary">Connect</button>
-      <button id="disconnect-button" class="quiet-button">Disconnect</button>
+      <button id="connect-button" class="primary"><i class="fas fa-plug" aria-hidden="true"></i> <span class="btn-label">Connect</span></button>
+      <button id="disconnect-button" class="quiet-button"><i class="fas fa-unlink icon-orange" aria-hidden="true"></i> Disconnect</button>
       <span class="connection-indicator">
         <span id="quality-lamp" class="quality-lamp red" title="Disconnected" aria-hidden="true"></span>
         <span id="quality-text" class="quality-text" role="status">Disconnected</span>
       </span>
-      <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide">? Help</button>
+      <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide"><i class="fas fa-question-circle icon-purple" aria-hidden="true"></i> Help</button>
     </div>
   </header>
 
   <div id="conn-banner" class="conn-banner is-muted" role="status" aria-live="polite" hidden>
-    <span class="conn-icon" aria-hidden="true"></span>
+    <i class="conn-icon" aria-hidden="true"></i>
     <span class="conn-message"></span>
     <span class="conn-actions"></span>
   </div>
@@ -51,13 +53,13 @@
           <button id="tab-python" role="tab" aria-selected="false">Python</button>
         </div>
         <div class="action-buttons">
-          <button id="run-button" class="run">Run</button>
-          <button id="stop-button" class="stop">Stop</button>
+          <button id="run-button" class="run"><i class="fas fa-play" aria-hidden="true"></i> Run</button>
+          <button id="stop-button" class="stop"><i class="fas fa-stop icon-danger" aria-hidden="true"></i> Stop</button>
         </div>
       </div>
       <div class="editor-area">
         <div id="blockly-workspace" class="blockly-workspace"></div>
-        <button id="close-block-drawer" class="block-drawer-close" title="Close the block drawer" aria-label="Close drawer" hidden>✕ Close drawer</button>
+        <button id="close-block-drawer" class="block-drawer-close" title="Close the block drawer" aria-label="Close drawer" hidden><i class="fas fa-times icon-danger" aria-hidden="true"></i></button>
         <div id="python-pane" class="python-pane" hidden>
           <div id="python-editor" class="python-editor"></div>
           <div id="python-sync" class="python-sync">Loading editor…</div>
@@ -71,8 +73,8 @@
         </div>
       </section>
       <div class="workspace-footer">
-        <button id="save-button">Save file</button>
-        <button id="load-button">Load file</button>
+        <button id="save-button"><i class="fas fa-save icon-blue" aria-hidden="true"></i> Save file</button>
+        <button id="load-button"><i class="fas fa-folder-open icon-orange" aria-hidden="true"></i> Load file</button>
         <input id="program-file" type="file" accept=".json,application/json" hidden>
         <button id="clear-button" class="quiet-button">Clear</button>
         <span id="program-status">Ready</span>
@@ -80,8 +82,8 @@
       <div class="library-footer">
         <label for="library-select">Demo library</label>
         <select id="library-select" aria-label="Demo library"></select>
-        <button id="load-library-button">Load demo</button>
-        <button id="save-library-button">Save as demo</button>
+        <button id="load-library-button"><i class="fas fa-book-open icon-teal" aria-hidden="true"></i> Load demo</button>
+        <button id="save-library-button"><i class="fas fa-bookmark icon-pink" aria-hidden="true"></i> Save as demo</button>
       </div>
     </section>
 
@@ -135,18 +137,18 @@
           <div class="teleop-control"><span id="teleop-state" class="teleop-state disabled">DISABLED</span><label class="switch-label"><input id="teleop-enabled" type="checkbox"><span>Enable</span></label></div>
         </div>
         <div class="teleop-grid" aria-label="ROS2-style teleoperation controls">
-          <button data-key="u" data-left="20" data-right="60">↖<small>U</small></button>
-          <button data-key="i" data-left="60" data-right="60">↑<small>I</small></button>
-          <button data-key="o" data-left="60" data-right="20">↗<small>O</small></button>
-          <button data-key="j" data-left="-60" data-right="60">←<small>J</small></button>
-          <button data-key="k" data-stop="true">■<small>K</small></button>
-          <button data-key="l" data-left="60" data-right="-60">→<small>L</small></button>
-          <button data-key="m" data-left="-20" data-right="-60">↙<small>M</small></button>
-          <button data-key="," data-left="-60" data-right="-60">↓<small>,</small></button>
-          <button data-key="." data-left="-60" data-right="-20">↘<small>.</small></button>
+          <button data-key="u" data-left="20" data-right="60" aria-label="Forward left (U)" title="Forward left"><i class="fas fa-arrow-up icon-rotate-315" aria-hidden="true"></i><small>U</small></button>
+          <button data-key="i" data-left="60" data-right="60" aria-label="Forward (I)" title="Forward"><i class="fas fa-arrow-up" aria-hidden="true"></i><small>I</small></button>
+          <button data-key="o" data-left="60" data-right="20" aria-label="Forward right (O)" title="Forward right"><i class="fas fa-arrow-up icon-rotate-45" aria-hidden="true"></i><small>O</small></button>
+          <button data-key="j" data-left="-60" data-right="60" aria-label="Spin left (J)" title="Spin left"><i class="fas fa-arrow-left" aria-hidden="true"></i><small>J</small></button>
+          <button data-key="k" data-stop="true" aria-label="Stop (K)" title="Stop"><i class="fas fa-stop teleop-stop-icon" aria-hidden="true"></i><small>K</small></button>
+          <button data-key="l" data-left="60" data-right="-60" aria-label="Spin right (L)" title="Spin right"><i class="fas fa-arrow-right" aria-hidden="true"></i><small>L</small></button>
+          <button data-key="m" data-left="-20" data-right="-60" aria-label="Back left (M)" title="Back left"><i class="fas fa-arrow-down icon-rotate-45" aria-hidden="true"></i><small>M</small></button>
+          <button data-key="," data-left="-60" data-right="-60" aria-label="Back (,)" title="Back"><i class="fas fa-arrow-down" aria-hidden="true"></i><small>,</small></button>
+          <button data-key="." data-left="-60" data-right="-20" aria-label="Back right (.)" title="Back right"><i class="fas fa-arrow-down icon-rotate-315" aria-hidden="true"></i><small>.</small></button>
         </div>
         <div class="key-hint"><kbd>u i o</kbd> / <kbd>j k l</kbd> / <kbd>m , .</kbd></div>
-        <button id="reset-lights-button" class="quiet-button">Reset all lights</button>
+        <button id="reset-lights-button" class="quiet-button"><i class="fas fa-lightbulb icon-warning" aria-hidden="true"></i> Reset all lights</button>
       </section>
     </aside>
   </main>
@@ -312,10 +314,10 @@
 
   <div id="help-modal" class="ranch-backdrop help-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-title" hidden>
     <div class="help-modal">
-      <div class="qsg-title-row"><h2 id="help-title">🌈 Quick start</h2><span id="help-progress"></span></div>
+      <div class="qsg-title-row"><h2 id="help-title"><i class="fas fa-rainbow icon-pink" aria-hidden="true"></i> Quick start</h2><span id="help-progress"></span></div>
       <p class="help-intro">One small step at a time. Follow the focus panel and yellow highlight, then move on.</p>
       <div class="help-focus" aria-live="polite">
-        <span class="help-focus-icon" aria-hidden="true">⌖</span>
+        <i class="fas fa-crosshairs help-focus-icon" aria-hidden="true"></i>
         <div>
           <span class="help-focus-caption">Look here</span>
           <strong id="help-target-label"></strong>
@@ -323,11 +325,11 @@
         </div>
       </div>
       <div id="help-step" class="help-step"></div>
-      <div class="help-footer">You can reopen this guide with <strong>? Help</strong> any time.</div>
+      <div class="help-footer">You can reopen this guide with <strong><i class="fas fa-question-circle icon-purple" aria-hidden="true"></i> Help</strong> any time.</div>
       <div class="ranch-actions">
-        <button id="help-close" class="quiet-button">✕ Close</button>
-        <button id="help-prev" class="quiet-button">← Back</button>
-        <button id="help-next" class="primary">Next →</button>
+        <button id="help-close" class="quiet-button"><i class="fas fa-times icon-danger" aria-hidden="true"></i> Close</button>
+        <button id="help-prev" class="quiet-button"><i class="fas fa-arrow-left icon-accent" aria-hidden="true"></i> Back</button>
+        <button id="help-next" class="primary"><span class="btn-label">Next</span> <i class="fas fa-arrow-right btn-trailing-icon" aria-hidden="true"></i></button>
       </div>
     </div>
   </div>
@@ -335,6 +337,7 @@
 
   <div id="alert-modal" class="ranch-backdrop alert-backdrop" role="alertdialog" aria-modal="true" aria-labelledby="alert-title" aria-describedby="alert-body" hidden>
     <div class="alert-modal is-warning">
+      <i id="alert-icon" class="alert-icon fas fa-exclamation-triangle" aria-hidden="true"></i>
       <h2 id="alert-title"></h2>
       <p id="alert-body"></p>
       <div id="alert-actions" class="ranch-actions"></div>
@@ -349,6 +352,6 @@
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=35) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=36) }}"></script>
 </body>
 </html>

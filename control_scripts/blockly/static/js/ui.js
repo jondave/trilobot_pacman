@@ -1,6 +1,12 @@
 // Small DOM helpers shared by every module.
 export const $ = (id) => document.getElementById(id);
 
+// Sets the text of a button that also holds an icon (its .btn-label span).
+export function setButtonLabel(button, text) {
+  const label = button.querySelector(".btn-label");
+  if (label.textContent !== text) label.textContent = text;
+}
+
 export function setMessage(message, error = false) {
   const element = $("program-status");
   element.textContent = message;

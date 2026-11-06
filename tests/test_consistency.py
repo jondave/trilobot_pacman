@@ -233,6 +233,46 @@ def test_blockly_version_matches_cdn_fallback():
     assert f"unpkg.com/blockly@{pinned}/blockly.min.js" in TEMPLATE
 
 
+def test_fontawesome_version_matches_cdn_fallback():
+    script = (BLOCKLY.parents[1] / "scripts" / "fetch_vendor.sh").read_text(
+        encoding="utf-8"
+    )
+    pinned = re.search(r"^FONTAWESOME_VERSION=(\S+)", script, re.M).group(1)
+    assert pinned.startswith("5."), pinned
+    assert "/static/vendor/fontawesome/css/all.min.css" in TEMPLATE
+    assert (
+        f"cdnjs.cloudflare.com/ajax/libs/font-awesome/{pinned}/css/all.min.css"
+        in TEMPLATE
+    )
+
+
+# Emoji and pictographic symbols (arrows, shapes, dingbats, emoji planes);
+# the UI uses Font Awesome icons instead. Punctuation like "…" or "·" is fine.
+PICTOGRAPHS = re.compile(
+    "[\u2190-\u21ff\u2300-\u23ff\u2460-\u27bf\u2900-\u2bff"
+    "\u2139\ufe0f\U0001f000-\U0001faff]"
+)
+
+ROBOT_PING_DOTS = {"\U0001f7e2", "\U0001f7e0", "\U0001f534"}  # green, orange, red
+
+
+def test_ui_has_no_emoji():
+    static = BLOCKLY / "static"
+    paths = [
+        BLOCKLY / "templates" / "index.html",
+        static / "style.css",
+        static / "blocks.json",
+        *JS_MODULES,
+    ]
+    for path in paths:
+        found = PICTOGRAPHS.findall(path.read_text(encoding="utf-8"))
+        if path.name == "directory.js":
+            # The one exception: traffic-light dots in the robot <option> text,
+            # since a native option can't show a Font Awesome icon.
+            found = [char for char in found if char not in ROBOT_PING_DOTS]
+        assert not found, (path.name, found)
+
+
 def test_toolbox_class_keeps_both_blockly_names():
     for path in [*JS_MODULES, BLOCKLY / "static" / "style.css"]:
         text = path.read_text(encoding="utf-8")
