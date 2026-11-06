@@ -191,8 +191,7 @@ function syncAlerts(connState, conn) {
     title: holder + " took over " + robot,
     body: (at ? "at " + at + "." : "Just now.") + (conn.program_stopped ? " Your program was stopped." : ""),
     buttons: [
-      {label: "OK", isDefault: true},
-      choose,
+      Object.assign({isDefault: true}, choose),
       {label: "Take it back", variant: "stop", run: () => confirmTakeover(takeoverTarget(conn))}
     ]
   });
