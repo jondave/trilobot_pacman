@@ -25,6 +25,7 @@ instance/
 
 # Blockly browser saves are stored in localStorage, but ignore accidental exports
 *.blockly.json
+control_scripts/blockly/demos/saved/
 
 # OS/editor files
 .DS_Store
