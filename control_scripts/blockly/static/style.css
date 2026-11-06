@@ -231,18 +231,11 @@ button.icon-button {
   color: var(--accent);
 }
 
-.status-pill {
-  padding: var(--sp-1) var(--sp-2);
-  border-radius: var(--r-pill);
-  background: var(--surface-sunk);
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 800;
-}
-
-.status-pill.connected {
-  background: var(--success-soft);
-  color: var(--success-strong);
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  white-space: nowrap;
 }
 
 .quality-lamp {

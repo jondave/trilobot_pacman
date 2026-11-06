@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Trilobot Blockly</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=13) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=14) }}">
 </head>
 <body>
   <header class="topbar">
@@ -24,9 +24,10 @@
       </div>
       <button id="connect-button" class="primary">Connect</button>
       <button id="disconnect-button" class="quiet-button">Disconnect</button>
-      <span id="connection-status" class="status-pill">Disconnected</span>
-      <span id="quality-lamp" class="quality-lamp red" title="Not connected"></span>
-      <span id="quality-text" class="quality-text">Not connected</span>
+      <span class="connection-indicator">
+        <span id="quality-lamp" class="quality-lamp red" title="Disconnected" aria-hidden="true"></span>
+        <span id="quality-text" class="quality-text" role="status">Disconnected</span>
+      </span>
       <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide">? Help</button>
     </div>
   </header>
@@ -95,23 +96,23 @@
         <div class="camera-settings">
           <label>Size
             <select id="video-size">
-              <option value="640x480" data-width="640" data-height="480">640 × 480</option>
-              <option value="1640x1232" data-width="1640" data-height="1232">1640 × 1232</option>
-              <option value="1920x1080" data-width="1920" data-height="1080">1920 × 1080</option>
-              <option value="3280x2464" data-width="3280" data-height="2464">3280 × 2464</option>
+              {%- for width, height in config.video.sizes %}
+              <option value="{{ width }}x{{ height }}" data-width="{{ width }}" data-height="{{ height }}"{% if width == config.video.default.width and height == config.video.default.height %} selected{% endif %}>{{ width }} × {{ height }}</option>
+              {%- endfor %}
             </select>
           </label>
           <label>FPS
             <select id="video-fps">
-              <option>5</option><option>10</option><option>15</option>
-              <option selected>20</option><option>25</option><option>30</option>
+              {%- for fps in config.video.fps_choices %}
+              <option{% if fps == config.video.default.fps %} selected{% endif %}>{{ fps }}</option>
+              {%- endfor %}
             </select>
           </label>
           <label>Quality
             <select id="video-quality">
-              <option>10</option><option>20</option><option>30</option>
-              <option>40</option><option>50</option><option selected>60</option>
-              <option>70</option><option>80</option><option>90</option>
+              {%- for quality in config.video.quality_choices %}
+              <option{% if quality == config.video.default.jpeg_quality %} selected{% endif %}>{{ quality }}</option>
+              {%- endfor %}
             </select>
           </label>
           <button id="apply-video">Apply</button>
@@ -331,10 +332,14 @@
   </div>
 
 
+  <script id="app-config" type="application/json">{{ config|tojson }}</script>
+  <script id="block-definitions" type="application/json">{{ blocks|tojson }}</script>
   <script src="/static/vendor/blockly/blockly.min.js"></script>
   <script>window.Blockly || document.write('<script src="https://unpkg.com/blockly@11.2.2/blockly.min.js"><\/script>');</script>
   <script src="/static/vendor/monaco/min/vs/loader.js"></script>
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
-  <script src="{{ url_for('static', filename='app.js', v=28) }}"></script>
+  <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
+       loader above (or their CDN fallbacks) are already in place. -->
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=31) }}"></script>
 </body>
 </html>

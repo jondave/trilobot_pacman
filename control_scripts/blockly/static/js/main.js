@@ -1,0 +1,75 @@
+/* Blockly Lab frontend: small, clear controls for students.
+ *
+ * Entry point, loaded as a module after the classic Blockly and Monaco loader
+ * scripts. It wires the modules together in the order the page needs and runs
+ * the status polling loop. */
+import { jsonRequest } from "./api.js";
+import { initBlocks } from "./blocks.js";
+import { initConnection, renderConnection } from "./connection.js";
+import { initDirectory, refreshRobots, updateRobotPingStatuses } from "./directory.js";
+import { generatePython, initEditor, loadMonaco } from "./editor.js";
+import { initHelp } from "./help.js";
+import { initLibrary, refreshLibrary } from "./library.js";
+import { ingestEvents, initProgram, initRunControls, updateProgram } from "./program.js";
+import { state } from "./state.js";
+import { initTeleop } from "./teleop.js";
+import { $, setMessage } from "./ui.js";
+import { initVideo } from "./video.js";
+
+let statusRequestInFlight = false;
+let statusFailures = 0;
+
+async function pollStatus() {
+  if (statusRequestInFlight) return;
+  statusRequestInFlight = true;
+  try {
+    const data = await jsonRequest("/api/status");
+    statusFailures = 0;
+    const connection = data.connection || {};
+    const program = data.program || {};
+    state.programRunning = program.status === "running";
+    ingestEvents(data.events);
+    renderConnection({
+      ...connection,
+      state: connection.state || (data.connected ? "connected" : "idle")
+    });
+    $("video-rate").textContent = (connection.video_hz || 0) + " fps";
+    $("telemetry-rate").textContent = (connection.telemetry_hz || 0) + " msgs/s";
+    $("command-latency").textContent = connection.last_command_ms == null ?
+      "cmd —" :
+      "cmd " + connection.last_command_ms + " ms";
+    $("telemetry").textContent = data.telemetry && data.telemetry.distance_cm !== undefined ?
+      "dist " + data.telemetry.distance_cm + " cm" :
+      "dist —";
+    updateProgram(program);
+  } catch (_) {
+    statusFailures += 1;
+    if (statusFailures >= 2) {
+      state.programRunning = false;
+      renderConnection({state: "app_down"});
+    }
+  } finally {
+    statusRequestInFlight = false;
+  }
+}
+
+initBlocks();
+initProgram();
+initTeleop();
+initConnection();
+initDirectory();
+initVideo();
+initRunControls();
+initLibrary();
+
+setInterval(pollStatus, 250);
+pollStatus();
+refreshRobots();
+setInterval(updateRobotPingStatuses, 30_000);
+setInterval(refreshRobots, 5 * 60 * 1000);
+refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));
+
+initEditor();
+initHelp();
+
+generatePython().then(loadMonaco);

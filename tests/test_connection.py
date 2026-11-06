@@ -2,9 +2,10 @@
 
 import time
 
-import app as blockly_app
 import pytest
 from fake_ws import FakeRobot, free_port
+from program_runner import ProgramRunner
+from robot_session import COMMAND_QUEUE_LIMIT, RobotSession, _with_query
 
 
 def wait_for(condition, timeout=5.0, interval=0.01):
@@ -26,7 +27,7 @@ def robot():
 
 @pytest.fixture()
 def session():
-    robot_session = blockly_app.RobotSession(
+    robot_session = RobotSession(
         backoff=(0.1, 0.2), offline_after=5, slow_retry=0.2, telemetry_timeout=1.0
     )
     transitions, reasons = [], []
@@ -102,7 +103,7 @@ def test_force_is_sent_only_once(robot, session):
 
 
 def test_taken_over_stops_program_and_does_not_retry(robot, session):
-    runner = blockly_app.ProgramRunner(session)
+    runner = ProgramRunner(session)
     session.connect(robot.url)
     wait_for(lambda: connected(session))
     runner.start_python("while True:\n    wait(0.05)\n")
@@ -172,7 +173,7 @@ def test_refused_first_connect_is_robot_offline(session):
 
 
 def test_max_run_time_stops_program():
-    runner = blockly_app.ProgramRunner(blockly_app.RobotSession(), max_seconds=0.3)
+    runner = ProgramRunner(RobotSession(), max_seconds=0.3)
     runner.start_python("while True:\n    wait(0.05)\n")
     wait_for(lambda: runner.status()["status"] != "running", timeout=3)
     program = runner.status()
@@ -183,15 +184,12 @@ def test_max_run_time_stops_program():
 
 def test_max_run_time_from_env(monkeypatch):
     monkeypatch.setenv("PROGRAM_MAX_SECONDS", "0.2")
-    runner = blockly_app.ProgramRunner(blockly_app.RobotSession())
+    runner = ProgramRunner(RobotSession())
     runner.start_python("while True:\n    pass\n")
     wait_for(lambda: runner.status()["status"] != "running", timeout=4)
     assert runner.status()["error"].endswith("(time limit).")
     monkeypatch.setenv("PROGRAM_MAX_SECONDS", "900")
-    assert (
-        blockly_app.ProgramRunner(blockly_app.RobotSession())._program_max_seconds()
-        == 900
-    )
+    assert ProgramRunner(RobotSession())._program_max_seconds() == 900
 
 
 def test_drive_commands_coalesce(robot, session):
@@ -231,23 +229,23 @@ def test_command_queue_is_bounded(robot, session):
             session.dispatch("set_button_led", "A", 1)
     wait_for(lambda: robot.commands("button_led"))
     time.sleep(0.3)
-    assert len(robot.commands("button_led")) <= blockly_app.COMMAND_QUEUE_LIMIT
+    assert len(robot.commands("button_led")) <= COMMAND_QUEUE_LIMIT
 
 
 def test_dispatch_requires_connection():
     with pytest.raises(RuntimeError):
-        blockly_app.RobotSession().dispatch("drive", 0, 0)
+        RobotSession().dispatch("drive", 0, 0)
 
 
 def test_with_query():
-    assert blockly_app._with_query("ws://h:1", force=True, resume="t") == (
+    assert _with_query("ws://h:1", force=True, resume="t") == (
         "ws://h:1?force=1&resume=t"
     )
-    assert blockly_app._with_query("ws://h:1?force=1&x=2") == "ws://h:1?x=2"
+    assert _with_query("ws://h:1?force=1&x=2") == "ws://h:1?x=2"
 
 
 def test_restart_over_busy_loop_leaves_new_program_stoppable():
-    runner = blockly_app.ProgramRunner(blockly_app.RobotSession())
+    runner = ProgramRunner(RobotSession())
     runner.start_python("while True:\n    pass\n")
     first = runner.thread
     time.sleep(0.2)
@@ -265,7 +263,7 @@ def test_restart_over_busy_loop_leaves_new_program_stoppable():
 
 
 def test_stale_time_limit_does_not_stop_newer_run():
-    runner = blockly_app.ProgramRunner(blockly_app.RobotSession(), max_seconds=60)
+    runner = ProgramRunner(RobotSession(), max_seconds=60)
     runner.start_python("while True:\n    wait(0.05)\n")
     old_run = runner.run_id
     runner.start_python("while True:\n    wait(0.05)\n")
@@ -280,7 +278,7 @@ def test_stale_time_limit_does_not_stop_newer_run():
 
 
 def test_takeover_stop_reason_names_taker_and_clears_on_reconnect(robot, session):
-    runner = blockly_app.ProgramRunner(session)
+    runner = ProgramRunner(session)
     session.connect(robot.url)
     wait_for(lambda: connected(session))
     assert session.status()["connection"]["program_stopped"] is False
@@ -302,7 +300,7 @@ def test_takeover_stop_reason_names_taker_and_clears_on_reconnect(robot, session
 
 
 def test_takeover_without_program_reports_nothing_stopped(robot, session):
-    blockly_app.ProgramRunner(session)
+    ProgramRunner(session)
     session.connect(robot.url)
     wait_for(lambda: connected(session))
     robot.take_over("Rival-Robin")
@@ -311,7 +309,7 @@ def test_takeover_without_program_reports_nothing_stopped(robot, session):
 
 
 def test_wifi_stop_reason_is_refined_by_takeover(robot, session):
-    runner = blockly_app.ProgramRunner(session)
+    runner = ProgramRunner(session)
     session.connect(robot.url)
     wait_for(lambda: connected(session))
     runner.start_python("while True:\n    wait(0.05)\n")

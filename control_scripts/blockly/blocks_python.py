@@ -11,14 +11,9 @@ import keyword
 import math
 import re
 
-COLOURS = {
-    "red": "#ff0000",
-    "green": "#00ff00",
-    "blue": "#0000ff",
-    "yellow": "#ffff00",
-    "white": "#ffffff",
-    "purple": "#ff00ff",
-}
+from robot_config import LED_COLOURS
+
+COLOURS = dict(LED_COLOURS)
 HEX_TO_NAME = {value: name for name, value in COLOURS.items()}
 BUTTONS = ("A", "B", "X", "Y")
 DIRECTIONS = ("forward", "backward", "left", "right")
@@ -370,7 +365,7 @@ class _Generator:
         if kind == "opencv_hsv_value":
             values = ", ".join(
                 self.value(block, name, default=default)
-                for name, default in (("H", 40), ("S", 70), ("V", 70))
+                for name, default in (("H", "40"), ("S", "70"), ("V", "70"))
             )
             return f"({values})", ATOM
         if kind == "opencv_hsv_mask":
@@ -384,14 +379,14 @@ class _Generator:
             else:
                 low = ", ".join(
                     self.value(block, name, default=default)
-                    for name, default in (("LOW_H", 40), ("LOW_S", 70), ("LOW_V", 70))
+                    for name, default in (("LOW_H", "40"), ("LOW_S", "70"), ("LOW_V", "70"))
                 )
                 high = ", ".join(
                     self.value(block, name, default=default)
                     for name, default in (
-                        ("HIGH_H", 80),
-                        ("HIGH_S", 255),
-                        ("HIGH_V", 255),
+                        ("HIGH_H", "80"),
+                        ("HIGH_S", "255"),
+                        ("HIGH_V", "255"),
                     )
                 )
             return f"cv2.inRange({image}, ({low}), ({high}))", ATOM

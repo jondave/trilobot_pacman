@@ -14,8 +14,6 @@ select = ["E", "F", "W", "I", "B"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-# Live code left untouched by the dead-code cleanup.
-"control_scripts/blockly/app.py" = ["F841", "E402", "B", "I001"]
 "control_scripts/teleop_example.py" = ["I001"]
 "robot_scripts/robot_sender.py" = ["I001"]
 "robot_scripts/**" = ["E402"]
