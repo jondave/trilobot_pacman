@@ -100,6 +100,15 @@ path, name and public API because students import it.
 | `PAGE_RELEASE_AFTER_SECONDS` | `60` | release the robot this long after the page is gone |
 | `TRILOBOT_USER_DEMOS_DIR` | `control_scripts/blockly/demos/saved` | where **Save as demo** writes (`/data/demos` in Docker) |
 
+## Dev container
+
+`.devcontainer/devcontainer.json` builds the same setup automatically: it
+installs OpenCV's system libraries, creates `.venv` with pip from
+`requirements-dev.txt` and fetches the vendor libraries. The container's
+`.venv` lives in a Docker volume, so it never clashes with a `.venv` on your
+host. uv is installed in the container but stays optional. Ports 8750 (app)
+and 8765 (fake robot) are forwarded.
+
 ## VS Code
 
 `.vscode/` is tracked. It selects `.venv` (a plain venv or uv), enables pytest, formats Python with
