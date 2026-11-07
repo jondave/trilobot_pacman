@@ -275,6 +275,6 @@ def test_missing_or_bad_name_gets_a_guest_name(robot_url, query):
     async def run():
         async with connect(robot_url + query) as ws:
             hello = await wait_for_type(ws, "hello")
-            assert hello["session"].startswith("Guest-")
+            assert hello["session"].startswith("LEARNER-")
 
     asyncio.run(run())

@@ -102,8 +102,7 @@ path, name and public API because students import it.
 | `PAGE_CLOSE_GRACE_SECONDS` | `5` | wait after the tab closes before stopping the program |
 | `PAGE_HEARTBEAT_TIMEOUT_SECONDS` | `150` | stop the program if the page goes silent this long |
 | `PAGE_RELEASE_AFTER_SECONDS` | `60` | release the robot this long after the page is gone |
-| `TRILOBOT_SESSION_NAME` | (none) | fix the student's session name, e.g. `Grapes-Escape` |
-| `TRILOBOT_SESSION_NAME_FILE` | `<demos dir>/.session-name` | where the generated session name is saved |
+| `TRILOBOT_SESSION_NAME` | (random each start) | fix the student's session name, e.g. `Otter-Lemon` |
 | `TRILOBOT_USER_DEMOS_DIR` | `control_scripts/blockly/demos/saved` | where **Save as demo** writes (`/data/demos` in Docker) |
 
 ## Dev container

@@ -28,7 +28,7 @@ from program_runner import MAX_PYTHON_CHARS, PageWatch, ProgramRunner  # noqa: E
 from robot_config import block_definitions, browser_config  # noqa: E402
 from robot_directory import RobotDirectoryCache  # noqa: E402
 from robot_session import RobotSession, _clamp, _number  # noqa: E402
-from student_name import default_path, load_or_create  # noqa: E402
+from student_name import pick_name  # noqa: E402
 
 LOG = logging.getLogger("trilobot_blockly")
 app = Flask(__name__)
@@ -40,11 +40,7 @@ USER_LIBRARY_DIR = Path(
 )
 USER_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
 
-session = RobotSession(
-    student_name=load_or_create(
-        default_path(USER_LIBRARY_DIR), os.environ.get("TRILOBOT_SESSION_NAME")
-    )
-)
+session = RobotSession(student_name=pick_name(os.environ.get("TRILOBOT_SESSION_NAME")))
 runner = ProgramRunner(session)
 # Stops the program and lets go of the robot when the app tab goes away.
 page_watch = PageWatch(session, runner)
@@ -59,6 +55,12 @@ def index():
     return render_template(
         "index.html", config=browser_config(), blocks=block_definitions()
     )
+
+
+@app.get("/favicon.ico")
+def favicon():
+    """Browsers ask for /favicon.ico on their own; serve the SVG icon."""
+    return app.send_static_file("favicon.svg")
 
 
 @app.get("/api/robots")

@@ -82,7 +82,7 @@ usually give the smoothest video.
 
 Only one client drives a robot at a time. Add `?name=Apple-Grape` to the URL
 (for example `RobotClient("ws://10.247.0.123:8765?name=Apple-Grape")`) to be
-shown under that name; without it the robot calls you `Guest-` plus four letters. Connection state:
+shown under that name; without it the robot calls you `LEARNER-` plus four letters. Connection state:
 `connected`, `error`, `closed_event`, `close_code`, `close_reason`.
 
 <a id="close-codes"></a>

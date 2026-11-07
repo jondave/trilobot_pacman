@@ -1,3 +1,5 @@
+<img src="control_scripts/blockly/static/favicon.svg" alt="Trilobot Blockly icon" width="64" height="64" align="right">
+
 # trilobot_pacman
 
 Tools for programming and driving a Pimoroni Trilobot robot over the network. There
