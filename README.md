@@ -23,7 +23,9 @@ are two parts:
 ```text
 robot_scripts/            runs on the robot (standalone, no imports from control_scripts)
   robot_sender.py         the WebSocket server
-  trilobot-robot.service  systemd unit
+  trilobot-websocket.service  systemd unit
+  install_service.sh      installs and starts the unit for this checkout
+  ansible/deploy.yml      clones into /opt/trilobot_pacman and installs the unit on many robots
 control_scripts/          runs on the control/lab PC
   client.py               RobotClient, imported by students as `from client import RobotClient`
   teleop_example.py       keyboard teleop example

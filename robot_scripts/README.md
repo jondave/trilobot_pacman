@@ -47,29 +47,57 @@ dropped, not queued, when the link is slow.
 
 ## Run at boot with systemd
 
-1. Edit `trilobot-robot.service`: set `User`, `WorkingDirectory` and
-   `ExecStart` (marked `CHANGE`).
-2. Install and start it:
+From the `robot_scripts` folder on the robot:
 
-   ```bash
-   sudo cp trilobot-robot.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now trilobot-robot.service
-   ```
+```bash
+sudo ./install_service.sh
+```
 
-3. Follow the logs:
+This installs `trilobot-websocket.service` for wherever the checkout lives. It
+fills in this folder's path, the user who ran `sudo`, and `python3` (from a
+`.venv` in the repo or `robot_scripts/` if there is one; set `PYTHON=...` or
+`SERVICE_USER=...` to choose). It also removes the old `trilobot-robot.service`
+if it was installed. Run it again after moving the checkout.
 
-   ```bash
-   journalctl -u trilobot-robot -f
-   ```
+Follow the logs:
 
-   Each connection logs a line such as `Control client connected as <session
-   name>`, and rejected clients log `Rejected client; robot is in use by ...`.
-   Takeovers log `<new> took over from <old>` and reconnects log
-   `<name> resumed`.
+```bash
+journalctl -u trilobot-websocket -f
+```
 
-Other commands: `sudo systemctl restart trilobot-robot`, `systemctl status
-trilobot-robot`.
+Each connection logs a line such as `Control client connected as <session
+name>`, and rejected clients log `Rejected client; robot is in use by ...`.
+Takeovers log `<new> took over from <old>` and reconnects log `<name> resumed`.
+
+Other commands: `sudo systemctl restart trilobot-websocket`, `systemctl status
+trilobot-websocket`.
+
+To install by hand instead, copy `trilobot-websocket.service` to
+`/etc/systemd/system/`, replace the `@USER@`, `@ROBOT_SCRIPTS@` and `@PYTHON@`
+placeholders with absolute values, then run `sudo systemctl daemon-reload` and
+`sudo systemctl enable --now trilobot-websocket`.
+
+### Deploy to many robots with Ansible
+
+`ansible/deploy.yml` clones the repo over HTTPS into `/opt/trilobot_pacman`
+(owned by `pi`), installs `trilobot-websocket.service` for that folder, removes
+the old `trilobot-robot.service` and starts the service. Re-running it pulls
+the latest `main` and restarts the service only if something changed.
+
+```bash
+cd robot_scripts/ansible
+cp inventory.example.ini inventory.ini   # robots' IP addresses and passwords
+ansible-playbook -i inventory.ini deploy.yml
+```
+
+`inventory.ini` holds the SSH and sudo passwords (`ansible_password`,
+`ansible_become_password`) and is git-ignored; never commit it. Password logins
+need `sshpass` on the machine running Ansible (`sudo apt install sshpass`).
+
+Override `repo_version`, `install_dir`, `service_user` or `python` with `-e`,
+for example `-e repo_version=my-branch`. The robot's Python packages must
+already be installed. Stop any `python3 robot_sender.py` you started by hand
+first: only one copy can listen on port 8765.
 
 ## Control PC
 

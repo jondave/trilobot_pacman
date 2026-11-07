@@ -1,0 +1,97 @@
+# Clone trilobot_pacman into /opt/trilobot_pacman on each robot and run
+# robot_sender.py as trilobot-websocket.service.
+#
+#   ansible-playbook -i inventory.ini deploy.yml
+#
+# inventory.ini (copied from inventory.example.ini) holds the robots' IPs and
+# their SSH/sudo passwords.
+#
+# Re-running pulls the latest commit of repo_version and restarts the service
+# only if the code or the unit changed. The robot's Python packages (trilobot,
+# picamera2, websockets, Pillow) are assumed to be installed already.
+- name: Deploy the Trilobot WebSocket server
+  hosts: trilobots
+  become: true
+  vars:
+    repo_url: https://github.com/jondave/trilobot_pacman.git
+    repo_version: main
+    install_dir: /opt/trilobot_pacman
+    # Owns the checkout and runs the service: the robot's login user unless
+    # trilobot_service_user is set in the inventory.
+    service_user: "{{ trilobot_service_user | default(ansible_user) | default('pi', true) }}"
+    python: /usr/bin/python3
+    unit_path: /etc/systemd/system/trilobot-websocket.service
+
+  tasks:
+    - name: Install git
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create the install folder, owned by the service user
+      ansible.builtin.file:
+        path: "{{ install_dir }}"
+        state: directory
+        owner: "{{ service_user }}"
+        group: "{{ service_user }}"
+        mode: "0755"
+
+    - name: Clone or update the repository
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ install_dir }}"
+        version: "{{ repo_version }}"
+      become: true
+      become_user: "{{ service_user }}"
+      notify: Restart trilobot-websocket
+
+    - name: Read the unit template from the checkout
+      ansible.builtin.slurp:
+        src: "{{ install_dir }}/robot_scripts/trilobot-websocket.service"
+      register: unit_template
+
+    - name: Install trilobot-websocket.service
+      ansible.builtin.copy:
+        dest: "{{ unit_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: >-
+          {{ unit_template.content | b64decode
+             | replace('@USER@', service_user)
+             | replace('@ROBOT_SCRIPTS@', install_dir ~ '/robot_scripts')
+             | replace('@PYTHON@', python) }}
+      notify: Restart trilobot-websocket
+
+    - name: Check for the old trilobot-robot.service
+      ansible.builtin.stat:
+        path: /etc/systemd/system/trilobot-robot.service
+      register: old_unit
+
+    - name: Stop and disable the old trilobot-robot.service
+      ansible.builtin.systemd:
+        name: trilobot-robot.service
+        state: stopped
+        enabled: false
+      when: old_unit.stat.exists
+
+    - name: Remove the old trilobot-robot.service
+      ansible.builtin.file:
+        path: /etc/systemd/system/trilobot-robot.service
+        state: absent
+
+    - name: Enable and start trilobot-websocket.service
+      ansible.builtin.systemd:
+        name: trilobot-websocket.service
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart trilobot-websocket
+      ansible.builtin.systemd:
+        name: trilobot-websocket.service
+        state: restarted
+        daemon_reload: true

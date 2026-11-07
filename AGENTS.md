@@ -27,7 +27,7 @@ control_scripts/blockly/app.py     Flask routes, /api/status
   templates/index.html             page and Blockly toolbox
   demos/                           demo programs (.json blocks, .py)
   student_name.py, session_words.json  the student's session name (made here, sent to robots)
-robot_scripts/                     Pi side: robot_sender.py, systemd unit
+robot_scripts/                     Pi side: robot_sender.py, trilobot-websocket.service + install_service.sh
 scripts/fetch_vendor.sh            downloads Blockly + Monaco into static/vendor (gitignored)
 tests/                             pytest; fake_ws.py, robot_helpers.py, conftest.py
 docs/                              student and developer docs

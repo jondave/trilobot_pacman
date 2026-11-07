@@ -40,3 +40,6 @@ Thumbs.db
 
 # Frontend libraries fetched by scripts/fetch_vendor.sh
 control_scripts/blockly/static/vendor/
+
+# Local Ansible inventory (copy of robot_scripts/ansible/inventory.example.ini)
+robot_scripts/ansible/inventory.ini
