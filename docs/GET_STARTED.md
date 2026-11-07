@@ -11,10 +11,12 @@ You need:
 On your computer, run:
 
 ```bash
-docker run -p 8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
+docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
 ```
 
-Your saved demos are kept in the `trilobot_demos` volume, so they survive restarts. See [docs/BLOCKLY.md](docs/BLOCKLY.md) and [docs/PYTHON.md](docs/PYTHON.md) for guides.
+The `127.0.0.1:` prefix keeps the app reachable only from your own computer, because it can control the robot and run code with no password.
+
+Your saved demos are kept in the `trilobot_demos` volume, so they survive restarts. See [the Blockly guide](BLOCKLY.md) and [the Python guide](PYTHON.md) for guides.
 
 Leave this terminal running. Open the Blockly app in a browser:
 
@@ -38,7 +40,7 @@ Enter the password printed on the bottom of the robot. Then run:
 python3 ~/code/trilobot_pacman/robot_scripts/robot_sender.py
 ```
 
-Don't worry: If `robot_sender.py` is not already on the robot, a helper will help you get it on the robot.
+Don't worry: If `robot_sender.py` is not already on the robot, a helper will help you get it on the robot. Robot-side setup is described in [robot_scripts/README.md](../robot_scripts/README.md).
 
 Leave this SSH terminal running while you use Blockly. Return to the browser,
 select the robot, and press **Connect**.

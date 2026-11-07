@@ -1,4 +1,47 @@
+[project]
+name = "trilobot-pacman"
+version = "0.1.0"
+description = "Blockly-based web lab for programming the Trilobot robot"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask==3.1.3",
+    "websockets==17.4",
+    "opencv-python==5.0.0.93",
+    "numpy==2.5.4",
+    # The app formats Python with black at runtime.
+    "black==26.10.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.4",
+    "playwright==1.64.1",
+]
+
+[tool.uv]
+# An application, not an installable package.
+package = false
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]
 include = '\.pyi?$'
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+# Demos are student scripts run inside an injected namespace.
+extend-exclude = [".venv", "control_scripts/blockly/demos"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"control_scripts/teleop_example.py" = ["I001"]
+"robot_scripts/robot_sender.py" = ["I001"]
+"robot_scripts/**" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

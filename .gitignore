@@ -31,5 +31,12 @@ control_scripts/blockly/demos/saved/
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
 *.swp
+
+# Frontend libraries fetched by scripts/fetch_vendor.sh
+control_scripts/blockly/static/vendor/

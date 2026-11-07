@@ -1,0 +1,27 @@
+{
+	"name": "Trilobot Pacman - Python 3",
+	"image": "mcr.microsoft.com/devcontainers/python:3-3.12-trixie",
+	"features": {
+		"ghcr.io/devcontainers-extra/features/uv:1": {}
+	},
+	// Keep the container's .venv in a volume so it doesn't clash with a host .venv
+	"mounts": [
+		"source=trilobot-pacman-venv,target=${containerWorkspaceFolder}/.venv,type=volume"
+	],
+	// libgl1/libglib2.0-0 are needed by opencv-python (same as the app Dockerfile)
+	"postCreateCommand": "sudo apt-get update -qq && sudo apt-get install -y -qq libgl1 libglib2.0-0 && sudo chown vscode .venv && python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && bash scripts/fetch_vendor.sh",
+	"forwardPorts": [8750, 8765],
+	"portsAttributes": {
+		"8750": { "label": "Blockly app" },
+		"8765": { "label": "Fake robot" }
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.black-formatter",
+				"charliermarsh.ruff"
+			]
+		}
+	}
+}

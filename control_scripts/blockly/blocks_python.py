@@ -11,14 +11,9 @@ import keyword
 import math
 import re
 
-COLOURS = {
-    "red": "#ff0000",
-    "green": "#00ff00",
-    "blue": "#0000ff",
-    "yellow": "#ffff00",
-    "white": "#ffffff",
-    "purple": "#ff00ff",
-}
+from robot_config import LED_COLOURS
+
+COLOURS = dict(LED_COLOURS)
 HEX_TO_NAME = {value: name for name, value in COLOURS.items()}
 BUTTONS = ("A", "B", "X", "Y")
 DIRECTIONS = ("forward", "backward", "left", "right")
@@ -168,6 +163,124 @@ def blocks_to_python(workspace):
     return _Generator(workspace).program()
 
 
+def blocks_to_python_with_map(workspace):
+    """Return ``(code, line_map)``; code is exactly ``blocks_to_python``'s.
+
+    line_map is ``{line_number: block_id}`` (1-based) for every generated
+    line, naming the innermost statement block that produced it. A block's
+    header line (``while ...:``, ``if ...:``, ``else:``) maps to that block.
+    Blocks without an id are left out.
+    """
+    generator = _Generator(workspace)
+    code = generator.program()
+    line_map = {}
+    number = 1
+    for index, chunk in enumerate(generator.chunks):
+        if index:
+            number += 1  # the blank line between stacks
+        for line in chunk:
+            owner = getattr(line, "owner", None)
+            if owner is not None:
+                line_map[number] = owner
+            number += 1
+    return code, line_map
+
+
+class _Line(str):
+    """A generated line that remembers which statement block made it."""
+
+
+def _words(kind):
+    words = re.sub(r"^(robot|controls|opencv|logic|math|variables)_", "", str(kind))
+    return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", words).replace("_", " ").lower()
+
+
+def _seconds_words(text):
+    return f"{text} second" + ("" if text == "1" else "s")
+
+
+def block_labels(workspace):
+    """Return ``{block_id: short student-friendly label}`` for statement blocks."""
+    labels = {}
+    generator = _Generator(workspace)
+
+    def number(block, name, default):
+        child = _child(block, name)
+        if child is None:
+            return default
+        try:
+            return generator.expression(child)[0]
+        except ValueError:
+            return default
+
+    def label(block):
+        kind = block.get("type")
+        fields = block.get("fields") or {}
+        if kind in MOVE_FUNCTIONS:
+            move = MOVE_FUNCTIONS[kind].replace("_", " ")
+            move = "move " + move if move in ("forward", "backward") else move
+            return f"{move} for {_seconds_words(number(block, 'SECONDS', '1'))}"
+        if kind == "robot_drive_for":
+            direction = str(fields.get("DIRECTION", "FORWARD")).lower()
+            seconds = _seconds_words(number(block, "SECONDS", "1"))
+            return f"drive {direction} for {seconds}"
+        if kind == "robot_wait":
+            return f"wait {_seconds_words(number(block, 'SECONDS', '1'))}"
+        if kind == "robot_stop":
+            return "stop the motors"
+        if kind == "robot_print":
+            return "print"
+        if kind == "robot_take_picture":
+            return "take a picture"
+        if kind == "robot_show_live_camera":
+            return "show image in live camera"
+        if kind == "robot_underlights_on":
+            return "lights on"
+        if kind == "robot_underlights_off":
+            return "lights off"
+        if kind and kind.startswith("robot_lights_") and kind[13:] in COLOURS:
+            return f"lights {kind[13:]}"
+        if kind == "robot_set_lights":
+            return f"set lights {_colour_text(fields.get('COLOR'))}"
+        if kind == "robot_flash_lights":
+            return f"flash lights {_colour_text(fields.get('COLOR'))}"
+        if kind == "robot_button_light":
+            return f"button {fields.get('BUTTON', 'A')} light"
+        if kind == "robot_wait_until":
+            return "wait until"
+        if kind == "robot_if_color":
+            return f"check for {_colour_text(fields.get('COLOR'))}"
+        if kind in ("robot_if_distance",):
+            return "check distance"
+        if kind in ("robot_repeat", "controls_repeat_ext"):
+            return f"repeat {number(block, 'TIMES', '2')} times"
+        if kind == "controls_whileUntil":
+            return "repeat until" if fields.get("MODE") == "UNTIL" else "repeat while"
+        if kind == "controls_for":
+            return f"count with {generator.variable(fields.get('VAR'))}"
+        if kind == "controls_if":
+            return "if"
+        if kind == "variables_set":
+            return f"set {generator.variable(fields.get('VAR'))}"
+        if kind == "math_change":
+            return f"change {generator.variable(fields.get('VAR'))}"
+        return _words(kind)
+
+    def visit(block):
+        if not isinstance(block, dict):
+            return
+        if block.get("id") and block.get("type") not in EXPRESSION_BLOCKS:
+            labels[block["id"]] = label(block)[:60]
+        for value in (block.get("inputs") or {}).values():
+            if isinstance(value, dict):
+                visit(value.get("block"))
+        visit(_following(block))
+
+    for stack in generator.stacks:
+        visit(stack)
+    return labels
+
+
 class _Generator:
     def __init__(self, workspace):
         workspace = workspace if isinstance(workspace, dict) else {}
@@ -180,18 +293,27 @@ class _Generator:
                 self.names[item["id"]] = _python_name(item.get("name") or item["id"])
         blocks = workspace.get("blocks")
         self.stacks = blocks.get("blocks", []) if isinstance(blocks, dict) else []
+        self.chunks = []
 
     def program(self):
-        chunks = []
+        self.chunks = []
         for stack in self.stacks:
             if isinstance(stack, dict) and stack.get("type") not in EXPRESSION_BLOCKS:
-                chunks.append("\n".join(self.chain(stack, 0)))
+                self.chunks.append(self.chain(stack, 0))
+        chunks = ["\n".join(chunk) for chunk in self.chunks]
         return "\n\n".join(chunks) + "\n" if chunks else ""
 
     def chain(self, block, depth):
         lines = []
         while isinstance(block, dict):
-            lines.extend(self.statement(block, depth))
+            owner = block.get("id")
+            for line in self.statement(block, depth):
+                # Lines from nested bodies already name their own block; a
+                # block without an id leaves its lines to its parent.
+                if owner is not None and not isinstance(line, _Line):
+                    line = _Line(line)
+                    line.owner = owner
+                lines.append(line)
             block = _following(block)
         return lines
 
@@ -334,7 +456,10 @@ class _Generator:
             name = self.variable(fields.get("VAR"))
             delta = self.value(block, "DELTA", default="1")
             return [f"{pad}{name} += {delta}"]
-        return [f"{pad}pass  # unsupported block: {kind}"]
+        raise ValueError(
+            f"The block type '{kind}' cannot be turned into Python. "
+            "Remove it from the workspace and try again."
+        )
 
     def expression(self, block):
         kind = block.get("type")
@@ -367,7 +492,7 @@ class _Generator:
         if kind == "opencv_hsv_value":
             values = ", ".join(
                 self.value(block, name, default=default)
-                for name, default in (("H", 40), ("S", 70), ("V", 70))
+                for name, default in (("H", "40"), ("S", "70"), ("V", "70"))
             )
             return f"({values})", ATOM
         if kind == "opencv_hsv_mask":
@@ -381,14 +506,14 @@ class _Generator:
             else:
                 low = ", ".join(
                     self.value(block, name, default=default)
-                    for name, default in (("LOW_H", 40), ("LOW_S", 70), ("LOW_V", 70))
+                    for name, default in (("LOW_H", "40"), ("LOW_S", "70"), ("LOW_V", "70"))
                 )
                 high = ", ".join(
                     self.value(block, name, default=default)
                     for name, default in (
-                        ("HIGH_H", 80),
-                        ("HIGH_S", 255),
-                        ("HIGH_V", 255),
+                        ("HIGH_H", "80"),
+                        ("HIGH_S", "255"),
+                        ("HIGH_V", "255"),
                     )
                 )
             return f"cv2.inRange({image}, ({low}), ({high}))", ATOM
@@ -432,7 +557,10 @@ class _Generator:
             symbol = "<" if fields.get("OPERATOR", "LESS_THAN") == "LESS_THAN" else ">"
             limit = self.value(block, "CENTIMETRES", COMPARE + 1, "20")
             return f"distance() {symbol} {limit}", COMPARE
-        return "None", ATOM
+        raise ValueError(
+            f"The block type '{kind}' cannot be turned into Python. "
+            "Remove it from the workspace and try again."
+        )
 
 
 def _pad(depth):
@@ -550,7 +678,7 @@ class _Parser:
         names = [name for name, _ in params]
         if len(call.args) > len(names):
             self.fail(call, f"`{call.func.id}` was given too many values")
-        bound = dict(zip(names, call.args))
+        bound = dict(zip(names, call.args, strict=False))
         for key in call.keywords:
             if key.arg not in names or key.arg in bound:
                 self.fail(
@@ -956,7 +1084,7 @@ class _Parser:
                                     "fields": {"NUM": value},
                                 }
                             }
-                            for name, value in zip(("H", "S", "V"), values)
+                            for name, value in zip(("H", "S", "V"), values, strict=False)
                         },
                     )
                 }

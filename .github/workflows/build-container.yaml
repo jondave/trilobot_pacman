@@ -72,4 +72,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_IMAGE }}
           short-description: Blockly-based web lab for programming the Trilobot robot
-          readme-filepath: ./README.md
+          readme-filepath: ./docs/GET_STARTED.md
