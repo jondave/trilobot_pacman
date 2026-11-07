@@ -250,3 +250,31 @@ def test_force_connect_racing_resume_leaves_one_session(monkeypatch, sender):
             await server.wait_closed()
 
     asyncio.run(run())
+
+
+def test_app_supplied_name_is_used_on_every_robot():
+    """One student keeps one name across robots, including when taking over."""
+
+    async def run():
+        with fake_robot() as first_url, fake_robot() as second_url:
+            async with connect(f"{first_url}/?name=Grapes-Escape") as a:
+                assert (await wait_for_type(a, "hello"))["session"] == "Grapes-Escape"
+            async with connect(f"{second_url}/?name=Kiwi-Lemon") as holder:
+                await wait_for_type(holder, "hello")
+                async with connect(f"{second_url}/?name=Grapes-Escape&force=1") as b:
+                    hello = await wait_for_type(b, "hello")
+                    assert hello["session"] == "Grapes-Escape"
+                    taken = await wait_for_type(holder, "taken_over")
+                    assert taken["by"] == "Grapes-Escape"
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("query", ["", "/?name=", "/?name=<script>", "/?name=a-b-c-d"])
+def test_missing_or_bad_name_gets_a_guest_name(robot_url, query):
+    async def run():
+        async with connect(robot_url + query) as ws:
+            hello = await wait_for_type(ws, "hello")
+            assert hello["session"].startswith("Guest-")
+
+    asyncio.run(run())

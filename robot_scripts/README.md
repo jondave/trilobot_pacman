@@ -27,8 +27,12 @@ colour) for debugging.
 
 Only one control client drives the robot at a time.
 
-- `hello` includes `session` (a name like `Apple-Pairs`), `resume` (a secret
-  token), `robot` (the Pi's hostname) and `resumed`.
+- `?name=Grapes-Escape` sets the session name. The Blockly app picks one name
+  per student and sends it to every robot, so a student has the same name on
+  all of them. Names are two or three letter-only words joined by hyphens;
+  a missing or invalid name gets a `Guest-ABCD` name.
+- `hello` includes `session` (that name), `resume` (a secret token), `robot`
+  (the Pi's hostname) and `resumed`.
 - A second client gets `busy` (with `holder` and `since`) and is closed with
   code 4001.
 - `?force=1` takes over: the old client gets `taken_over` (`by`, `at`) and is

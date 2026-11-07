@@ -242,6 +242,20 @@ def test_with_query():
         "ws://h:1?force=1&resume=t"
     )
     assert _with_query("ws://h:1?force=1&x=2") == "ws://h:1?x=2"
+    assert _with_query("ws://h:1?name=Old-One", name="Grapes-Escape") == (
+        "ws://h:1?name=Grapes-Escape"
+    )
+
+
+def test_student_name_is_sent_on_every_connect(robot):
+    named = RobotSession(backoff=(0.1,), student_name="Grapes-Escape")
+    try:
+        named.connect(robot.url)
+        wait_for(lambda: connected(named))
+        assert robot.requests[-1]["name"] == "Grapes-Escape"
+        assert named.status()["connection"]["student"] == "Grapes-Escape"
+    finally:
+        named.disconnect()
 
 
 def test_restart_over_busy_loop_leaves_new_program_stoppable():

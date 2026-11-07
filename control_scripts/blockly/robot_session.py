@@ -135,14 +135,16 @@ def _placeholder_jpeg():
     return encoded.tobytes() if ok else b""
 
 
-def _with_query(url, *, force=False, resume=None):
-    """Return url with the robot's force/resume query parameters set."""
+def _with_query(url, *, force=False, resume=None, name=None):
+    """Return url with the robot's force/resume/name query parameters set."""
     parts = urlparse(url)
     query = [
         (key, value)
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if key not in ("force", "resume")
+        if key not in ("force", "resume", "name")
     ]
+    if name:
+        query.append(("name", name))
     if force:
         query.append(("force", "1"))
     if resume:
@@ -173,7 +175,10 @@ class RobotSession:
         telemetry_timeout=TELEMETRY_TIMEOUT_SECONDS,
         hello_timeout=HELLO_TIMEOUT_SECONDS,
         open_timeout=OPEN_TIMEOUT_SECONDS,
+        student_name=None,
     ):
+        # Sent to every robot (?name=) so the student has one name on all of them.
+        self.student_name = student_name or None
         self.backoff = tuple(backoff)
         self.offline_after = offline_after
         self.slow_retry = slow_retry
@@ -477,7 +482,9 @@ class RobotSession:
             with self.lock:
                 resume = self.resume_token
             client = RobotClient(
-                _with_query(url, force=use_force, resume=resume),
+                _with_query(
+                    url, force=use_force, resume=resume, name=self.student_name
+                ),
                 on_message=functools.partial(self._on_message, generation),
                 open_timeout=self.open_timeout,
             )
@@ -942,6 +949,7 @@ class RobotSession:
                 "since": self._weak_since if weak else self.state_since,
                 "attempt": self.attempt,
                 "session": self.session_name or None,
+                "student": self.student_name,
                 "holder": self.holder,
                 "robot": self.robot_name,
                 "url": self.url or None,
@@ -967,6 +975,7 @@ class RobotSession:
                 "url": self.url,
                 "error": error,
                 "session_name": self.session_name,
+                "student_name": self.student_name,
                 "busy_session": self.busy_session,
                 "kicked": self.kicked,
                 "telemetry": self.telemetry_snapshot(),

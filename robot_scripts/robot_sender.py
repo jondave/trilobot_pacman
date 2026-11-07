@@ -16,12 +16,12 @@ import json
 import logging
 import math
 import random
+import re
 import secrets
 import socket
 import time
 from contextlib import suppress
 from io import BytesIO
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from threading import Lock
 
@@ -30,7 +30,6 @@ try:
 except ImportError:
     from websockets.server import serve
 from websockets.exceptions import ConnectionClosed
-
 
 HOST = "0.0.0.0"
 PORT = 8765
@@ -56,9 +55,11 @@ PING_INTERVAL = 5
 PING_TIMEOUT = 5
 RESUME_GRACE = 60.0  # Seconds a dropped session's resume token stays valid.
 
-SESSION_WORDS = json.loads(
-    (Path(__file__).with_name("session_words.json")).read_text(encoding="utf-8")
-)
+# Session names come from the app (?name=Grapes-Escape) so a student keeps one
+# name on every robot. Must match NAME_PATTERN in control_scripts/blockly/
+# student_name.py. Clients that send none (or a bad one) get a Guest- name.
+NAME_PATTERN = re.compile(r"[A-Za-z]{1,12}(?:-[A-Za-z]{1,12}){1,2}")
+GUEST_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 CLOSE_BUSY = 4001
 CLOSE_KICKED = 4002
 CLOSE_REPLACED = 4003
@@ -673,10 +674,13 @@ def current_session_name():
     return None
 
 
-def new_session_name():
+def new_session_name(requested=""):
+    """The client's own name if valid, else a fresh Guest- name."""
+    if NAME_PATTERN.fullmatch(requested or ""):
+        return requested
     taken = {session["name"] for session in active_sessions.values()}
     while True:
-        name = "-".join(word.capitalize() for word in random.sample(SESSION_WORDS, 2))
+        name = "Guest-" + "".join(random.choice(GUEST_LETTERS) for _ in range(4))
         if name not in taken:
             return name
 
@@ -785,7 +789,7 @@ async def admit_client(websocket, send_lock):
             # The old socket is half-dead (e.g. Wi-Fi drop); replace it quietly.
             evict_session(resume_key, CLOSE_REPLACED, "replaced by resume")
     else:
-        session_name = new_session_name()
+        session_name = new_session_name(query_param(websocket, "name"))
         token = secrets.token_urlsafe(16)
         since = time.time()
     if active_sessions:

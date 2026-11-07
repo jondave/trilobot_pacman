@@ -306,6 +306,26 @@ def test_close_codes_match_between_robot_and_client():
     assert robot == library
 
 
+def test_session_name_pattern_matches_between_robot_and_app():
+    """The app makes names; the robot must accept exactly the ones it makes."""
+    import ast
+
+    import student_name
+
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "robot_scripts" / "robot_sender.py").read_text("utf-8")
+    patterns = [
+        node.value.args[0].value
+        for node in ast.parse(source).body
+        if isinstance(node, ast.Assign)
+        and any(getattr(t, "id", None) == "NAME_PATTERN" for t in node.targets)
+    ]
+    assert patterns == [student_name.NAME_PATTERN.pattern]
+    words = student_name.load_words()
+    assert all(re.fullmatch(r"[a-z]{1,12}", word) for word in words)
+    assert len(set(words)) == len(words) > 100
+
+
 def test_client_requirements_match_uv_lock():
     """control_scripts/requirements.txt (for library users) must not drift from uv.lock."""
     root = BLOCKLY.parents[1]
@@ -378,7 +398,9 @@ def test_pyproject_runtime_and_dev_pins_are_all_in_pip_files():
     runtime = _pyproject_pins(project["project"]["dependencies"])
     dev = _pyproject_pins(project["dependency-groups"]["dev"])
     pip_runtime = _parse_pins(root / "control_scripts" / "requirements.txt")
-    pip_runtime |= _parse_pins(root / "control_scripts" / "blockly" / "requirements.txt")
+    pip_runtime |= _parse_pins(
+        root / "control_scripts" / "blockly" / "requirements.txt"
+    )
     assert pip_runtime == runtime
     assert _parse_pins(root / "requirements-dev.txt") == dev
 
