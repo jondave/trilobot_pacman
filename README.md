@@ -1,4 +1,4 @@
-<img src="control_scripts/blockly/static/favicon.svg" alt="Trilobot Blockly icon" width="64" height="64" align="right">
+<img src="control_scripts/blockly/static/favicon.svg?v=2" alt="Trilobot Blockly icon" width="64" height="64" align="right">
 
 # Trilobot Pacman
 
