@@ -58,7 +58,7 @@ RESUME_GRACE = 60.0  # Seconds a dropped session's resume token stays valid.
 # Session names come from the app (?name=Grapes-Escape) so a student keeps one
 # name on every robot. Must match NAME_PATTERN in control_scripts/blockly/
 # student_name.py. Clients that send none (or a bad one) get a LEARNER- name.
-NAME_PATTERN = re.compile(r"[A-Za-z]{1,12}(?:-[A-Za-z]{1,12}){1,2}")
+NAME_PATTERN = re.compile(r"[A-Za-z0-9]{1,64}(?:-[A-Za-z0-9]{1,64}){1,2}")
 GUEST_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 GUEST_PREFIX = "LEARNER-"
 CLOSE_BUSY = 4001

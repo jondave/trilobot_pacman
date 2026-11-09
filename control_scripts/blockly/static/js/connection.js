@@ -329,8 +329,26 @@ function renderLamp(connState, conn) {
   const session = $("chip-session");
   const sessionText = live && conn.session ? "You are " + conn.session : "";
   session.hidden = !sessionText;
-  if (session.textContent !== sessionText) session.textContent = sessionText;
+  const sessionLabel = $("chip-session-text");
+  if (sessionLabel.textContent !== sessionText) {
+    sessionLabel.textContent = sessionText;
+    fitSessionText();
+  }
 }
+
+// Scroll the "You are …" line back and forth when the name is too long to fit.
+function fitSessionText() {
+  const session = $("chip-session");
+  const overflow = $("chip-session-text").scrollWidth - session.clientWidth;
+  const scrolling = !session.hidden && session.clientWidth > 0 && overflow > 1;
+  session.classList.toggle("is-scrolling", scrolling);
+  if (!scrolling) return;
+  session.style.setProperty("--scroll-shift", -overflow + "px");
+  // About 40px a second, plus the pauses at each end.
+  session.style.setProperty("--scroll-seconds", Math.max(4, overflow / 40 / 0.7) + "s");
+}
+
+window.addEventListener("resize", fitSessionText);
 
 function toggleConnection() {
   if ($("connect-button").dataset.action === "connect") connectRobot();

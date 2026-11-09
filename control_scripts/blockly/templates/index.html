@@ -6,7 +6,7 @@
   <title>Trilobot Blockly</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=22) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=23) }}">
 </head>
 <body>
   <header class="topbar">
@@ -29,7 +29,7 @@
         <span id="quality-lamp" class="quality-lamp red" aria-hidden="true"></span>
         <span class="chip-lines">
           <span id="quality-text" class="quality-text" role="status">Not connected</span>
-          <span id="chip-session" class="chip-session" hidden></span>
+          <span id="chip-session" class="chip-session" hidden><span id="chip-session-text" class="chip-session-text"></span></span>
         </span>
       </span>
       <button id="help-button" class="help-button" title="Show the quick start guide" aria-label="Show the quick start guide"><i class="fas fa-question-circle icon-purple" aria-hidden="true"></i> <span class="btn-text">Help</span></button>
@@ -377,6 +377,6 @@
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=42) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=43) }}"></script>
 </body>
 </html>

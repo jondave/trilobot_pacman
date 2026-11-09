@@ -19,7 +19,7 @@ from pathlib import Path
 LOG = logging.getLogger("trilobot_blockly")
 WORDS_FILE = Path(__file__).resolve().with_name("session_words.json")
 # Must match NAME_PATTERN in robot_scripts/robot_sender.py.
-NAME_PATTERN = re.compile(r"[A-Za-z]{1,12}(?:-[A-Za-z]{1,12}){1,2}")
+NAME_PATTERN = re.compile(r"[A-Za-z0-9]{1,64}(?:-[A-Za-z0-9]{1,64}){1,2}")
 
 
 def load_words(path=WORDS_FILE):

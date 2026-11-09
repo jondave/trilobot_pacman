@@ -350,7 +350,7 @@ def test_session_name_pattern_matches_between_robot_and_app():
     ]
     assert patterns == [student_name.NAME_PATTERN.pattern]
     words = student_name.load_words()
-    assert all(re.fullmatch(r"[a-z]{1,12}", word) for word in words)
+    assert all(re.fullmatch(r"[a-z0-9]{1,64}", word) for word in words)
     assert len(set(words)) == len(words) > 100
 
 

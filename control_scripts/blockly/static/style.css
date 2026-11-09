@@ -281,9 +281,43 @@ button.icon-only > .fas {
 }
 
 .chip-session {
+  max-width: 18rem;
+  overflow: hidden;
   color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 600;
+}
+
+.chip-session-text {
+  display: inline-block;
+}
+
+/* A name too long for the chip scrolls back and forth (set by connection.js). */
+.chip-session.is-scrolling .chip-session-text {
+  animation: chip-session-scroll var(--scroll-seconds, 8s) ease-in-out infinite alternate;
+}
+
+@keyframes chip-session-scroll {
+  0%, 15% {
+    transform: translateX(0);
+  }
+  85%, 100% {
+    transform: translateX(var(--scroll-shift, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip-session {
+    text-overflow: ellipsis;
+  }
+
+  .chip-session-text {
+    display: inline;
+  }
+
+  .chip-session.is-scrolling .chip-session-text {
+    animation: none;
+  }
 }
 
 @media (max-width: 1279px) {
