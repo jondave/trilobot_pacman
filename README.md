@@ -1,6 +1,8 @@
-<img src="control_scripts/blockly/static/favicon.svg" alt="Trilobot Blockly icon" width="64" height="64" align="right">
+<img src="control_scripts/blockly/static/favicon.svg?v=2" alt="Trilobot Blockly icon" width="64" height="64" align="right">
 
-# trilobot_pacman
+# Trilobot Pacman
+
+Content in this repository is built for a workshop with Trilobot robots teaching students how to build a game of Pacman.
 
 Tools for programming and driving a Pimoroni Trilobot robot over the network. There
 are two parts:
@@ -15,7 +17,7 @@ are two parts:
 ## Quick start
 
 1. Run the app on your computer (Docker command in [docs/GET_STARTED.md](docs/GET_STARTED.md)).
-2. Start `robot_sender.py` on the robot (same guide).
+2. Start `robot_sender.py` on the robot or install it as a systemd service (same guide).
 3. Open <http://localhost:8750>, choose the robot and press **Connect**.
 
 ## Repository layout

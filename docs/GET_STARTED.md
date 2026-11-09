@@ -8,7 +8,7 @@ You need:
 
 ## 1. Start the Blockly app
 
-On your computer, run:
+Open Docker Desktop. Then open a terminal on your computer and run:
 
 ```bash
 docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
@@ -18,7 +18,7 @@ The `127.0.0.1:` prefix keeps the app reachable only from your own computer, bec
 
 Your saved demos are kept in the `trilobot_demos` volume, so they survive restarts. See [the Blockly guide](BLOCKLY.md) and [the Python guide](PYTHON.md) for guides.
 
-Leave this terminal running. Open the Blockly app in a browser:
+Leave this terminal running. Open a web browser and go to:
 
 [http://localhost:8750](http://localhost:8750)
 
@@ -26,24 +26,29 @@ The robot list in the app shows each robot's name and private IP address.
 Choose your robot from the list. If it is not listed, choose **Enter address
 manually…** and edit the pre-filled WebSocket address, a helper will show you how to find the IP.
 
-## 2. Start the robot script
+## 2. Connect to the robot
 
-SSH into the robot using the same IP address:
-
-```bash
-ssh pi@ROBOT_IP
-```
-
-Enter the password printed on the bottom of the robot. Then run:
+In the Blockly app, find your robot's IP address. Open another terminal on
+your computer and SSH into the robot, replacing `XX.XX` with the last two
+parts of its IP address:
 
 ```bash
-python3 ~/code/trilobot_pacman/robot_scripts/robot_sender.py
+ssh pi@10.247.XX.XX
 ```
 
-Don't worry: If `robot_sender.py` is not already on the robot, a helper will help you get it on the robot. Robot-side setup is described in [robot_scripts/README.md](../robot_scripts/README.md).
+Enter the password printed on the bottom of the robot. In the robot's terminal,
+clone the code and start the robot script:
 
-Leave this SSH terminal running while you use Blockly. Return to the browser,
-select the robot, and press **Connect**.
+```bash
+git clone https://github.com/jondave/trilobot_pacman
+cd trilobot_pacman/robot_scripts
+python robot_sender.py
+```
+
+If you already cloned the repository on the robot, skip the `git clone` command
+and go to its `robot_scripts` folder. Leave this terminal running while you use
+Blockly. Return to the browser, select your robot, and press **Connect**.
+Robot-side setup is described in [robot_scripts/README.md](../robot_scripts/README.md).
 
 ## 3. Run a program
 
