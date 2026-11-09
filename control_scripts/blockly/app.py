@@ -25,9 +25,13 @@ from blocks_python import (  # noqa: E402
     python_to_blocks,
 )
 from program_runner import MAX_PYTHON_CHARS, PageWatch, ProgramRunner  # noqa: E402
-from robot_config import block_definitions, browser_config  # noqa: E402
+from robot_config import (  # noqa: E402
+    DEFAULT_VIDEO_CONFIG,
+    block_definitions,
+    browser_config,
+)
 from robot_directory import robot_directory_answer  # noqa: E402
-from robot_session import RobotSession, _clamp, _number  # noqa: E402
+from robot_session import ACTIVE_STATES, RobotSession, _clamp, _number  # noqa: E402
 from student_name import pick_name  # noqa: E402
 
 LOG = logging.getLogger("trilobot_blockly")
@@ -41,6 +45,7 @@ USER_LIBRARY_DIR = Path(
 USER_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
 # docs/ at the repo root is the single source; the page renders it from markdown.
 PYTHON_REFERENCE = BLOCKLY_DIR.parents[1] / "docs" / "PYTHON_REFERENCE.md"
+WEBSOCKET_EXAMPLE = BLOCKLY_DIR.parent / "websocket_example.py"
 
 session = RobotSession(student_name=pick_name(os.environ.get("TRILOBOT_SESSION_NAME")))
 runner = ProgramRunner(session)
@@ -72,6 +77,20 @@ def python_reference():
     except OSError:
         abort(404)
     return Response(text, mimetype="text/markdown")
+
+
+@app.get("/api/downloads/websocket_example.py")
+def websocket_example_download():
+    """A standalone script that talks to the robot's WebSocket directly."""
+    try:
+        text = WEBSOCKET_EXAMPLE.read_text(encoding="utf-8")
+    except OSError:
+        abort(404)
+    return Response(
+        text,
+        mimetype="text/x-python",
+        headers={"Content-Disposition": 'attachment; filename="websocket_example.py"'},
+    )
 
 
 @app.get("/api/robots")
@@ -260,6 +279,23 @@ def video_config():
         )
     except Exception as error:
         return jsonify({"error": str(error)}), 409
+
+
+@app.post("/api/camera/reset")
+def camera_reset():
+    """Put the camera back how it started: live picture, default settings."""
+    runner.camera_view = None
+    session.clear_camera_overlay()
+    try:
+        video = session.configure_video(DEFAULT_VIDEO_CONFIG)
+        message = "Camera reset: live picture and default settings"
+    except RuntimeError as error:
+        if session.state in ACTIVE_STATES:
+            return jsonify({"error": str(error)}), 409
+        # Not connected: the page sends these settings when it next connects.
+        video = dict(DEFAULT_VIDEO_CONFIG)
+        message = "Camera settings reset; they are used when you connect"
+    return jsonify({"video": video, "message": message})
 
 
 @app.get("/api/video.mjpg")

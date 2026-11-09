@@ -6,7 +6,7 @@
   <title>Trilobot Blockly</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=23) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=24) }}">
 </head>
 <body>
   <header class="topbar">
@@ -98,7 +98,10 @@
           <div>
             <h2>Camera</h2>
           </div>
-          <span id="vision-label" class="vision-status" hidden></span>
+          <div class="camera-heading-tools">
+            <span id="vision-label" class="vision-status" hidden></span>
+            <button id="reset-camera-button" class="quiet-button camera-reset" title="Show the live picture again and put the camera settings back to normal"><i class="fas fa-undo-alt icon-accent" aria-hidden="true"></i> Reset camera</button>
+          </div>
         </div>
         <div class="stage"><img alt="Live robot camera"><div id="video-overlay" class="video-overlay" role="status" hidden></div></div>
         <div id="distance-readout" class="distance-readout">Distance: <span id="telemetry">—</span></div>
@@ -377,6 +380,6 @@
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=43) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=44) }}"></script>
 </body>
 </html>

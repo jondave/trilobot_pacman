@@ -41,6 +41,10 @@ function render(markdown) {
   for (const link of body.querySelectorAll("a[href]")) {
     const href = link.getAttribute("href");
     if (href.startsWith("#")) continue;
+    if (href.startsWith("/api/downloads/")) {
+      link.setAttribute("download", "");
+      continue;
+    }
     if (/^https?:\/\//i.test(href)) {
       link.target = "_blank";
       link.rel = "noopener noreferrer";

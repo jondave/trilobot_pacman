@@ -39,6 +39,12 @@ ROBOT_QR_PATTERN = re.compile(
     r"^https://lcastor\.lincoln\.ac\.uk/#(trilo-\d{2})$", re.IGNORECASE
 )
 
+# Box colours (BGR) for scan_robot_qr(), matching the green, orange and red
+# design tokens in style.css: robot code, other code, unreadable code.
+QR_ROBOT_COLOUR = (119, 180, 47)
+QR_OTHER_COLOUR = (50, 154, 228)
+QR_UNREADABLE_COLOUR = (90, 90, 231)
+
 _MOVES = {
     "forward": lambda speed: (speed, speed),
     "backward": lambda speed: (-speed, -speed),
@@ -701,26 +707,38 @@ class ProgramRunner:
             return ""
 
         detector = cv2.QRCodeDetector()
-        decoded = []
+        # (text, corner points) for every code found; text is "" if unreadable.
+        codes = []
         try:
-            value, _, _ = detector.detectAndDecode(frame)
-            if value:
-                decoded.append(value)
-        except cv2.error:
-            pass
-        try:
-            found, values, _, _ = detector.detectAndDecodeMulti(frame)
-            if found:
-                decoded.extend(value for value in values if value)
+            found, values, points, _ = detector.detectAndDecodeMulti(frame)
+            if found and points is not None:
+                codes.extend(zip(values, points, strict=False))
         except (AttributeError, cv2.error):
             pass
+        if not any(value for value, _ in codes):
+            try:
+                value, points, _ = detector.detectAndDecode(frame)
+                if points is not None:
+                    codes = [(value, points)]
+            except cv2.error:
+                pass
 
         robot_name = ""
-        for value in decoded:
+        marks = []
+        for value, points in codes:
             match = ROBOT_QR_PATTERN.fullmatch(value.strip())
             if match:
-                robot_name = match.group(1).lower()
-                break
+                robot_name = robot_name or match.group(1).lower()
+                marks.append((points, match.group(1).lower(), QR_ROBOT_COLOUR))
+            elif value:
+                # OpenCV's built-in font only draws plain ASCII.
+                text = value.strip().encode("ascii", "replace").decode("ascii")
+                label = text if len(text) <= 24 else text[:21] + "..."
+                marks.append((points, label, QR_OTHER_COLOUR))
+            else:
+                marks.append((points, "unreadable QR", QR_UNREADABLE_COLOUR))
+        # Show where the codes are (or clear old boxes when none are found).
+        self.session.set_camera_marks(marks)
         self.vision = {
             "status": (
                 f"Robot QR found: {robot_name}" if robot_name else "Robot QR not found"

@@ -15,6 +15,7 @@ without importing anything.
 - [Camera and OpenCV](#camera-and-opencv)
 - [Helpers](#helpers)
 - [Colours and buttons](#colours-and-buttons)
+- [Talking to the robot directly](#talking-to-the-robot-directly)
 - [How programs run](#how-programs-run)
 - [Errors you might see](#errors-you-might-see)
 
@@ -234,6 +235,12 @@ Look for a robot's QR code in the live camera picture. Returns the robot's
 name in lowercase, such as `"trilo-07"`, or `""` (an empty string) if none
 is found. Only the robots' own QR codes count; other QR codes give `""`.
 
+Each scan also draws a box around every QR code it finds on the live camera
+picture, for about 1.5 seconds: green with the robot's name for a robot code,
+orange with its text for any other code, and red for a code it can't read.
+Scanning in a loop keeps the boxes up as the codes move. The boxes are only
+drawn on the camera panel; `take_picture()` still gives the plain picture.
+
 ```python
 name = scan_robot_qr()
 if name:
@@ -289,6 +296,39 @@ Colour names (any capitals) for `set_lights`, `flash_lights` and
 Any `"#rrggbb"` hex code works as well, for example `"#ff8800"` for orange.
 
 Buttons: `"A"`, `"B"`, `"X"`, `"Y"`.
+
+## Talking to the robot directly
+
+You don't have to use this app. A Python program on your own computer can
+connect straight to the robot's WebSocket and send it commands.
+
+**[Download websocket_example.py](/api/downloads/websocket_example.py)**: a
+small ready-to-run script that connects, turns the underlights green, drives
+forward for 2 seconds and stops.
+
+```bash
+pip install websockets
+python websocket_example.py ROBOT_IP_ADDRESS
+```
+
+Use the robot's IP address (not a `.local` name). Disconnect the app from
+that robot first: only one student can drive a robot at a time.
+
+The robot listens at `ws://ROBOT_IP_ADDRESS:8765/?name=your-session-name`.
+You send JSON text messages:
+
+| Message | What it does |
+| --- | --- |
+| `{"type": "drive", "left": 0.5, "right": 0.5}` | Wheel speeds from `-1.0` to `1.0`. Send it again every 0.1 to 0.3 seconds: the robot stops by itself after about half a second of silence. |
+| `{"type": "stop"}` | Stop the motors. |
+| `{"type": "underlights", "color": [255, 0, 0]}` | Set the underlights, `[red, green, blue]`, each 0 to 255. |
+| `{"type": "button_led", "button": "A", "value": 1}` | Set a button light, `"A"`, `"B"`, `"X"` or `"Y"`, from `0` to `1`. |
+| `{"type": "distance_request"}` | Ask for a fresh reading now. |
+
+The robot sends back JSON text (`hello` when you connect, `telemetry` with
+`distance_cm` and `buttons` several times a second, `ack` and `error`) and
+binary messages that are camera pictures in JPEG format. If it closes the
+connection with code 4001 the robot is busy; 4002 means someone took it over.
 
 ## How programs run
 

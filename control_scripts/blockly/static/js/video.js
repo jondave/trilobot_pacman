@@ -82,6 +82,18 @@ async function applyVideoSettings() {
   }
 }
 
+// Back to the live picture (no OpenCV preview or QR boxes) and the default
+// size, FPS and quality.
+async function resetCamera() {
+  try {
+    const data = await jsonRequest("/api/camera/reset", {method: "POST"});
+    setVideoSettings(data.video);
+    setMessage(data.message);
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+}
+
 export function renderVideo(connState, conn) {
   const live = connState === "connected" || connState === "weak";
   const age = conn.last_frame_age;
@@ -142,6 +154,7 @@ export function renderStats(connState, connection, telemetry) {
 export function initVideo() {
   initDetails();
   $("apply-video").addEventListener("click", applyVideoSettings);
+  $("reset-camera-button").addEventListener("click", resetCamera);
   document.addEventListener("visibilitychange", syncCameraFeed);
   if (cameraImage) {
     cameraImage.addEventListener("error", () => {

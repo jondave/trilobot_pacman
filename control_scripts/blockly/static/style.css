@@ -602,6 +602,18 @@ button.icon-only > .fas {
   font: var(--fs-sm) var(--font-mono);
 }
 
+.camera-heading-tools {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+button.camera-reset {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
 .vision-status {
   max-width: 200px;
   overflow: hidden;

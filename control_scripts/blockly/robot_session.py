@@ -52,6 +52,8 @@ COMMAND_QUEUE_LIMIT = 32
 STALE_DRIVE_SECONDS = 0.5
 PRIORITY_COMMANDS = frozenset({"stop"})
 COALESCED_COMMANDS = frozenset({"drive"})
+# How long boxes drawn on the camera picture (e.g. found QR codes) stay up.
+CAMERA_MARKS_SECONDS = 1.5
 
 
 def _number(value, default=0.0):
@@ -159,6 +161,49 @@ def _minutes_text(seconds):
     return f"{minutes:.1f}"
 
 
+def _draw_camera_marks(image, marks):
+    """Draw each (points, label, bgr_colour) as an outlined box with a label."""
+    height, width = image.shape[:2]
+    scale = max(0.5, width / 1100)
+    thickness = max(2, round(width / 320))
+    for points, label, colour in marks:
+        corners = np.asarray(points, dtype=np.float32).reshape(-1, 2)
+        if len(corners) < 2:
+            continue
+        cv2.polylines(
+            image, [corners.round().astype(np.int32)], True, colour, thickness
+        )
+        if not label:
+            continue
+        (text_w, text_h), baseline = cv2.getTextSize(
+            label, cv2.FONT_HERSHEY_SIMPLEX, scale, max(1, thickness // 2)
+        )
+        pad = max(3, thickness)
+        left = int(min(max(corners[:, 0].min(), 0), max(0, width - text_w - 2 * pad)))
+        top = int(corners[:, 1].min()) - text_h - baseline - 2 * pad
+        if top < 0:  # no room above the box: put the label below it
+            top = min(int(corners[:, 1].max()), height - text_h - baseline - 2 * pad)
+        top = max(0, top)
+        cv2.rectangle(
+            image,
+            (left, top),
+            (left + text_w + 2 * pad, top + text_h + baseline + 2 * pad),
+            colour,
+            cv2.FILLED,
+        )
+        cv2.putText(
+            image,
+            label,
+            (left + pad, top + pad + text_h),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            scale,
+            (255, 255, 255),
+            max(1, thickness // 2),
+            cv2.LINE_AA,
+        )
+    return image
+
+
 class RobotSession:
     """Own one asyncio RobotClient loop while Flask serves HTTP requests.
 
@@ -196,6 +241,9 @@ class RobotSession:
         self.latest_frame = None
         self.latest_jpeg = _placeholder_jpeg()
         self.camera_overlay = None
+        # Labelled boxes drawn over the camera picture until camera_marks_until.
+        self.camera_marks = []
+        self.camera_marks_until = 0.0
         self.frame_sequence = 0
         self.frame_times = deque(maxlen=90)
         self.telemetry_times = deque(maxlen=30)
@@ -363,6 +411,7 @@ class RobotSession:
             self.latest_frame = None
             self.latest_jpeg = _placeholder_jpeg()
             self.camera_overlay = None
+            self.camera_marks = []
             # Keep the sequence increasing so open camera streams never stall.
             self.frame_sequence += 1
             self.session_name = ""
@@ -852,9 +901,16 @@ class RobotSession:
             overlay = (
                 None if self.camera_overlay is None else self.camera_overlay.copy()
             )
+            marks = (
+                list(self.camera_marks)
+                if time.monotonic() < self.camera_marks_until
+                else []
+            )
         display_frame = overlay if overlay is not None else frame
         if overlay is not None and overlay.shape[:2] != frame.shape[:2]:
             display_frame = cv2.resize(overlay, (frame.shape[1], frame.shape[0]))
+        if marks:
+            display_frame = _draw_camera_marks(display_frame.copy(), marks)
         ok, encoded = cv2.imencode(
             ".jpg",
             display_frame,
@@ -882,6 +938,17 @@ class RobotSession:
     def clear_camera_overlay(self):
         with self.lock:
             self.camera_overlay = None
+            self.camera_marks = []
+
+    def set_camera_marks(self, marks, seconds=CAMERA_MARKS_SECONDS):
+        """Draw labelled boxes on the camera picture for a while.
+
+        marks is a list of (points, label, bgr_colour); points are the box
+        corners in the camera frame's pixels. A new call replaces the old boxes.
+        """
+        with self.lock:
+            self.camera_marks = list(marks)
+            self.camera_marks_until = time.monotonic() + seconds
 
     def frame_copy(self):
         with self.lock:
