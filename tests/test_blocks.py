@@ -54,3 +54,55 @@ def test_unknown_expression_block_fails_loudly():
     }
     with pytest.raises(ValueError, match="mystery_value"):
         blocks_to_python(workspace)
+
+
+COMMENTED = """# Count obstacles while driving forwards.
+import cv2
+bumps = 0  # how many so far
+for step in count(1, 10):
+    # check the sensor
+    if distance() < 20:  # close!
+        bumps += 1
+    else:
+        forward(seconds=0.5, power=50)
+stop()
+# the end
+"""
+
+
+def test_comments_survive_python_to_blocks_and_back():
+    state, code = python_to_blocks(COMMENTED)
+    assert code == (
+        "# Count obstacles while driving forwards.\n"
+        "# how many so far\n"
+        "bumps = 0\n"
+        "for step in count(1, 10):\n"
+        "    # check the sensor\n"
+        "    # close!\n"
+        "    if distance() < 20:\n"
+        "        bumps += 1\n"
+        "    else:\n"
+        "        forward(seconds=0.5, power=50)\n"
+        "# the end\n"
+        "stop()\n"
+    )
+    assert python_to_blocks(code)[1] == code  # stable on a second round trip
+    first = state["blocks"]["blocks"][0]
+    assert first["icons"]["comment"]["text"] == (
+        "Count obstacles while driving forwards.\nhow many so far"
+    )
+
+
+def test_block_comment_added_in_blockly_becomes_python_comment():
+    state, _ = python_to_blocks("while True:\n    stop()\n")
+    inner = state["blocks"]["blocks"][0]["inputs"]["DO"]["block"]
+    inner["icons"] = {"comment": {"text": "line one\n\nline three", "pinned": False}}
+    assert blocks_to_python(state) == (
+        "while True:\n    # line one\n    #\n    # line three\n    stop()\n"
+    )
+
+
+def test_comment_only_lines_without_statements_do_not_break_conversion():
+    state, code = python_to_blocks("# just a note\n")
+    assert state["blocks"]["blocks"] == []
+    assert code == ""

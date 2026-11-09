@@ -56,6 +56,7 @@ async function loadLibraryDemo() {
       clearTimeout(state.generateTimer);
       state.generateTicket++;
       state.lastBlockPython = "";
+      state.lastWorkingPython = "";
       setEditorValue(program.python);
       if (state.mode !== "python") showMode("python");
       else checkPython();

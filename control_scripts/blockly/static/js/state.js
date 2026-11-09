@@ -9,8 +9,8 @@ export const state = {
   robotChoices: [],      // robots from /api/robots
 
   // Blocks <-> Python sync bookkeeping.
-  lastBlockPython: "",
-  lastWorkingPython: "",
+  lastBlockPython: "",   // the Python the current blocks generate
+  lastWorkingPython: "", // the editor text those blocks came from (as typed)
   generateTimer: null,
   generateTicket: 0,
   checkTicket: 0,

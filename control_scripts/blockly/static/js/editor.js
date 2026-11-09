@@ -162,9 +162,12 @@ export async function generatePython() {
       })
     });
     if (ticket !== state.generateTicket) return;
+    // Blocks unchanged since the student's own Python made them: keep that
+    // text exactly (layout, comments) rather than the regenerated version.
+    const keepText = state.lastWorkingPython && data.code === state.lastBlockPython;
     state.lastBlockPython = data.code;
-    state.lastWorkingPython = data.code;
-    setEditorValue(data.code);
+    if (!keepText) state.lastWorkingPython = data.code;
+    setEditorValue(state.lastWorkingPython);
     if (state.mode === "python") setSync("ok", "Python and blocks are synced");
   } catch (error) {
     setMessage("Python view: " + error.message, true);
@@ -186,13 +189,14 @@ export function setEditorValue(code) {
   }
 }
 
-function syncWorkspaceFromPython(program, code) {
+// Update the blocks from the student's Python. The editor text is left as
+// typed (never replaced by the regenerated code), so comments and layout stay.
+function syncWorkspaceFromPython(program, canonical, source) {
   clearTimeout(state.generateTimer);
   state.generateTicket++;
   replaceWorkspace(program);
-  state.lastBlockPython = code;
-  state.lastWorkingPython = code;
-  setEditorValue(code);
+  state.lastBlockPython = canonical;
+  state.lastWorkingPython = source;
   setSync("ok", "Python and blocks are synced");
 }
 
@@ -215,7 +219,7 @@ export async function checkPython() {
     ok: true,
     code
   };
-  if (code !== state.lastBlockPython) {
+  if (code !== state.lastBlockPython && code !== state.lastWorkingPython) {
     try {
       result = await jsonRequest("/api/python/to_blocks", {
         method: "POST",
@@ -232,10 +236,9 @@ export async function checkPython() {
     monaco.editor.setModelMarkers(model, "blocks", []);
     const canonical = result.code || code;
     if (result.program && canonical !== state.lastBlockPython) {
-      syncWorkspaceFromPython(result.program, canonical);
+      syncWorkspaceFromPython(result.program, canonical, code);
     } else {
-      state.lastWorkingPython = canonical;
-      setEditorValue(canonical);
+      state.lastWorkingPython = code;
       setSync("ok", "Python and blocks are synced");
     }
     return;
@@ -288,7 +291,7 @@ function closeRanchModal() {
 async function leavePython() {
   if (!state.editor) return;
   const code = state.editor.getValue();
-  if (code === state.lastBlockPython) {
+  if (code === state.lastBlockPython || code === state.lastWorkingPython) {
     showMode("blocks");
     return;
   }
@@ -309,7 +312,7 @@ async function leavePython() {
     showRanchModal(result);
     return;
   }
-  syncWorkspaceFromPython(result.program, result.code);
+  syncWorkspaceFromPython(result.program, result.code, code);
   showMode("blocks");
   setMessage("Python and blocks are synced");
 }

@@ -7,9 +7,11 @@ Only a small Python subset maps onto blocks. Anything outside it raises
 from __future__ import annotations
 
 import ast
+import io
 import keyword
 import math
 import re
+import tokenize
 
 from robot_config import LED_COLOURS
 
@@ -307,7 +309,10 @@ class _Generator:
         lines = []
         while isinstance(block, dict):
             owner = block.get("id")
-            for line in self.statement(block, depth):
+            lines_for_block = _comment_lines(block, depth) + self.statement(
+                block, depth
+            )
+            for line in lines_for_block:
                 # Lines from nested bodies already name their own block; a
                 # block without an id leaves its lines to its parent.
                 if owner is not None and not isinstance(line, _Line):
@@ -506,7 +511,11 @@ class _Generator:
             else:
                 low = ", ".join(
                     self.value(block, name, default=default)
-                    for name, default in (("LOW_H", "40"), ("LOW_S", "70"), ("LOW_V", "70"))
+                    for name, default in (
+                        ("LOW_H", "40"),
+                        ("LOW_S", "70"),
+                        ("LOW_V", "70"),
+                    )
                 )
                 high = ", ".join(
                     self.value(block, name, default=default)
@@ -567,12 +576,76 @@ def _pad(depth):
     return "    " * depth
 
 
+def _block_comment(block):
+    comment = (block.get("icons") or {}).get("comment")
+    text = comment.get("text") if isinstance(comment, dict) else None
+    return text if isinstance(text, str) and text.strip() else ""
+
+
+def _comment_lines(block, depth):
+    """A block's Blockly comment as ``# ...`` lines above its statement."""
+    text = _block_comment(block)
+    if not text:
+        return []
+    return [
+        _pad(depth) + ("# " + line if line.strip() else "#")
+        for line in text.rstrip().splitlines()
+    ]
+
+
+def _source_comments(source):
+    """[(line, text)] for every ``# comment`` in source, text without the ``#``."""
+    comments = []
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.COMMENT:
+                text = token.string[1:]
+                text = text[1:] if text.startswith(" ") else text
+                comments.append((token.start[0], text.rstrip()))
+    except (tokenize.TokenError, SyntaxError):
+        pass  # ast.parse already accepted the code; keep what was read.
+    return comments
+
+
+def _header_end(node):
+    """Last line of a statement, or of a compound statement's header line(s)."""
+    body = getattr(node, "body", None)
+    if not body:
+        return node.end_lineno
+    parts = [
+        child
+        for name, child in ast.iter_fields(node)
+        if name not in ("body", "orelse", "finalbody", "handlers")
+        and isinstance(child, ast.AST)
+    ]
+    return max([node.lineno] + [part.end_lineno or node.lineno for part in parts])
+
+
+def _attach_comments(block, texts):
+    if not texts:
+        return
+    existing = _block_comment(block)
+    text = "\n".join(([existing] if existing else []) + texts)
+    block.setdefault("icons", {})["comment"] = {
+        "text": text,
+        "pinned": False,
+        "height": 80,
+        "width": 200,
+    }
+
+
 def python_to_blocks(code):
     """Return ``(workspace_state, normalised_code)`` or raise ``Unsupported``."""
     try:
         tree = ast.parse(code)
         parser = _Parser(code)
-        first = parser.chain(parser.statements(tree.body))
+        blocks = parser.statements(tree.body)
+        if blocks:
+            # Comments after the last statement stay with the last block.
+            _attach_comments(
+                blocks[-1], parser.carried + parser.take_comments(math.inf)
+            )
+        first = parser.chain(blocks)
     except SyntaxError as error:
         raise Unsupported(
             f"Syntax error: {error.msg}", error.lineno, syntax=True
@@ -591,6 +664,19 @@ class _Parser:
         self.source = source
         self.names = []
         self.imported_modules = set()
+        # Comments become Blockly block comments on the statement they sit
+        # above (or at the end of), so they survive the round trip.
+        self.comments = _source_comments(source)
+        self.carried = []  # comments of a statement with no block (import, pass)
+
+    def take_comments(self, last_line):
+        """Remove and return the texts of the comments up to last_line."""
+        count = 0
+        while count < len(self.comments) and self.comments[count][0] <= last_line:
+            count += 1
+        taken = [text for _, text in self.comments[:count]]
+        del self.comments[:count]
+        return taken
 
     def fail(self, node, message=None):
         raise Unsupported(
@@ -643,8 +729,20 @@ class _Parser:
         return _Parser.is_attribute(node, f"cv2.{name}")
 
     def statements(self, nodes):
-        blocks = [self.statement(node) for node in nodes]
-        return [block for block in blocks if block is not None]
+        blocks = []
+        for node in nodes:
+            # A compound statement keeps the comments on its header lines;
+            # its body's comments go to the body's own statements.
+            last_line = _header_end(node)
+            comments = self.carried + self.take_comments(last_line)
+            self.carried = []
+            block = self.statement(node)
+            if block is None:
+                self.carried = comments
+                continue
+            _attach_comments(block, comments)
+            blocks.append(block)
+        return blocks
 
     @staticmethod
     def chain(blocks):
@@ -1084,7 +1182,9 @@ class _Parser:
                                     "fields": {"NUM": value},
                                 }
                             }
-                            for name, value in zip(("H", "S", "V"), values, strict=False)
+                            for name, value in zip(
+                                ("H", "S", "V"), values, strict=False
+                            )
                         },
                     )
                 }
