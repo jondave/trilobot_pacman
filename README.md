@@ -2,7 +2,7 @@
 
 # Trilobot Pacman
 
-Content in this repository is built for a workshop in how to make a class with Trilobot robots build a game of Pacman.
+Content in this repository is built for a workshop with Trilobot robots teaching students how to build a game of Pacman.
 
 Tools for programming and driving a Pimoroni Trilobot robot over the network. There
 are two parts:
