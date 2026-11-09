@@ -11,6 +11,17 @@ def test_index(client):
     assert client.get("/").status_code == 200
 
 
+def test_python_reference_serves_the_docs_markdown(client):
+    response = client.get("/api/docs/python-reference")
+    assert response.status_code == 200
+    assert response.mimetype == "text/markdown"
+    assert response.get_data(as_text=True) == blockly_app.PYTHON_REFERENCE.read_text(
+        encoding="utf-8"
+    )
+    assert blockly_app.PYTHON_REFERENCE.parent.name == "docs"
+    assert "## Moving" in response.get_data(as_text=True)
+
+
 def test_status(client):
     response = client.get("/api/status")
     assert response.status_code == 200

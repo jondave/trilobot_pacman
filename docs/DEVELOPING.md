@@ -10,7 +10,7 @@ Plain `venv` and `pip` are the supported way. From the repo root:
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt   # runtime + pytest, ruff, playwright
-bash scripts/fetch_vendor.sh                    # optional: Blockly/Monaco/Font Awesome for offline use
+bash scripts/fetch_vendor.sh                    # optional: Blockly, Monaco, Font Awesome, marked, DOMPurify for offline use
 ```
 
 (Activate with `source .venv/bin/activate` if you prefer, then drop the
@@ -104,6 +104,12 @@ path, name and public API because students import it.
 | `PAGE_RELEASE_AFTER_SECONDS` | `60` | release the robot this long after the page is gone |
 | `TRILOBOT_SESSION_NAME` | (random each start) | fix the student's session name, e.g. `Otter-Lemon` |
 | `TRILOBOT_USER_DEMOS_DIR` | `control_scripts/blockly/demos/saved` | where **Save as demo** writes (`/data/demos` in Docker) |
+| `TRILOBOT_ROBOT_DIRECTORY_URL` | findmyrobot `/api/robots?filter=trilo` | robot directory behind the robot list |
+
+The robot list is never cached: each `/api/robots` request (page load, the
+refresh button, and every five minutes) asks the directory afresh with a
+2-second timeout and is sent with `Cache-Control: no-store`. If the directory
+fails, the list is empty and **Enter address manually…** still works.
 
 ## Dev container
 

@@ -31,7 +31,7 @@ control_scripts/          runs on the control/lab PC
   teleop_example.py       keyboard teleop example
   blockly/                the Blockly web app (app.py, static/, templates/, demos/)
 docs/                     guides (below)
-scripts/fetch_vendor.sh   downloads Blockly and Monaco for offline use
+scripts/fetch_vendor.sh   downloads Blockly, Monaco and the other frontend libraries for offline use
 tests/                    pytest suite
 .vscode/                  shared VS Code settings, launch configs and tasks
 ```

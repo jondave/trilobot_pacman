@@ -6,7 +6,7 @@
   <title>Trilobot Blockly</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="/static/vendor/fontawesome/css/all.min.css" onerror="this.onerror=null; this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=21) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=22) }}">
 </head>
 <body>
   <header class="topbar">
@@ -64,7 +64,10 @@
         <button id="close-block-drawer" class="block-drawer-close" title="Close the block drawer" aria-label="Close drawer" hidden><i class="fas fa-times icon-muted" aria-hidden="true"></i></button>
         <div id="python-pane" class="python-pane" hidden>
           <div id="python-editor" class="python-editor"></div>
-          <div id="python-sync" class="python-sync">Loading editor…</div>
+          <div class="python-footer">
+            <div id="python-sync" class="python-sync">Loading editor…</div>
+            <button id="python-reference-button" class="icon-button python-reference-button" title="Open the Python programming reference" aria-haspopup="dialog"><i class="fas fa-book icon-accent" aria-hidden="true"></i> Python reference</button>
+          </div>
         </div>
       </div>
       <section class="terminal-panel" aria-label="Terminal">
@@ -349,14 +352,31 @@
     </div>
   </div>
 
+  <div id="reference-modal" class="ranch-backdrop reference-backdrop" role="dialog" aria-modal="true" aria-labelledby="reference-title" hidden>
+    <div class="reference-modal">
+      <div class="reference-header">
+        <h2 id="reference-title"><i class="fas fa-book icon-accent" aria-hidden="true"></i> Python programming reference</h2>
+        <button id="reference-close" class="quiet-button icon-only" title="Close (Esc)" aria-label="Close the Python reference"><i class="fas fa-times icon-muted" aria-hidden="true"></i></button>
+      </div>
+      <div id="reference-body" class="reference-body" tabindex="-1"></div>
+    </div>
+  </div>
+
   <script id="app-config" type="application/json">{{ config|tojson }}</script>
   <script id="block-definitions" type="application/json">{{ blocks|tojson }}</script>
   <script src="/static/vendor/blockly/blockly.min.js"></script>
   <script>window.Blockly || (window.BLOCKLY_FROM_CDN = true, document.write('<script src="https://unpkg.com/blockly@12.5.1/blockly.min.js"><\/script>'));</script>
+  <!-- marked and DOMPurify render the Python reference panel (reference.js). They
+       load before the Monaco loader: its AMD define() would otherwise claim
+       these UMD builds and leave no window.marked / window.DOMPurify. -->
+  <script src="/static/vendor/marked/marked.umd.js"></script>
+  <script>window.marked || document.write('<script src="https://cdn.jsdelivr.net/npm/marked@16.4.2/lib/marked.umd.js"><\/script>');</script>
+  <script src="/static/vendor/dompurify/purify.min.js"></script>
+  <script>window.DOMPurify || document.write('<script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.15/dist/purify.min.js"><\/script>');</script>
   <script src="/static/vendor/monaco/min/vs/loader.js"></script>
   <script>window.require || (window.MONACO_FROM_CDN = true, document.write('<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"><\/script>'));</script>
   <!-- A module runs after the whole page has parsed, so Blockly and the Monaco
        loader above (or their CDN fallbacks) are already in place. -->
-  <script type="module" src="{{ url_for('static', filename='js/main.js', v=40) }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js', v=41) }}"></script>
 </body>
 </html>

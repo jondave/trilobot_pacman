@@ -246,6 +246,34 @@ def test_fontawesome_version_matches_cdn_fallback():
     )
 
 
+@pytest.mark.parametrize(
+    "variable, vendored, cdn",
+    [
+        (
+            "MARKED_VERSION",
+            "/static/vendor/marked/marked.umd.js",
+            "cdn.jsdelivr.net/npm/marked@{}/lib/marked.umd.js",
+        ),
+        (
+            "DOMPURIFY_VERSION",
+            "/static/vendor/dompurify/purify.min.js",
+            "cdn.jsdelivr.net/npm/dompurify@{}/dist/purify.min.js",
+        ),
+    ],
+)
+def test_reference_renderer_version_matches_cdn_fallback(variable, vendored, cdn):
+    script = (BLOCKLY.parents[1] / "scripts" / "fetch_vendor.sh").read_text(
+        encoding="utf-8"
+    )
+    pinned = re.search(rf"^{variable}=(\S+)", script, re.M).group(1)
+    assert f'<script src="{vendored}"></script>' in TEMPLATE
+    assert cdn.format(pinned) in TEMPLATE
+    # Monaco's AMD loader would swallow the UMD build, so load before it.
+    assert TEMPLATE.index(vendored) < TEMPLATE.index("vs/loader.js")
+    # The vendored path must be the file fetch_vendor.sh copies.
+    assert vendored.rsplit("/", 1)[1] in script
+
+
 # Emoji and pictographic symbols (arrows, shapes, dingbats, emoji planes);
 # the UI uses Font Awesome icons instead. Punctuation like "…" or "·" is fine.
 PICTOGRAPHS = re.compile(

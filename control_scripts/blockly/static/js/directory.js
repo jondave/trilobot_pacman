@@ -142,15 +142,16 @@ export async function refreshRobots() {
   const refreshButton = $("refresh-robots");
   refreshButton.disabled = true;
   try {
-    const data = await jsonRequest("/api/robots");
+    // Always a fresh answer: neither the app nor the browser caches the list.
+    const data = await jsonRequest("/api/robots", {cache: "no-store"});
     if (refresh !== robotRefreshes) return;
     const robots = Array.isArray(data.robots) ? data.robots : [];
     populateRobotChoices(robots, !robots.length && data.error ? "Robot list unavailable" : "");
     refreshButton.title = data.error || "Refresh the robot list";
   } catch (error) {
     if (refresh !== robotRefreshes) return;
-    // Keep what was already listed; the manual option is always there.
-    populateRobotChoices(state.robotChoices, state.robotChoices.length ? "" : "Robot list unavailable");
+    // The list shows only the latest answer; the manual option is always there.
+    populateRobotChoices([], "Robot list unavailable");
     refreshButton.title = error.message || "Robot list unavailable";
   } finally {
     if (refresh === robotRefreshes) refreshButton.disabled = false;

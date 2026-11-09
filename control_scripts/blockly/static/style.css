@@ -939,13 +939,30 @@ kbd {
   border-top: 1px solid var(--border);
 }
 
+/* Sync status, with the Python reference button at its right. */
+.python-footer {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
 .python-sync {
+  flex: 1 1 auto;
+  min-width: 0;
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-md);
   font-weight: 750;
   color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  background: var(--surface-alt);
+}
+
+button.python-reference-button {
+  flex: 0 0 auto;
+  margin: var(--sp-1) var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-md);
+  white-space: nowrap;
 }
 
 .python-sync.ok {
@@ -1253,6 +1270,154 @@ kbd {
   margin: var(--sp-1) 0;
   font-size: var(--fs-lg);
   color: var(--text);
+}
+
+/* ---- Python reference panel (reference.js): docs/PYTHON_REFERENCE.md ---- */
+.reference-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(860px, calc(100vw - 32px));
+  height: calc(100vh - 32px);
+  height: calc(100dvh - 32px);
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+}
+
+.reference-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.reference-header h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  letter-spacing: -.01em;
+}
+
+.reference-header h2 > .fas {
+  margin-right: .3em;
+}
+
+.reference-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-2) var(--sp-5) var(--sp-6);
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.reference-body:focus {
+  outline: none;
+}
+
+.reference-body h2,
+.reference-body h3,
+.reference-body h4 {
+  margin: var(--sp-6) 0 var(--sp-2);
+  line-height: 1.3;
+  scroll-margin-top: var(--sp-2);
+}
+
+.reference-body h2 {
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-xl);
+  letter-spacing: -.02em;
+}
+
+.reference-body h3 {
+  font-size: var(--fs-lg);
+}
+
+.reference-body :is(h2, h3, h4):focus {
+  outline: none;
+}
+
+.reference-body p,
+.reference-body ul,
+.reference-body ol {
+  margin: var(--sp-2) 0;
+}
+
+.reference-body ul,
+.reference-body ol {
+  padding-left: var(--sp-6);
+}
+
+.reference-body a {
+  color: var(--accent);
+}
+
+.reference-body code {
+  padding: 1px var(--sp-1);
+  border-radius: var(--r-sm);
+  background: var(--surface-sunk);
+  font: .92em var(--font-mono);
+}
+
+/* Code blocks and tables scroll sideways inside the panel, never the page. */
+.reference-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  line-height: 1.45;
+}
+
+.reference-body pre code {
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+.reference-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: var(--sp-3) 0;
+  border-collapse: collapse;
+}
+
+.reference-body th,
+.reference-body td {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: normal;
+}
+
+.reference-body th {
+  background: var(--surface-sunk);
+}
+
+.reference-body blockquote {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-1) var(--sp-3);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+@media (max-width: 600px) {
+  .reference-header {
+    padding-left: var(--sp-4);
+  }
+
+  .reference-body {
+    padding: var(--sp-2) var(--sp-4) var(--sp-5);
+  }
 }
 
 .alert-modal .ranch-actions {

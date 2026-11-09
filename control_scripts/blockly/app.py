@@ -26,7 +26,7 @@ from blocks_python import (  # noqa: E402
 )
 from program_runner import MAX_PYTHON_CHARS, PageWatch, ProgramRunner  # noqa: E402
 from robot_config import block_definitions, browser_config  # noqa: E402
-from robot_directory import RobotDirectoryCache  # noqa: E402
+from robot_directory import robot_directory_answer  # noqa: E402
 from robot_session import RobotSession, _clamp, _number  # noqa: E402
 from student_name import pick_name  # noqa: E402
 
@@ -39,12 +39,13 @@ USER_LIBRARY_DIR = Path(
     os.environ.get("TRILOBOT_USER_DEMOS_DIR") or LIBRARY_DIR / "saved"
 )
 USER_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+# docs/ at the repo root is the single source; the page renders it from markdown.
+PYTHON_REFERENCE = BLOCKLY_DIR.parents[1] / "docs" / "PYTHON_REFERENCE.md"
 
 session = RobotSession(student_name=pick_name(os.environ.get("TRILOBOT_SESSION_NAME")))
 runner = ProgramRunner(session)
 # Stops the program and lets go of the robot when the app tab goes away.
 page_watch = PageWatch(session, runner)
-robot_directory_cache = RobotDirectoryCache()
 # Open /api/video.mjpg responses; logged so a stream left open is easy to spot.
 _open_video_streams = 0
 _video_streams_lock = threading.Lock()
@@ -63,16 +64,29 @@ def favicon():
     return app.send_static_file("favicon.svg")
 
 
+@app.get("/api/docs/python-reference")
+def python_reference():
+    """The Python programming reference as markdown, shown on the Python tab."""
+    try:
+        text = PYTHON_REFERENCE.read_text(encoding="utf-8")
+    except OSError:
+        abort(404)
+    return Response(text, mimetype="text/markdown")
+
+
 @app.get("/api/robots")
 def robot_directory():
     """Proxy the robot directory so the browser does not depend on CORS.
 
-    Served from a short in-memory cache (see RobotDirectoryCache), so a slow
-    or unreachable directory never holds up the page.
+    Nothing is cached: every request asks the directory afresh, with a short
+    timeout (see robot_directory.py), and no-store keeps the browser from
+    caching the answer either.
     """
-    # Always 200: an unavailable directory is reported in "error" (with
-    # "stale": true), so the browser logs no failed request for it.
-    return jsonify(robot_directory_cache.get())
+    # Always 200: an unavailable directory is reported in "error", so the
+    # browser logs no failed request for it.
+    response = jsonify(robot_directory_answer())
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.post("/api/connect")

@@ -28,7 +28,7 @@ control_scripts/blockly/app.py     Flask routes, /api/status
   demos/                           demo programs (.json blocks, .py)
   student_name.py, session_words.json  the student's session name (made here, sent to robots)
 robot_scripts/                     Pi side: robot_sender.py, trilobot-websocket.service + install_service.sh
-scripts/fetch_vendor.sh            downloads Blockly + Monaco into static/vendor (gitignored)
+scripts/fetch_vendor.sh            downloads Blockly, Monaco, Font Awesome, marked, DOMPurify into static/vendor (gitignored)
 tests/                             pytest; fake_ws.py, robot_helpers.py, conftest.py
 docs/                              student and developer docs
 ```
@@ -56,11 +56,11 @@ Optional, uv instead of pip (never required): `uv sync`, `uv run pytest -q`, `uv
 - `robot_scripts/robot_sender.py` runs on the Pi. Keep it standalone (no imports from `control_scripts`), compatible with Python 3.9, with `websockets>=12,<18`. Hardware imports stay lazy so `--fake` works on laptops.
 - Protocol close codes (4001 busy, 4002 taken over/kicked, 4003 replaced) are duplicated deliberately in the robot and `client.py`; `test_close_codes_match_between_robot_and_client` checks them. Change both together.
 - Block definitions live in `static/blocks.json`, shared values in `robot_config.py`. Add a block in `blocks.json`, the toolbox in `templates/index.html`, and `blocks_python.py` (generator and parser) together; drift tests in `tests/test_consistency.py` enforce this.
-- Frontend: plain ES modules, no build step, no framework. Blockly 12.5.1, Monaco and Font Awesome Free 5.15.4 are vendored at build time (`static/vendor` is gitignored) with CDN fallbacks whose versions must match `fetch_vendor.sh` (tested in `tests/test_consistency.py`).
+- Frontend: plain ES modules, no build step, no framework. Blockly 12.5.1, Monaco, Font Awesome Free 5.15.4, marked and DOMPurify (which render `docs/PYTHON_REFERENCE.md` in the Python tab's reference panel, served by `/api/docs/python-reference`) are vendored at build time (`static/vendor` is gitignored) with CDN fallbacks whose versions must match `fetch_vendor.sh` (tested in `tests/test_consistency.py`).
 - Icons: Font Awesome 5 (`<i class="fas fa-…" aria-hidden="true">`), coloured with design tokens; no emoji in the UI. The one exception is the 🟢🟠🔴 ping dots in robot `<option>` text (`directory.js`), because native options can't show icon fonts.
 - Students are identified only by session names (word-word, from `control_scripts/blockly/session_words.json`). The app owns the name: `student_name.py` makes one per app process at startup (never saved to disk: several apps or containers on one PC must not share it) and `RobotSession` sends it to every robot as `?name=`, so a student keeps one name across robots and takeovers. The robot only validates it (`NAME_PATTERN`, kept in sync by `test_session_name_pattern_matches_between_robot_and_app`) and falls back to `LEARNER-XXXX`. Never collect student names.
 - Robots are reached across a VLAN: no mDNS or `.local` discovery. Use the findmyrobot directory or IP addresses.
-- Manual IP entry must ALWAYS be available: the "Enter address manually…" option and field work before, during and after the directory loads, and when it fails. Never make connecting wait on findmyrobot (`/api/robots` is cached in `robot_directory.py`).
+- Manual IP entry must ALWAYS be available: the "Enter address manually…" option and field work before, during and after the directory loads, and when it fails. Never make connecting wait on findmyrobot. `/api/robots` is deliberately not cached: every request asks the directory afresh with a short timeout (`robot_directory.py`), answers 200 with an `error` field when it fails, and sends `Cache-Control: no-store`. Don't add a cache back (server or browser).
 - The camera MJPEG stream only runs while connected and the tab is visible (`static/js/video.js`); each open stream holds one of the browser's 6 connections per host.
 - Security: the app executes student code and has no auth. Keep it bound to localhost in docs and Docker examples (`-p 127.0.0.1:8750:8750`).
 - Stop must always stay enabled in the UI (`#stop-button`).

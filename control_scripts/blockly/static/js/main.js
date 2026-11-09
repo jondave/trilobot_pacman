@@ -12,6 +12,7 @@ import { generatePython, initEditor, loadMonaco } from "./editor.js";
 import { initHelp } from "./help.js";
 import { initLibrary, refreshLibrary } from "./library.js";
 import { ingestEvents, initProgram, initRunControls, updateProgram } from "./program.js";
+import { initReference } from "./reference.js";
 import { state } from "./state.js";
 import { initTeleop } from "./teleop.js";
 import { $, setMessage } from "./ui.js";
@@ -95,6 +96,7 @@ setInterval(refreshRobots, 5 * 60 * 1000);
 refreshLibrary().catch((error) => setMessage("Demo library: " + error.message, true));
 
 initEditor();
+initReference();
 initHelp();
 
 generatePython().then(loadMonaco);
