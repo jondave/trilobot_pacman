@@ -2,13 +2,15 @@
 
 The **Python** tab runs real Python with the same robot functions the blocks use.
 `cv2` and `numpy` (`np`) are available. Press F1 in the editor and choose
-**Format document (Black)** to tidy your code.
+**Format document (Black)** to tidy your code. Every function, its arguments
+and the errors you might see are in the
+[Python programming reference](PYTHON_REFERENCE.md).
 
 | Function | What it does |
 | --- | --- |
-| `forward(seconds=2, power=60)` / `backward(...)` | drive straight, power 0–100 |
+| `forward(seconds=1, power=60)` / `backward(...)` | drive straight, power 0–100 |
 | `turn_left(seconds=1, power=60)` / `turn_right(...)` / `turn_around(...)` | spin on the spot |
-| `drive(left, right)` | set both motors directly |
+| `drive("left", seconds=1, power=60)` | move in a direction given as text |
 | `wait(seconds)` | pause |
 | `stop()` | stop the motors |
 | `distance()` | distance in cm |

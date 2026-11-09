@@ -41,6 +41,7 @@ tests/                    pytest suite
 - [Getting started (students)](docs/GET_STARTED.md)
 - [Blockly guide](docs/BLOCKLY.md)
 - [Python guide](docs/PYTHON.md)
+- [Python programming reference](docs/PYTHON_REFERENCE.md)
 - [Control library: using `client.py` in your own scripts](docs/CONTROL_LIBRARY.md)
 - [Robot setup and protocol](robot_scripts/README.md)
 - [Developing this repository](docs/DEVELOPING.md)

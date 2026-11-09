@@ -326,6 +326,28 @@ def test_session_name_pattern_matches_between_robot_and_app():
     assert len(set(words)) == len(words) > 100
 
 
+def test_python_reference_documents_every_student_function():
+    """docs/PYTHON_REFERENCE.md has a heading with each function's real signature."""
+    import inspect
+
+    from program_runner import ProgramRunner
+    from robot_session import RobotSession
+
+    root = Path(__file__).resolve().parents[1]
+    reference = (root / "docs" / "PYTHON_REFERENCE.md").read_text("utf-8")
+    headings = "\n".join(
+        line for line in reference.splitlines() if line.startswith("### ")
+    )
+    runner = ProgramRunner(RobotSession())
+    functions = {**runner._student_robot_api(), **runner._student_builtins()}
+    for name, function in functions.items():
+        if name in ("print", "input"):
+            assert f"`{name}(" in headings, name
+            continue
+        documented = f"`{name}{inspect.signature(function)}`"
+        assert documented in headings, f"{documented} missing from PYTHON_REFERENCE.md"
+
+
 def test_client_requirements_match_uv_lock():
     """control_scripts/requirements.txt (for library users) must not drift from uv.lock."""
     root = BLOCKLY.parents[1]
