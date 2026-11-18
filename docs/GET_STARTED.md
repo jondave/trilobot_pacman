@@ -11,7 +11,7 @@ You need:
 Open Docker Desktop. Then open a terminal on your computer and run:
 
 ```bash
-docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman
+docker run -p 127.0.0.1:8750:8750 -v trilobot_demos:/data/demos uolcs/trilobot_pacman:1.0.0
 ```
 
 The `127.0.0.1:` prefix keeps the app reachable only from your own computer, because it can control the robot and run code with no password.
