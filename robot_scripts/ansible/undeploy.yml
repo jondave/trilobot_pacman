@@ -1,0 +1,51 @@
+# Stop and remove the Trilobot WebSocket systemd service from each robot.
+# The repository checkout and Python environments are intentionally retained.
+#
+#   ansible-playbook -i inventory.ini undeploy.yml
+#
+# Uses the same inventory and trilobots group as deploy.yml.
+- name: Undeploy the Trilobot WebSocket server
+  hosts: trilobots
+  become: true
+  vars:
+    unit_path: /etc/systemd/system/trilobot-websocket.service
+    old_unit_path: /etc/systemd/system/trilobot-robot.service
+
+  tasks:
+    - name: Check for the trilobot-websocket service unit
+      ansible.builtin.stat:
+        path: "{{ unit_path }}"
+      register: websocket_unit
+
+    - name: Stop and disable trilobot-websocket.service
+      ansible.builtin.systemd:
+        name: trilobot-websocket.service
+        state: stopped
+        enabled: false
+      when: websocket_unit.stat.exists
+
+    - name: Remove trilobot-websocket.service
+      ansible.builtin.file:
+        path: "{{ unit_path }}"
+        state: absent
+
+    - name: Check for the legacy trilobot-robot service unit
+      ansible.builtin.stat:
+        path: "{{ old_unit_path }}"
+      register: old_robot_unit
+
+    - name: Stop and disable trilobot-robot.service
+      ansible.builtin.systemd:
+        name: trilobot-robot.service
+        state: stopped
+        enabled: false
+      when: old_robot_unit.stat.exists
+
+    - name: Remove trilobot-robot.service
+      ansible.builtin.file:
+        path: "{{ old_unit_path }}"
+        state: absent
+
+    - name: Reload systemd unit files
+      ansible.builtin.systemd:
+        daemon_reload: true

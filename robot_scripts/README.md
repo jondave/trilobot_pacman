@@ -1,9 +1,36 @@
 # Robot scripts
 
 `robot_sender.py` runs on the Trilobot's Raspberry Pi and serves the robot over
-WebSocket (port 8765). Install `requirements.txt` first (`python3 -m pip install -r requirements.txt`; the Pimoroni `trilobot` and `picamera2` packages must already be present), then run
-`python3 robot_sender.py` by hand to test (`--host` and `--port` change the
-listen address).
+WebSocket (port 8765). Install `requirements.txt` in the Python environment used
+to run it; install `picamera2` using Raspberry Pi OS packages. Follow Pimoroni's
+[Trilobot installation guide](https://learn.pimoroni.com/article/assembling-trilobot)
+once on each robot to set up its system-level hardware prerequisites.
+
+## Check the Trilobot Python environment
+
+`trilobot` is a Python module, not a shell command. To check whether it is
+installed in Pimoroni's environment:
+
+```bash
+source ~/.virtualenvs/pimoroni/bin/activate
+python -c "from trilobot import Trilobot; print('Trilobot import OK')"
+```
+
+Activation affects only the current shell. The Ansible playbook first checks
+its managed environment, then this Pimoroni environment. It uses the first one
+that can import `trilobot`, and fails deployment if neither can. To check the
+selected interpreter, inspect the unit:
+
+```bash
+sudo systemctl cat trilobot-websocket
+```
+
+Run the import check using the Python executable shown in its `ExecStart`
+line, for example:
+
+```bash
+/home/pi/.virtualenvs/pimoroni/bin/python -c "from trilobot import Trilobot; print('Trilobot import OK')"
+```
 
 ## Fake mode (no robot needed)
 
@@ -81,9 +108,16 @@ placeholders with absolute values, then run `sudo systemctl daemon-reload` and
 ### Deploy to many robots with Ansible
 
 `ansible/deploy.yml` clones the repo over HTTPS into `/opt/trilobot_pacman`
-(owned by `pi`), installs `trilobot-websocket.service` for that folder, removes
-the old `trilobot-robot.service` and starts the service. Re-running it pulls
-the latest `main` and restarts the service only if something changed.
+(owned by `pi`), checks whether the service user's
+`~/.virtualenvs/pimoroni` can import `trilobot`, and uses it if available.
+Otherwise it creates a managed virtual environment that can access
+system-installed hardware packages. It installs `robot_scripts/requirements.txt`
+in the selected environment, configures `trilobot-websocket.service` to use it,
+removes the old `trilobot-robot.service` and starts the service. Re-running it
+pulls the latest `main` and restarts the service when the code, dependencies or
+unit change. `picamera2` and system-level hardware prerequisites must be
+installed on each robot by following Pimoroni's
+[installation guide](https://learn.pimoroni.com/article/assembling-trilobot).
 
 ```bash
 cd robot_scripts/ansible
@@ -91,14 +125,32 @@ cp inventory.example.ini inventory.ini   # robots' IP addresses and passwords
 ansible-playbook -i inventory.ini deploy.yml
 ```
 
+To stop and remove the systemd service without deleting the checkout or Python
+environments, run:
+
+```bash
+ansible-playbook -i inventory.ini undeploy.yml
+```
+
+The undeploy playbook also removes the legacy `trilobot-robot.service` unit if
+present. It leaves `/opt/trilobot_pacman` and the Pimoroni environment untouched.
+
+To power off every robot in the `trilobots` inventory group, run:
+
+```bash
+ansible-playbook -i inventory.ini shutdown.yml
+```
+
+The robots will be unreachable until powered on again.
+
 `inventory.ini` holds the SSH and sudo passwords (`ansible_password`,
 `ansible_become_password`) and is git-ignored; never commit it. Password logins
 need `sshpass` on the machine running Ansible (`sudo apt install sshpass`).
 
-Override `repo_version`, `install_dir`, `service_user` or `python` with `-e`,
-for example `-e repo_version=my-branch`. The robot's Python packages must
-already be installed. Stop any `python3 robot_sender.py` you started by hand
-first: only one copy can listen on port 8765.
+Override `repo_version`, `install_dir`, `service_user` or the base `python`
+used to create the virtual environment with `-e`, for example
+`-e repo_version=my-branch`. Stop any `python3 robot_sender.py` you started by
+hand first: only one copy can listen on port 8765.
 
 ## Control PC
 

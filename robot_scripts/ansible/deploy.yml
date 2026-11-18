@@ -6,9 +6,10 @@
 # inventory.ini (copied from inventory.example.ini) holds the robots' IPs and
 # their SSH/sudo passwords.
 #
-# Re-running pulls the latest commit of repo_version and restarts the service
-# only if the code or the unit changed. The robot's Python packages (trilobot,
-# picamera2, websockets, Pillow) are assumed to be installed already.
+# Re-running pulls the latest commit of repo_version, checks the managed and
+# Pimoroni environments for Trilobot, installs runtime requirements in the
+# selected environment, and restarts the service when needed.
+# The Pi camera package and system-level hardware setup must already be present.
 - name: Deploy the Trilobot WebSocket server
   hosts: trilobots
   become: true
@@ -20,12 +21,15 @@
     # trilobot_service_user is set in the inventory.
     service_user: "{{ trilobot_service_user | default(ansible_user) | default('pi', true) }}"
     python: /usr/bin/python3
+    venv_dir: "{{ install_dir }}/.venv"
     unit_path: /etc/systemd/system/trilobot-websocket.service
 
   tasks:
-    - name: Install git
+    - name: Install git and Python venv support
       ansible.builtin.apt:
-        name: git
+        name:
+          - git
+          - python3-venv
         state: present
         update_cache: true
         cache_valid_time: 3600
@@ -47,6 +51,70 @@
       become_user: "{{ service_user }}"
       notify: Restart trilobot-websocket
 
+    - name: Create the Python virtual environment
+      ansible.builtin.command:
+        cmd: "{{ python }} -m venv --system-site-packages {{ venv_dir }}"
+        creates: "{{ venv_dir }}/bin/python"
+      become: true
+      become_user: "{{ service_user }}"
+
+    - name: Check whether the managed environment can import Trilobot
+      ansible.builtin.command:
+        cmd: "{{ venv_dir }}/bin/python -c 'from trilobot import Trilobot'"
+      register: managed_trilobot_check
+      changed_when: false
+      failed_when: false
+      become: true
+      become_user: "{{ service_user }}"
+
+    - name: Look up the service user's home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ service_user }}"
+
+    - name: Set the service user's Pimoroni environment path
+      ansible.builtin.set_fact:
+        pimoroni_python: "{{ getent_passwd[service_user][4] }}/.virtualenvs/pimoroni/bin/python"
+
+    - name: Check whether Pimoroni's environment exists
+      ansible.builtin.stat:
+        path: "{{ pimoroni_python }}"
+      register: pimoroni_python_check
+
+    - name: Check whether Pimoroni's environment can import Trilobot
+      ansible.builtin.command:
+        cmd: "{{ pimoroni_python }} -c 'from trilobot import Trilobot'"
+      register: pimoroni_trilobot_check
+      changed_when: false
+      failed_when: false
+      become: true
+      become_user: "{{ service_user }}"
+      when: pimoroni_python_check.stat.exists
+
+    - name: Require Trilobot in one of the available environments
+      ansible.builtin.assert:
+        that:
+          - managed_trilobot_check.rc == 0 or (pimoroni_trilobot_check.rc | default(1)) == 0
+        fail_msg: >-
+          Cannot import Trilobot from either {{ venv_dir }}/bin/python or
+          {{ pimoroni_python }}. Follow Pimoroni's installation guide, then
+          rerun this playbook.
+
+    - name: Select the Python environment for the service
+      ansible.builtin.set_fact:
+        service_python: >-
+          {{ venv_dir ~ '/bin/python'
+             if managed_trilobot_check.rc == 0
+             else pimoroni_python }}
+
+    - name: Install robot Python requirements
+      ansible.builtin.pip:
+        requirements: "{{ install_dir }}/robot_scripts/requirements.txt"
+        executable: "{{ service_python | dirname }}/pip"
+      become: true
+      become_user: "{{ service_user }}"
+      notify: Restart trilobot-websocket
+
     - name: Read the unit template from the checkout
       ansible.builtin.slurp:
         src: "{{ install_dir }}/robot_scripts/trilobot-websocket.service"
@@ -62,7 +130,7 @@
           {{ unit_template.content | b64decode
              | replace('@USER@', service_user)
              | replace('@ROBOT_SCRIPTS@', install_dir ~ '/robot_scripts')
-             | replace('@PYTHON@', python) }}
+             | replace('@PYTHON@', service_python) }}
       notify: Restart trilobot-websocket
 
     - name: Check for the old trilobot-robot.service

@@ -1,0 +1,16 @@
+# Power off every robot in the trilobots inventory group.
+#
+#   ansible-playbook -i inventory.ini shutdown.yml
+#
+# The robots will be unreachable until powered on again.
+- name: Shut down Trilobot robots
+  hosts: trilobots
+  become: true
+
+  tasks:
+    - name: Power off the robot
+      ansible.builtin.command:
+        cmd: /sbin/shutdown --poweroff now
+      async: 1
+      poll: 0
+      changed_when: true
