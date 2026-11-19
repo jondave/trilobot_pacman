@@ -70,6 +70,7 @@ BUTTONS = {}
 
 tbot = None
 camera = None
+gpio = None  # RPi.GPIO on a real robot, for polling the distance sensor.
 hardware_lock = Lock()
 camera_lock = Lock()
 
@@ -79,6 +80,8 @@ jpeg_quality = DEFAULT_JPEG_QUALITY
 
 last_drive_command = time.monotonic()
 SENSOR_FAILURE_LOG_EVERY = 240
+DISTANCE_TIMEOUT_MS = 25
+DISTANCE_SAMPLES = 3
 sensor_failures = 0
 
 
@@ -395,17 +398,19 @@ class FakeCamera:
 
 def setup_hardware(fake=False):
     """Create the robot and camera (real or fake) and start the camera."""
-    global tbot, camera
+    global tbot, camera, gpio
     if fake:
         sim = FakeRobotSim()
         tbot = FakeTrilobot(sim)
         camera = FakeCamera(sim)
         BUTTONS.update({"A": "A", "B": "B", "X": "X", "Y": "Y"})
     else:
+        import RPi.GPIO
         from picamera2 import Picamera2
         from trilobot import BUTTON_A, BUTTON_B, BUTTON_X, BUTTON_Y, Trilobot
 
         tbot = Trilobot()
+        gpio = RPi.GPIO
         camera = Picamera2()
         BUTTONS.update({"A": BUTTON_A, "B": BUTTON_B, "X": BUTTON_X, "Y": BUTTON_Y})
 
@@ -446,6 +451,44 @@ def set_drive(left, right):
     last_drive_command = time.monotonic()
 
 
+def _wait_for_level(pin, level, deadline_ns):
+    """Poll pin until it reads level; return that time in ns, or None."""
+    while gpio.input(pin) != level:
+        if time.perf_counter_ns() > deadline_ns:
+            return None
+    return time.perf_counter_ns()
+
+
+def read_distance(timeout_ms=DISTANCE_TIMEOUT_MS, samples=DISTANCE_SAMPLES):
+    """Ultrasonic distance in cm, averaged over samples, or None if no echo.
+
+    Times the echo pulse by polling the pin rather than calling
+    Trilobot.read_distance(), whose RPi.GPIO.wait_for_edge under rpi-lgpio
+    returned -999 and, after a few minutes, failed every call with lgpio
+    'bad event request' until the process restarted.
+    """
+    if gpio is None:
+        return tbot.read_distance(timeout=timeout_ms, samples=samples)
+    trig, echo = tbot.ULTRA_TRIG_PIN, tbot.ULTRA_ECHO_PIN
+    deadline = time.perf_counter_ns() + timeout_ms * 1_000_000
+    pulses = []
+    while len(pulses) < samples:
+        # Let a late echo from the previous ping finish first.
+        if _wait_for_level(echo, 0, deadline) is None:
+            break
+        gpio.output(trig, 1)
+        time.sleep(0.00001)
+        gpio.output(trig, 0)
+        start = _wait_for_level(echo, 1, deadline)
+        end = start and _wait_for_level(echo, 0, deadline)
+        if not end:
+            break
+        pulses.append(end - start)
+    if not pulses:
+        return None
+    return sum(pulses) / len(pulses) * tbot.SPEED_OF_SOUND_CM_NS / 2
+
+
 def read_sensors():
     """Return (buttons, distance_cm), or None for a part that failed.
 
@@ -463,7 +506,9 @@ def read_sensors():
         except Exception as caught:
             error = caught
         try:
-            distance = round(float(tbot.read_distance(timeout=25, samples=3)), 1)
+            distance = read_distance()
+            if distance is not None:
+                distance = round(float(distance), 1)
         except Exception as caught:
             error = caught
     if error is not None:

@@ -5,6 +5,7 @@ import contextlib
 import importlib.util
 import json
 import logging
+import time
 
 import pytest
 from robot_helpers import ROBOT_SENDER, fake_robot, free_port
@@ -311,3 +312,41 @@ def test_sensor_failure_keeps_telemetry_flowing(monkeypatch, sender, caplog):
     assert len(failures) == 1
     assert "Conflicting edge detection" in caplog.text
     assert "Sensors working again" in caplog.text
+
+
+class EchoGPIO:
+    """Fake RPi.GPIO: after each trigger the echo pin reads 0, 1 x high, 0."""
+
+    def __init__(self, high_reads=None):
+        self.high_reads = high_reads
+        self.levels = []
+        self.triggers = 0
+
+    def output(self, pin, value):
+        if value == 0:
+            self.triggers += 1
+            if self.high_reads is not None:
+                self.levels = [0, 0] + [1] * self.high_reads + [0]
+
+    def input(self, pin):
+        return self.levels.pop(0) if self.levels else 0
+
+
+def test_distance_is_polled_from_the_echo_pin(monkeypatch, sender):
+    fake_gpio = EchoGPIO(high_reads=50)
+    monkeypatch.setattr(sender, "gpio", fake_gpio)
+    monkeypatch.setattr(sender.tbot, "ULTRA_TRIG_PIN", 13, raising=False)
+    monkeypatch.setattr(sender.tbot, "ULTRA_ECHO_PIN", 25, raising=False)
+    monkeypatch.setattr(sender.tbot, "SPEED_OF_SOUND_CM_NS", 343e-7, raising=False)
+    distance = sender.read_distance(samples=3)
+    assert distance is not None and distance > 0
+    assert fake_gpio.triggers == 3
+
+
+def test_distance_without_echo_is_none_within_timeout(monkeypatch, sender):
+    monkeypatch.setattr(sender, "gpio", EchoGPIO(high_reads=None))
+    monkeypatch.setattr(sender.tbot, "ULTRA_TRIG_PIN", 13, raising=False)
+    monkeypatch.setattr(sender.tbot, "ULTRA_ECHO_PIN", 25, raising=False)
+    started = time.monotonic()
+    assert sender.read_distance(timeout_ms=25) is None
+    assert time.monotonic() - started < 0.2
