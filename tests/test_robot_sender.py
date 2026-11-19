@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import importlib.util
 import json
+import logging
 
 import pytest
 from robot_helpers import ROBOT_SENDER, fake_robot, free_port
@@ -278,3 +279,35 @@ def test_missing_or_bad_name_gets_a_guest_name(robot_url, query):
             assert hello["session"].startswith("LEARNER-")
 
     asyncio.run(run())
+
+
+def test_sensor_failure_keeps_telemetry_flowing(monkeypatch, sender, caplog):
+    """A failing distance sensor sends null readings instead of going silent."""
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("Conflicting edge detection already enabled")
+
+    caplog.set_level(logging.INFO)
+    monkeypatch.setattr(sender.tbot, "read_distance", broken)
+
+    async def run():
+        server, url = await _serve_inproc(sender)
+        try:
+            async with connect(url) as ws:
+                await wait_for_type(ws, "hello")
+                for _ in range(3):
+                    telemetry = await wait_for_type(ws, "telemetry")
+                    assert telemetry["distance_cm"] is None
+                    assert set(telemetry["buttons"]) == set(sender.BUTTONS)
+                monkeypatch.undo()
+                telemetry = await wait_for_type(ws, "telemetry")
+                assert isinstance(telemetry["distance_cm"], float)
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(run())
+    failures = [r for r in caplog.records if "Sensor read failed" in r.message]
+    assert len(failures) == 1
+    assert "Conflicting edge detection" in caplog.text
+    assert "Sensors working again" in caplog.text

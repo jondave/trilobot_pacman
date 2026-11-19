@@ -5,7 +5,12 @@ import time
 import pytest
 from fake_ws import FakeRobot, free_port
 from program_runner import ProgramRunner
-from robot_session import COMMAND_QUEUE_LIMIT, RobotSession, _with_query
+from robot_session import (
+    COMMAND_QUEUE_LIMIT,
+    RobotSession,
+    _same_video_config,
+    _with_query,
+)
 
 
 def wait_for(condition, timeout=5.0, interval=0.01):
@@ -359,3 +364,13 @@ def test_reconnecting_message_has_no_attempt_count(session):
     )
     assert "attempt" not in message
     assert message.startswith("Lost connection to the robot. Reconnecting")
+
+
+def test_same_video_config_skips_camera_restart_only_when_unchanged():
+    config = {"width": 640, "height": 480, "fps": 15, "jpeg_quality": 72}
+    hello = {"video": {"width": 640, "height": 480, "fps": 15.0, "jpeg_quality": 72}}
+    assert _same_video_config(hello, config)
+    assert not _same_video_config({"video": {**hello["video"], "fps": 10}}, config)
+    assert not _same_video_config({"video": {"width": 640}}, config)
+    assert not _same_video_config({}, config)
+    assert not _same_video_config(None, config)

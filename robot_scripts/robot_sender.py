@@ -78,6 +78,8 @@ video_fps = DEFAULT_VIDEO_FPS
 jpeg_quality = DEFAULT_JPEG_QUALITY
 
 last_drive_command = time.monotonic()
+SENSOR_FAILURE_LOG_EVERY = 240
+sensor_failures = 0
 
 
 class FakeRobotSim:
@@ -444,16 +446,47 @@ def set_drive(left, right):
     last_drive_command = time.monotonic()
 
 
-def read_telemetry():
+def read_sensors():
+    """Return (buttons, distance_cm), or None for a part that failed.
+
+    A sensor failure must not stop telemetry: the app treats missing telemetry
+    as a lost connection and reconnects every couple of seconds.
+    """
+    global sensor_failures
+    buttons = distance = None
+    error = None
     with hardware_lock:
-        buttons = {
-            name: bool(tbot.read_button(button)) for name, button in BUTTONS.items()
-        }
-        distance = tbot.read_distance(timeout=25, samples=3)
+        try:
+            buttons = {
+                name: bool(tbot.read_button(button)) for name, button in BUTTONS.items()
+            }
+        except Exception as caught:
+            error = caught
+        try:
+            distance = round(float(tbot.read_distance(timeout=25, samples=3)), 1)
+        except Exception as caught:
+            error = caught
+    if error is not None:
+        sensor_failures += 1
+        # The first failure, then about once a minute at 4 readings a second.
+        if sensor_failures % SENSOR_FAILURE_LOG_EVERY == 1:
+            logging.error(
+                "Sensor read failed (%d times so far)",
+                sensor_failures,
+                exc_info=error,
+            )
+    elif sensor_failures:
+        logging.info("Sensors working again after %d failures", sensor_failures)
+        sensor_failures = 0
+    return buttons, distance
+
+
+def read_telemetry():
+    buttons, distance = read_sensors()
     telemetry = {
         "type": "telemetry",
-        "distance_cm": round(float(distance), 1),
-        "buttons": buttons,
+        "distance_cm": distance,
+        "buttons": buttons if buttons is not None else {},
     }
     if isinstance(tbot, FakeTrilobot):
         telemetry["sim"] = tbot.sim.snapshot()  # Fake mode only, for debugging.
@@ -881,6 +914,17 @@ async def handle_client(websocket, *ignored):
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        for task in tasks:
+            # A task that died early (not cancelled, not a closed socket) left
+            # the session without video, telemetry or the motor watchdog.
+            error = None if task.cancelled() else task.exception()
+            if error is not None and not isinstance(error, ConnectionClosed):
+                logging.error(
+                    "Session %s: %s failed",
+                    session_name,
+                    task.get_coro().__name__,
+                    exc_info=error,
+                )
         if not active_sessions:
             stop_robot()
         logging.info("Session %s disconnected", session_name)

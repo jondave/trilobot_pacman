@@ -68,6 +68,17 @@ def _clamp(value, low, high):
     return max(low, min(high, value))
 
 
+def _same_video_config(hello, config):
+    """Whether the robot's hello says it already streams with config."""
+    current = (hello or {}).get("video")
+    if not isinstance(current, dict):
+        return False
+    keys = ("width", "height", "fps", "jpeg_quality")
+    return all(
+        _number(current.get(key), math.nan) == float(config[key]) for key in keys
+    )
+
+
 def _video_config(payload, fallback=None):
     fallback = dict(fallback or DEFAULT_VIDEO_CONFIG)
     payload = payload if isinstance(payload, dict) else {}
@@ -695,12 +706,15 @@ class RobotSession:
 
         tasks = []
         try:
-            await client.configure_video(
-                video_config["width"],
-                video_config["height"],
-                video_config["fps"],
-                video_config["jpeg_quality"],
-            )
+            # Reconfiguring restarts the robot's camera, so skip it when the
+            # robot already runs these settings (usually after a resume).
+            if not _same_video_config(client.hello, video_config):
+                await client.configure_video(
+                    video_config["width"],
+                    video_config["height"],
+                    video_config["fps"],
+                    video_config["jpeg_quality"],
+                )
             tasks = [
                 asyncio.create_task(self._frame_pump(client)),
                 asyncio.create_task(self._command_sender(client, wake)),
