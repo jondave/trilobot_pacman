@@ -23,10 +23,12 @@ Leave this terminal running. Open a web browser and go to:
 [http://localhost:8750](http://localhost:8750)
 
 The robot list in the app shows each robot's name and private IP address.
-Choose your robot from the list. If it is not listed, choose **Enter address
-manually…** and edit the pre-filled WebSocket address, a helper will show you how to find the IP.
+Choose your robot from the list, then hit connect.
 
-## 2. Connect to the robot
+<!-- If it is not listed, choose **Enter address
+manually…** and edit the pre-filled WebSocket address, a helper will show you how to find the IP. -->
+
+<!-- ## 2. Connect to the robot
 
 In the Blockly app, find your robot's Hostname/IP address and click Connect. 
 If you want to SSH into the robot and create your own Python code, open another terminal on
@@ -49,9 +51,9 @@ python robot_sender.py
 If you already cloned the repository on the robot, skip the `git clone` command
 and go to its `robot_scripts` folder. Leave this terminal running while you use
 Blockly. Return to the browser, select your robot, and press **Connect**.
-Robot-side setup is described in [robot_scripts/README.md](../robot_scripts/README.md).
+Robot-side setup is described in [robot_scripts/README.md](../robot_scripts/README.md).-->
 
-## 3. Run a program
+## 2. Run a program
 
 1. Drag blocks into the program workspace.
 2. Connect to the robot.
