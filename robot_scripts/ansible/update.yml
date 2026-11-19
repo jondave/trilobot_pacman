@@ -1,0 +1,103 @@
+# Update robots that deploy.yml already set up: pull the latest commit of
+# repo_version and restart trilobot-websocket.service only where the code
+# changed.
+#
+#   ansible-playbook -i inventory.ini update.yml
+#   ansible-playbook -i inventory.ini update.yml --limit TRILO-07
+#   ansible-playbook -i inventory.ini update.yml -e repo_version=some-branch
+#
+# A restart drops the connected student for a few seconds (the app reconnects
+# and resumes the session), so update between lessons.
+#
+# Faster than deploy.yml: no apt, virtual environment or unit file changes.
+# Robot requirements are reinstalled only when robot_scripts/requirements.txt
+# changed. A robot whose checkout has local edits is reported as failed and
+# left alone; inspect it, or run deploy.yml after discarding the edits.
+- name: Update the Trilobot WebSocket server
+  hosts: trilobots
+  become: true
+  vars:
+    repo_url: https://github.com/jondave/trilobot_pacman.git
+    repo_version: main
+    install_dir: /opt/trilobot_pacman
+    service_user: "{{ trilobot_service_user | default(ansible_user) | default('pi', true) }}"
+    unit_path: /etc/systemd/system/trilobot-websocket.service
+
+  tasks:
+    - name: Check that deploy.yml has set this robot up
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ install_dir }}/.git"
+        - "{{ unit_path }}"
+      register: deployed
+
+    - name: Require an existing deployment
+      ansible.builtin.assert:
+        that: deployed.results | map(attribute='stat.exists') | min
+        fail_msg: >-
+          {{ install_dir }} or {{ unit_path }} is missing. Run deploy.yml for
+          this robot first.
+        quiet: true
+
+    - name: Remember the robot requirements before updating
+      ansible.builtin.stat:
+        path: "{{ install_dir }}/robot_scripts/requirements.txt"
+        checksum_algorithm: sha1
+      register: requirements_before
+
+    - name: Pull the latest code
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ install_dir }}"
+        version: "{{ repo_version }}"
+      become: true
+      become_user: "{{ service_user }}"
+      register: checkout
+      notify: Restart trilobot-websocket
+
+    - name: Check the robot requirements after updating
+      ansible.builtin.stat:
+        path: "{{ install_dir }}/robot_scripts/requirements.txt"
+        checksum_algorithm: sha1
+      register: requirements_after
+
+    - name: Find the service's Python from its unit
+      ansible.builtin.command:
+        cmd: systemctl show --property=ExecStart --value trilobot-websocket.service
+      register: exec_start
+      changed_when: false
+      when: requirements_before.stat.checksum | default('') != requirements_after.stat.checksum | default('')
+
+    - name: Reinstall robot Python requirements
+      ansible.builtin.pip:
+        requirements: "{{ install_dir }}/robot_scripts/requirements.txt"
+        executable: "{{ (exec_start.stdout | regex_search('path=(\\S+)', '\\1') | first) | dirname }}/pip"
+      become: true
+      become_user: "{{ service_user }}"
+      when: exec_start is not skipped
+      notify: Restart trilobot-websocket
+
+    - name: Restart now if the code changed
+      ansible.builtin.meta: flush_handlers
+
+    # Generous: a robot can take over a minute to start if something still
+    # holds its GPIO pins ("GPIO busy") and systemd keeps retrying.
+    - name: Wait for the robot server to accept connections
+      ansible.builtin.wait_for:
+        port: 8765
+        timeout: 120
+
+    - name: Report what changed
+      ansible.builtin.debug:
+        msg: >-
+          {{ (checkout.before | default('none', true))[:7] }} ->
+          {{ checkout.after[:7] }}
+          ({{ 'restarted' if checkout.changed or exec_start is not skipped
+              else 'already up to date' }})
+
+  handlers:
+    - name: Restart trilobot-websocket
+      ansible.builtin.systemd:
+        name: trilobot-websocket.service
+        state: restarted

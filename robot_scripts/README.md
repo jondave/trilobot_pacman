@@ -125,6 +125,18 @@ cp inventory.example.ini inventory.ini   # robots' IP addresses and passwords
 ansible-playbook -i inventory.ini deploy.yml
 ```
 
+To update robots that are already deployed (pull the latest `main` and restart
+only the robots whose code changed), run:
+
+```bash
+ansible-playbook -i inventory.ini update.yml
+ansible-playbook -i inventory.ini update.yml --limit trilo-07   # one robot
+```
+
+A restart drops the connected student for a few seconds, so update between
+lessons. A robot whose checkout has local edits is reported as failed and left
+alone.
+
 To stop and remove the systemd service without deleting the checkout or Python
 environments, run:
 
