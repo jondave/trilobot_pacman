@@ -28,7 +28,8 @@ manually…** and edit the pre-filled WebSocket address, a helper will show you 
 
 ## 2. Connect to the robot
 
-In the Blockly app, find your robot's IP address. Open another terminal on
+In the Blockly app, find your robot's Hostname/IP address and click Connect. 
+If you want to SSH into the robot and create your own Python code, open another terminal on
 your computer and SSH into the robot, replacing `XX.XX` with the last two
 parts of its IP address:
 
